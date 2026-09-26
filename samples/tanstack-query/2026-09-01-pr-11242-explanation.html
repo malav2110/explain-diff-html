@@ -192,6 +192,19 @@
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
@@ -537,7 +550,7 @@
             tab from broadcasting anything again.
           </p>
           <p class="provenance">
-            TanStack/query PR 11242 at a631add, explained 2026-09-01
+            TanStack/query PR 11242 at a631add, explained 2026-09-01. References link to this commit.
           </p>
         </header>
 
@@ -812,7 +825,7 @@
             immediately, in the same stack, not on a later tick.
           </p>
 
-          <p class="filename">packages/query-core/src/queryCache.ts:200</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/queryCache.ts#L200">packages/query-core/src/queryCache.ts:200</a></p>
           <pre>  notify(event: QueryCacheNotifyEvent): void {
     notifyManager.batch(() =&gt; {
       this.listeners.forEach((listener) =&gt; {
@@ -833,7 +846,7 @@
             in a <code>finally</code> with no <code>catch</code>:
           </p>
 
-          <p class="filename">packages/query-core/src/notifyManager.ts:54</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/notifyManager.ts#L54">packages/query-core/src/notifyManager.ts:54</a></p>
           <pre>      let result
       transactions++
       try {
@@ -1000,7 +1013,7 @@ fix(broadcast-client): recover from errors thrown while applying an incoming cro
 
           <p>
             One place has the same shape without it.
-            <code>packages/vue-query/src/vueQueryPlugin.ts:51</code> sets a
+            <a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/vue-query/src/vueQueryPlugin.ts#L51"><code>packages/vue-query/src/vueQueryPlugin.ts:51</code></a> sets a
             restore flag and clears it inside the promise's
             <code>.then</code>, with no <code>.catch</code> or
             <code>.finally</code>. What that means for that package is a

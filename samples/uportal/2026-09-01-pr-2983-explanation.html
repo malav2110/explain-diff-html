@@ -192,6 +192,19 @@
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
@@ -537,7 +550,7 @@
             lives: the server, or the browser.
           </p>
           <p class="provenance">
-            uPortal-Project/uPortal PR 2983 at 0468c6d, explained 2026-09-01
+            uPortal-Project/uPortal PR 2983 at 0468c6d, explained 2026-09-01. References link to this commit.
           </p>
         </header>
 
@@ -622,9 +635,9 @@
 
           <p>
             That reaches a thin delegate in this repository, at
-            <code>uPortal-web/.../web/skin/ResourcesElementsXsltcHelper.java:58</code>,
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-web/src/main/java/org/apereo/portal/web/skin/ResourcesElementsXsltcHelper.java#L58"><code>uPortal-web/.../web/skin/ResourcesElementsXsltcHelper.java:58</code></a>,
             which hands straight off to a provider bean built at
-            <code>RenderingPipelineConfiguration.java:325</code> with no context
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/java/org/apereo/portal/context/rendering/RenderingPipelineConfiguration.java#L325"><code>RenderingPipelineConfiguration.java:325</code></a> with no context
             path or base URL configured on it.
           </p>
 
@@ -632,7 +645,7 @@
             And then the trail leaves the repository. The class that reads the
             attribute, <code>ResourcesElementsProviderImpl</code>, ships in
             <code>org.jasig.resourceserver:resource-server-utils</code>, pinned
-            at <code>gradle.properties:98</code> to
+            at <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/gradle.properties#L98"><code>gradle.properties:98</code></a> to
             <code>resourceServerVersion=1.5.3</code>. No copy of that jar is in
             the checkout, so the exact prefix logic cannot be read here.
           </p>
@@ -745,7 +758,7 @@
             Row two is the one the diff does not show, and it is the one to be
             careful about. uPortal's own build unpacks every webjar and the
             resource server's <code>rs/</code> tree into its war, at
-            <code>uPortal-webapp/build.gradle:132</code> and
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L132"><code>uPortal-webapp/build.gradle:132</code></a> and
             <code>:139</code>, and the war task puts both at the root. So copies
             of these libraries were already inside uPortal.
           </p>
@@ -763,7 +776,7 @@
             The attribute cannot simply be replaced everywhere. Five active
             <code>resource="true"</code> entries survive this change, and one of
             them is
-            <code>common_skin.xml:110</code>, pointing at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L110"><code>common_skin.xml:110</code></a>, pointing at
             <code>/scripts/portal-analytics.js</code>. That file is uPortal's
             own, at
             <code>uPortal-webapp/src/main/webapp/scripts/portal-analytics.js</code>,
@@ -884,7 +897,7 @@ $ </pre>
           <p>
             No hits. The binding that makes the prefix available is still there,
             at
-            <code>uPortal-webapp/.../WEB-INF/jsp/include.jsp:30</code>:
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp#L30"><code>uPortal-webapp/.../WEB-INF/jsp/include.jsp:30</code></a>:
           </p>
 
           <pre>&lt;%@ taglib prefix="rs" uri="http://www.jasig.org/resource-server" %&gt;</pre>
@@ -988,10 +1001,10 @@ uPortal-webapp/.../respondr/common/common_skin.xml:27:         no .no-js/.js cla
             The body's first commit description says it dropped "the dead
             utility-lib webjar dependencies". The skin entries are gone, and the
             dependency declarations are not:
-            <code>uPortal-webapp/build.gradle:97</code> and
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L97"><code>uPortal-webapp/build.gradle:97</code></a> and
             <code>:99</code> through <code>:101</code> still declare all four
             webjars, with versions at
-            <code>gradle.properties:118</code>, <code>:119</code>,
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/gradle.properties#L118"><code>gradle.properties:118</code></a>, <code>:119</code>,
             <code>:121</code>, and <code>:122</code>. The
             build still resolves them and still unpacks them into the war. What
             changed is that the skin no longer tells a browser to load them.
@@ -1005,17 +1018,17 @@ uPortal-webapp/.../respondr/common/common_skin.xml:27:         no .no-js/.js cla
 
           <p>
             The first is seed data, at
-            <code>.../tenants/sampledata/portlet-definition/skin.portlet-definition.xml:45</code>.
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml#L45"><code>.../tenants/sampledata/portlet-definition/skin.portlet-definition.xml:45</code></a>.
             It is imported when a tenant is created, through a listener
             configured at
-            <code>portal.properties:751</code>. So a stale path here would be
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/properties/portal.properties#L751"><code>portal.properties:751</code></a>. So a stale path here would be
             written into a live database at provisioning time, where no search of
             the source tree would find it afterwards.
           </p>
 
           <p>
             The second, at
-            <code>uPortal-webapp/src/test/resources/.../portlet/test_4-0.portlet.xml:48</code>,
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml#L48"><code>uPortal-webapp/src/test/resources/.../portlet/test_4-0.portlet.xml:48</code></a>,
             is an import fixture in the 4.0 document format. No test in the
             checkout names it. The edit keeps its paths consistent with the rest
             of the change.
@@ -1040,7 +1053,7 @@ $ grep -rIn 'resource="true"' . | grep -v '^./.git/' | wc -l
             Of the seven <code>resource="true"</code> occurrences, two are in
             that same commented-out block and five are live: four jsTree entries
             at
-            <code>common_skin.xml:99</code> through <code>:102</code>, and the
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L99"><code>common_skin.xml:99</code></a> through <code>:102</code>, and the
             analytics script from the edge case above.
           </p>
 
@@ -1083,7 +1096,7 @@ $ grep -rIn 'resource="true"' . | grep -v '^./.git/' | wc -l
             Two statements in the tree sit against each other at this commit.
             The comment replacing the polyfill entries gives modern browser
             support as the reason they are unnecessary.
-            <code>docs/SUPPORTED_BROWSERS.md:10</code> lists Internet Explorer
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/docs/SUPPORTED_BROWSERS.md#L10"><code>docs/SUPPORTED_BROWSERS.md:10</code></a> lists Internet Explorer
             among supported browsers. Reading the code alone would not tell you
             which one describes the project's intent.
           </p>

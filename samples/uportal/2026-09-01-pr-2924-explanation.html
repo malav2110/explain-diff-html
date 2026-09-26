@@ -192,6 +192,19 @@
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
@@ -538,7 +551,7 @@
             further than the fix that prompted it.
           </p>
           <p class="provenance">
-            uPortal-Project/uPortal PR 2924 at dc19c65, explained 2026-09-01
+            uPortal-Project/uPortal PR 2924 at dc19c65, explained 2026-09-01. References link to this commit.
           </p>
         </header>
 
@@ -834,7 +847,7 @@ found for 27. The parameter will be ignored.</div>
 
           <h3>2. The 500 path, before</h3>
 
-          <p class="filename">uPortal-web/.../web/ExceptionLoggingFilter.java:46</p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-web/src/main/java/org/apereo/portal/web/ExceptionLoggingFilter.java#L46">uPortal-web/.../web/ExceptionLoggingFilter.java:46</a></p>
           <pre>try {
     chain.doFilter(request, response);
 } catch (Throwable t) {

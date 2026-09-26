@@ -194,6 +194,19 @@
         border-radius: 4px;
         overflow-wrap: anywhere;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
@@ -613,7 +626,7 @@
             that matches no file?
           </p>
           <p class="provenance">
-            fastapi/fastapi PR 15800 at 5bd3221f, explained 2026-09-13
+            fastapi/fastapi PR 15800 at 5bd3221f, explained 2026-09-13. References link to this commit.
           </p>
         </header>
 
@@ -767,7 +780,7 @@
             <code>/</code> in line one cannot shadow a path operation declared in
             line fifty. The tests pin the awkward version of this: a router
             carrying a frontend is included <em>before</em> the API router and
-            still loses, at <code>tests/test_frontend.py:513</code>. Order still
+            still loses, at <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L513"><code>tests/test_frontend.py:513</code></a>. Order still
             decides between two frontends that tie on specificity, which section
             4 comes back to.
           </p>
@@ -777,10 +790,10 @@
             also wins, so <code>POST</code> to a path where a
             <code>GET</code> path operation exists returns
             <code>405</code> even when a servable file sits at that same path
-            (<code>tests/test_frontend.py:213</code>). And the trailing-slash
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L213"><code>tests/test_frontend.py:213</code></a>). And the trailing-slash
             redirect runs before the frontend, so a request that could redirect
             into a real path operation does so rather than falling through
-            (<code>tests/test_frontend.py:577</code>).
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L577"><code>tests/test_frontend.py:577</code></a>).
           </p>
 
           <h3>Decision two: guessing what a missing path meant</h3>
@@ -890,7 +903,7 @@
               receives the shell. Any browser URL whose last segment looks like a
               filename, so a username, a domain or a version string, will fail to
               deep link. The behavior is pinned at
-              <code>tests/test_frontend.py:365</code>, which tells us it is
+              <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L365"><code>tests/test_frontend.py:365</code></a>, which tells us it is
               expected, not whether the cost was weighed. The test is
               <code>os.path.splitext</code>, not the presence of a dot, so a
               leading-dot segment slips through: I ran
@@ -916,11 +929,11 @@
 
           <p>
             <code>FastAPI.frontend</code> at
-            <code>fastapi/applications.py:1222</code> is a pass-through to the
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/applications.py#L1222"><code>fastapi/applications.py:1222</code></a> is a pass-through to the
             router. The real work is on <code>APIRouter</code>:
           </p>
 
-          <p class="filename">fastapi/routing.py:2504-2514</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2504-L2514">fastapi/routing.py:2504-2514</a></p>
           <pre>normalized_path = _normalize_frontend_path(path)
 <span class="add">if self._frontend_routes is None:
     self._frontend_routes = _FrontendRouteGroup()
@@ -953,7 +966,7 @@ self._mark_routes_changed()</pre>
             rewrites a router's routes for the place it was included:
           </p>
 
-          <p class="filename">fastapi/routing.py:1581-1585</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1581-L1585">fastapi/routing.py:1581-1585</a></p>
           <pre>if isinstance(route, _FrontendRouteGroup):
     return _EffectiveRouteContext(
         original_route=route,
@@ -965,15 +978,15 @@ self._mark_routes_changed()</pre>
             path rather than mutating it, which leaves the original router
             unchanged and so includable more than once. The sibling method
             <code>effective_low_priority_routes</code> at
-            <code>fastapi/routing.py:1551</code> recurses into nested included
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1551"><code>fastapi/routing.py:1551</code></a> recurses into nested included
             routers, so a frontend inside a router inside another router still
             collects every prefix, pinned at
-            <code>tests/test_frontend.py:534</code>.
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L534"><code>tests/test_frontend.py:534</code></a>.
           </p>
 
           <h3>3. The request falls through</h3>
 
-          <p class="filename">fastapi/routing.py:2558-2578</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2558-L2578">fastapi/routing.py:2558-2578</a></p>
           <pre>(
     low_priority_match,
     low_priority_scope,
@@ -1001,10 +1014,10 @@ await self.default(scope, receive, send)</pre>
             With two frontends registered, one at <code>/</code> and one at
             <code>/admin</code>, a request for <code>/admin/settings</code> matches
             both. <code>_FrontendRouteGroup._match</code> at
-            <code>fastapi/routing.py:2027</code> breaks the tie by specificity:
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2027"><code>fastapi/routing.py:2027</code></a> breaks the tie by specificity:
           </p>
 
-          <p class="filename">fastapi/routing.py:1791-1794</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1791-L1794">fastapi/routing.py:1791-1794</a></p>
           <pre>def _frontend_path_specificity(path: str) -&gt; int:
     if path == "/":
         return 0
@@ -1017,12 +1030,12 @@ await self.default(scope, receive, send)</pre>
             registering two directories on the same path and requesting a missing
             file: the first directory answered. Longest path beats registration
             order otherwise, pinned at
-            <code>tests/test_frontend.py:484</code>.
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L484"><code>tests/test_frontend.py:484</code></a>.
           </p>
 
           <h3>5. The frontend route strips its own prefix</h3>
 
-          <p class="filename">fastapi/routing.py:1977-1985</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1977-L1985">fastapi/routing.py:1977-1985</a></p>
           <pre>def _get_frontend_path(self, route_path: str) -&gt; str | None:
     if self.path == "/":
         return route_path.lstrip("/")
@@ -1038,17 +1051,17 @@ await self.default(scope, receive, send)</pre>
             <code>prefix</code> variable with a trailing slash is what stops a
             frontend at <code>/app</code> from swallowing
             <code>/application</code>, pinned at
-            <code>tests/test_frontend.py:473</code>. The stripped remainder does
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L473"><code>tests/test_frontend.py:473</code></a>. The stripped remainder does
             not travel as an argument: <code>matches</code> writes it into the
             scope, and <code>_FrontendStaticFiles.get_path</code> at
-            <code>fastapi/routing.py:1837</code> reads it back out.
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1837"><code>fastapi/routing.py:1837</code></a> reads it back out.
           </p>
 
           <h3>6. The fallback ladder</h3>
 
           <p>
             <code>_FrontendStaticFiles.get_response</code> at
-            <code>fastapi/routing.py:1842</code> tries a real file, then a
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1842"><code>fastapi/routing.py:1842</code></a> tries a real file, then a
             directory index, then the fallbacks:
           </p>
 
@@ -1073,7 +1086,7 @@ await self.default(scope, receive, send)</pre>
     class E,K ok
     class C,L bad</pre>
 
-          <p class="filename">fastapi/routing.py:1872-1883</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1872-L1883">fastapi/routing.py:1872-1883</a></p>
           <pre>if self.fallback == "404.html" or (
     self.fallback == "auto" and self._fallback_file_exists("404.html")
 ):
@@ -1095,14 +1108,14 @@ raise HTTPException(status_code=404)</pre>
             the status code, <code>404</code> against <code>200</code>. Rung order
             is a third consequence: when a build ships both files under the
             default <code>fallback="auto"</code>, declared at
-            <code>fastapi/routing.py:2462</code>, <code>404.html</code> wins and
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2462"><code>fastapi/routing.py:2462</code></a>, <code>404.html</code> wins and
             deep linking stops working with no error anywhere
-            (<code>tests/test_frontend.py:391</code>).
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L391"><code>tests/test_frontend.py:391</code></a>).
           </p>
 
           <h3>7. The navigation predicate</h3>
 
-          <p class="filename">fastapi/routing.py:1921-1939</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1921-L1939">fastapi/routing.py:1921-1939</a></p>
           <pre>def _is_frontend_navigation_request(scope: Scope) -&gt; bool:
     route_path = get_route_path(scope)
     final_segment = route_path.rsplit("/", 1)[-1]
@@ -1136,7 +1149,7 @@ raise HTTPException(status_code=404)</pre>
             parameters:
           </p>
 
-          <p class="filename">fastapi/routing.py:1908-1914</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1908-L1914">fastapi/routing.py:1908-1914</a></p>
           <pre>q = message.get_param("q")
 quality = 1.0
 if isinstance(q, str):
@@ -1155,7 +1168,7 @@ if isinstance(q, str):
 
           <h3>8. Failing early</h3>
 
-          <p class="filename">fastapi/routing.py:1810-1814</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1810-L1814">fastapi/routing.py:1810-1814</a></p>
           <pre>if check_dir and not os.path.isdir(directory):
     raise RuntimeError(
         f"Frontend directory {directory!r} does not exist. "
@@ -1164,11 +1177,11 @@ if isinstance(q, str):
 
           <p>
             With the default <code>check_dir=True</code>, declared at
-            <code>fastapi/routing.py:2470</code>, a missing directory raises at
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2470"><code>fastapi/routing.py:2470</code></a>, a missing directory raises at
             app creation. With <code>check_dir=False</code> the app builds and the
             error surfaces on the first request instead, and it propagates to the
             caller rather than becoming a <code>500</code> response
-            (<code>tests/test_frontend.py:707</code>). I ran both: the early error
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L707"><code>tests/test_frontend.py:707</code></a>). I ran both: the early error
             names the resolved absolute path, while the deferred one falls back to
             Starlette's plainer message. That difference looks like the point of
             the eager check, though the commit does not say so.
@@ -1188,8 +1201,8 @@ if isinstance(q, str):
 
           <p>
             Path traversal and symlink escapes are refused, pinned across five
-            encodings at <code>tests/test_frontend.py:663</code> and for symlinks
-            at <code>tests/test_frontend.py:676</code>. The route also declines to
+            encodings at <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L663"><code>tests/test_frontend.py:663</code></a> and for symlinks
+            at <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L676"><code>tests/test_frontend.py:676</code></a>. The route also declines to
             be reversed: <code>url_path_for</code> raises
             <code>NoMatchFound</code>, and the frontend never appears in the
             OpenAPI schema.
