@@ -192,6 +192,19 @@
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
@@ -537,7 +550,7 @@
             version is stamped, and that order is what the fast path depends on.
           </p>
           <p class="provenance">
-            fastapi/fastapi PR 16013 at 9f919ff, explained 2026-09-01
+            fastapi/fastapi PR 16013 at 9f919ff, explained 2026-09-01. References link to this commit.
           </p>
         </header>
 
@@ -599,7 +612,7 @@ app.include_router(router, prefix="/api")</pre
             last. Both changed in the same way, and both share one lock.
           </p>
 
-          <p class="filename">fastapi/routing.py:1571</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1571">fastapi/routing.py:1571</a></p>
           <pre>
 @dataclass
 class _IncludedRouter(BaseRoute):
@@ -613,7 +626,7 @@ class _IncludedRouter(BaseRoute):
             every ancestor sees.
           </p>
 
-          <p class="filename">fastapi/routing.py:2530</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2530">fastapi/routing.py:2530</a></p>
           <pre>
     def _get_routes_version(self, seen: set[int] | None = None) -&gt; int:
         if seen is None:
@@ -816,7 +829,7 @@ sequenceDiagram
           <div class="callout edge">
             <span class="label">Edge case</span>
             The two publishing lines are ordered, and the order carries the
-            invariant. In <code>fastapi/routing.py:1608-1609</code> the list is
+            invariant. In <a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1608-L1609"><code>fastapi/routing.py:1608-1609</code></a> the list is
             assigned first and the version second. A reader who lands between
             them sees the new complete list with the old version, fails the
             check, takes the lock, and gets the published list from the
@@ -842,7 +855,7 @@ sequenceDiagram
 
           <h3>1. The whole method</h3>
 
-          <p class="filename">fastapi/routing.py:1587</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1587">fastapi/routing.py:1587</a></p>
           <pre>
     def effective_candidates(self) -&gt; list["_EffectiveRouteContext | _IncludedRouter"]:
         routes_version = self.original_router._get_routes_version()
@@ -870,7 +883,7 @@ sequenceDiagram
 
           <h3>2. The lock field</h3>
 
-          <p class="filename">fastapi/routing.py:1575</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1575">fastapi/routing.py:1575</a></p>
           <pre><span class="add">+    _effective_routes_lock: Any = field(</span>
 <span class="add">+        default_factory=threading.Lock, repr=False, compare=False</span>
 <span class="add">+    )</span></pre>
@@ -1027,7 +1040,7 @@ sequenceDiagram
 
           <h3>7. The two tests</h3>
 
-          <p class="filename">tests/test_router_include_context.py:903</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L903">tests/test_router_include_context.py:903</a></p>
           <pre>
 def test_included_router_candidate_cache_is_thread_safe():
     router = APIRouter()
@@ -1068,7 +1081,7 @@ def test_included_router_candidate_cache_is_thread_safe():
             either the report or this page has.
           </p>
 
-          <p class="filename">tests/test_router_include_context.py:935</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L935">tests/test_router_include_context.py:935</a></p>
           <pre>
 def test_included_router_low_priority_cache_rechecks_version_after_lock(monkeypatch):</pre
           >

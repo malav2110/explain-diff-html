@@ -194,6 +194,19 @@
         border-radius: 4px;
         overflow-wrap: anywhere;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
@@ -609,7 +622,10 @@
             <!-- FILL: one-sentence summary of what this change does -->
           </p>
           <p class="provenance">
-            <!-- FILL: owner/repo PR 1234 at abc1234, explained YYYY-MM-DD -->
+            <!-- FILL: owner/repo PR 1234 at abc1234, explained YYYY-MM-DD.
+                 Then either "References link to this commit." or the reason
+                 they do not, as in "References are not linked: the host is
+                 not GitHub." -->
           </p>
         </header>
 
@@ -675,7 +691,7 @@
           </div>
 
           <!-- Diagram family 4: Mermaid, for a state machine, ER, or sequence (interaction
-           over time). Validate the source with `npx -y @probelabs/maid --strict <file.mmd>`
+           over time). Validate the source with `npx -y @probelabs/maid@0.0.29 --strict <file.mmd>`
            before pasting. The loader at the end of <body> renders it; delete this block
            if the page has no Mermaid diagram. -->
           <pre
@@ -686,8 +702,22 @@
         <section id="code">
           <h2>Code walkthrough</h2>
           <!-- FILL: one-line flow map, then the grouped, flow-ordered walkthrough -->
+          <!-- The path label above a code block. Link it when the run resolved a
+               host: the anchor goes outside the text, and the href ends #L<n> for
+               a single line or #L<a>-L<b> for a range. Drop the <a> and keep the
+               bare text when the reference is one the run could not link. -->
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/OWNER/REPO/blob/SHA/path/to/file.ext#L70-L77"
+              ><!-- FILL: path/to/file.ext:70-77 --></a
+            >
+          </p>
           <!-- In <pre>, wrap removed lines in <span class="del"> and added lines in <span class="add"> for before/after diffs. -->
           <pre><!-- FILL: a representative code excerpt, using .del / .add spans for diff lines --></pre>
+
+          <!-- A reference inside prose takes the same anchor around a <code> span:
+               <a class="srcref" href="...#L88"><code>src/parser.rs:88</code></a> -->
         </section>
 
         <section id="quiz">

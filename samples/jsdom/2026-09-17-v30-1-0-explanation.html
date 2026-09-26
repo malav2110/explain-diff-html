@@ -194,6 +194,19 @@
         border-radius: 4px;
         overflow-wrap: anywhere;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
@@ -612,7 +625,7 @@
             under <code>lib/</code>.
           </p>
           <p class="provenance">
-            jsdom/jsdom v30.0.1..v30.1.0 at 556b11fc, explained 2026-09-17
+            jsdom/jsdom v30.0.1..v30.1.0 at 556b11fc, explained 2026-09-17. References link to this commit.
           </p>
         </header>
 
@@ -653,9 +666,9 @@
           <ul>
             <li>
               Every node paid for tree bookkeeping at construction.
-              <code>Node-impl.js:120</code> called
+              <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L120"><code>Node-impl.js:120</code></a> called
               <code>domSymbolTree.initialize(this)</code> and
-              <code>Node-impl.js:128</code> allocated
+              <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L128"><code>Node-impl.js:128</code></a> allocated
               <code>this._memoizedQueries = {}</code>, for every node, including
               <code>Attr</code> nodes that inherit from <code>Node</code> and
               never join a tree.
@@ -694,7 +707,7 @@
             <span class="label">Edge case</span>
             The change underneath most of this release's performance work has
             no release-note bullet of its own. jsdom's
-            <code>MAINTAINERS.md:29</code> style guide says to leave out
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/MAINTAINERS.md#L29"><code>MAINTAINERS.md:29</code></a> style guide says to leave out
             "commits that have no user-facing impact, e.g. test rolls,
             refactorings, benchmark additions". Replacing the tree is a
             refactoring, so the notes record its effects under
@@ -718,7 +731,7 @@
             A tree that knows it is holding a DOM can assume more. jsdom's
             replacement keeps a small record next to each node, the
             <code>Links</code> class at
-            <code>dom-tree.js:13</code>, holding the parent, the siblings, the
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L13"><code>dom-tree.js:13</code></a>, holding the parent, the siblings, the
             first and last child, a running <code>childCount</code>, and a
             cached index. The record is not allocated until a node joins a tree
             or gains children, so an <code>Attr</code> carries one null field
@@ -813,7 +826,7 @@
             A cached index cannot be trusted on its own, because a node that
             moved can still be carrying a stale one. So the cache is read
             through an identity check, at
-            <code>dom-tree.js:271-276</code>:
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L271-L276"><code>dom-tree.js:271-276</code></a>:
             <pre>  const cached = parentData.cachedChildren ||= [];
   // A shifted node can retain an old index inside the rebuilt prefix. Check
   // identity as well as the index before using it.
@@ -865,7 +878,7 @@
             The old constructor set up tree bookkeeping and a query cache for
             every node ever built. The new one sets a null.
           </p>
-          <p class="filename">lib/jsdom/living/nodes/Node-impl.js:170</p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L170">lib/jsdom/living/nodes/Node-impl.js:170</a></p>
           <pre><span class="del">-    domSymbolTree.initialize(this);</span>
 <span class="del">-    this._memoizedQueries = {};</span>
 <span class="add">+    this._links = null;</span></pre>
@@ -873,7 +886,7 @@
             The commit says why in plain terms: "Attributes inherit from Node
             but usually don't need tree bookkeeping." The same lazy treatment
             reached event listeners, which start null at
-            <code>EventTarget-impl.js:24</code>, the <code>on*</code> handler
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/events/EventTarget-impl.js#L24"><code>EventTarget-impl.js:24</code></a>, the <code>on*</code> handler
             storage, the set of ranges pointing into a node, and the
             mutation-observer list.
           </p>
@@ -881,16 +894,16 @@
           <h3>2. Joining a tree, and why append is the easy case</h3>
           <p>
             <code>ensureLinks</code> at
-            <code>dom-tree.js:26</code> allocates the record on first need.
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L26"><code>dom-tree.js:26</code></a> allocates the record on first need.
             Appending then writes one field and increments a counter, with the
             reasoning stated in a comment rather than left to be worked out.
           </p>
-          <p class="filename">lib/jsdom/living/helpers/dom-tree.js:299-300</p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L299-L300">lib/jsdom/living/helpers/dom-tree.js:299-300</a></p>
           <pre>  // Appending preserves every existing child's index.
   childData.cachedIndex = data.childCount++;</pre>
 
           <h3>3. Reading an index</h3>
-          <p class="filename">lib/jsdom/living/helpers/dom-tree.js:256-270</p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L256-L270">lib/jsdom/living/helpers/dom-tree.js:256-270</a></p>
           <pre>function treeIndex(node) {
   const data = node._links;
   if (data === null || data.parent === null) {
@@ -909,7 +922,7 @@
           <p>
             Three fields carry the state, and the meaning of
             <code>cachedChildren</code> is a tri-state the code documents at
-            <code>dom-tree.js:20-22</code>: <code>null</code> means append-time
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L20-L22"><code>dom-tree.js:20-22</code></a>: <code>null</code> means append-time
             indexes are still valid, <code>undefined</code> means they need
             rebuilding, and an array is a lazily indexed prefix.
             <code>cachedIndex</code> uses <code>-1</code> for a node with no
@@ -932,9 +945,9 @@
           <p>
             <code>insertBefore</code> truncates the cached prefix at the
             mutation point instead of discarding it, in one line at
-            <code>dom-tree.js:323</code>.
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L323"><code>dom-tree.js:323</code></a>.
             <code>_invalidateCaches</code> at
-            <code>Node-impl.js:453</code> replaced a recursive climb up the
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L453"><code>Node-impl.js:453</code></a> replaced a recursive climb up the
             ancestors with an iterative loop that bumps the version.
           </p>
           <p>
@@ -950,19 +963,19 @@
           <h3>5. Ancestors, walked once</h3>
           <p>
             <code>commonAncestorInfo</code> at
-            <code>dom-tree.js:209</code> returns the shared ancestor together
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L209"><code>dom-tree.js:209</code></a> returns the shared ancestor together
             with the two children that lead to each side, and
             <code>compareTreePosition</code>, a range's common ancestor,
             boundary comparison, clone, extract, and
             <code>range.surroundContents()</code> all read that one result.
-            <code>getRootNode</code> at <code>Node-impl.js:356</code> caches the
+            <code>getRootNode</code> at <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L356"><code>Node-impl.js:356</code></a> caches the
             root with path compression, which the commit ties to a specific
             symptom: "building an event path would previously repeatedly walk
             the Document for each connected parent."
           </p>
 
           <h3>6. Paying for an index only when something wants one</h3>
-          <p class="filename">lib/jsdom/living/nodes/Node-impl.js:1019</p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L1019">lib/jsdom/living/nodes/Node-impl.js:1019</a></p>
           <pre>        childIndex ??= childImpl._treeIndex();</pre>
           <p>
             That sits inside the loop over the ranges whose boundaries point
@@ -979,7 +992,7 @@
             every property, which also lowercased case-sensitive
             <code>background</code> URLs on the way through.
             <code>_copyDeclarationsFrom</code> at
-            <code>CSSStyleDeclaration-impl.js:49</code> copies the raw maps
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js#L49"><code>CSSStyleDeclaration-impl.js:49</code></a> copies the raw maps
             instead and leaves resolution lazy.
           </p>
           <p>
@@ -988,7 +1001,7 @@
             inheritance produce. Its <em>resolved</em> value is what a caller
             reading the property back should see, which is not always the same.
             <code>_getComputedPropertyValue</code> at
-            <code>CSSStyleDeclaration-impl.js:231</code> memoizes the first,
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js#L231"><code>CSSStyleDeclaration-impl.js:231</code></a> memoizes the first,
             while the second became a display-only layer applied in
             <code>someStyle.getPropertyValue()</code>. That
             split is what fixed <code>'border-width'</code>: the keywords are
@@ -1002,11 +1015,11 @@
             Two more in the same area. Setting a shorthand used to write the
             <code>style=""</code> attribute once per longhand it touched;
             <code>_updateStyle</code> at
-            <code>CSSStyleDeclaration-impl.js:347</code> defers and writes once,
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js#L347"><code>CSSStyleDeclaration-impl.js:347</code></a> defers and writes once,
             which the commit calls "both a performance and correctness
             improvement" because the intermediate writes were producing spurious
             mutation records and custom-element reactions.
-            <code>StyleSheetList-impl.js:28</code> now inserts sheets in tree
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/StyleSheetList-impl.js#L28"><code>StyleSheetList-impl.js:28</code></a> now inserts sheets in tree
             order rather than insertion order, so adding a
             <code>&lt;style&gt;</code> before an existing one no longer puts it
             last in <code>document.styleSheets</code> and in the cascade.
@@ -1018,14 +1031,14 @@
             its DOM, so retained references went dead while queued work kept
             running against something unreachable. Destruction is now a flag,
             and the DOM is left intact. <code>_queueATask</code> at
-            <code>Document-impl.js:643</code> is the new document-scoped queue
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L643"><code>Document-impl.js:643</code></a> is the new document-scoped queue
             that discards work after destruction while still settling its
             promise, so <code>finally</code> cleanup still runs. Timers, frame
             callbacks, script execution, subresource loads, navigation and
             <code>someRequest.send()</code> each consult the flag.
           </p>
           <p>
-            <code>complete()</code> at <code>Document-impl.js:614</code> fixes a
+            <code>complete()</code> at <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L614"><code>Document-impl.js:614</code></a> fixes a
             separate hang by splitting internal load completion from the public
             <code>load</code> event, so an
             <code>&lt;iframe&gt;</code> that removes itself mid-load no longer
@@ -1036,18 +1049,18 @@
           <p>
             Named access on <code>document</code> went live by uncommenting the
             IDL getter; the qualifying local names are at
-            <code>Document-impl.js:86</code> and the lookup at
-            <code>Document-impl.js:717</code>, where a single matching
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L86"><code>Document-impl.js:86</code></a> and the lookup at
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L717"><code>Document-impl.js:717</code></a>, where a single matching
             <code>&lt;iframe&gt;</code> returns its
             <code>someFrame.contentWindow</code> rather than the element.
             <code>QuotaExceededError</code> is a new exception carrying optional
             <code>quota</code> and <code>requested</code> values, thrown by web
             storage and by
             <code>someCrypto.getRandomValues()</code> past
-            <code>65536</code> bytes at <code>Crypto-impl.js:31</code>; the
+            <code>65536</code> bytes at <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/crypto/Crypto-impl.js#L31"><code>Crypto-impl.js:31</code></a>; the
             storage limit is <code>5000000</code> code units, defaulted at
-            <code>lib/api.js:263</code>. Relaxed name validation at
-            <code>validate-names.js:7</code> replaces blanket XML productions
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/api.js#L263"><code>lib/api.js:263</code></a>. Relaxed name validation at
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/validate-names.js#L7"><code>validate-names.js:7</code></a> replaces blanket XML productions
             with the DOM Standard's per-context rules, so
             <code>document.createElement("a!b")</code> is now accepted where it
             previously threw.
@@ -1070,7 +1083,7 @@
             <code>wpt-manifest.json</code>, is generated and accounts for
             1,491,149 of the 1,504,358 added lines by itself, which is why a
             release of this size reports a diff in the millions. Another 25 are
-            benchmarks, which <code>Contributing.md:125</code> asks contributors
+            benchmarks, which <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/Contributing.md#L125"><code>Contributing.md:125</code></a> asks contributors
             to run before and after a change. The last 25 are workflow files,
             lint configuration, and documentation, including a policy on
             AI-assisted contribution added in this same range. None of those are
@@ -1082,7 +1095,7 @@
             <code>someElement.querySelectorAll()</code> regression introduced in
             v30.0.0. No jsdom selector code changed. jsdom delegates matching to
             <code>@asamuzakjp/dom-selector</code> through one method at
-            <code>Document-impl.js:274</code>, and the fixes arrived as a
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L274"><code>Document-impl.js:274</code></a>, and the fixes arrived as a
             version bump from <code>^8.3.0</code> at v30.0.1 to
             <code>^9.1.2</code> at v30.1.0. The commit body for the first bump
             reads, in full, "Fixes #4227." The mechanism lives in the

@@ -192,6 +192,19 @@
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
@@ -538,7 +551,7 @@
             warning blames the right line.
           </p>
           <p class="provenance">
-            fastapi/fastapi PR 16102 at 7abcdfb, explained 2026-09-01
+            fastapi/fastapi PR 16102 at 7abcdfb, explained 2026-09-01. References link to this commit, except one naming a file that is not in the repository.
           </p>
         </header>
 
@@ -621,7 +634,7 @@ app.frontend("/", directory="dist")</pre>
             finishes being built.
           </p>
 
-          <p class="filename">fastapi/routing.py:1907</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1907">fastapi/routing.py:1907</a></p>
           <pre>if check_dir and not os.path.isdir(directory):
     raise RuntimeError(
         f"Frontend directory '{directory}' does not exist. "
@@ -870,7 +883,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
             identically.
           </p>
 
-          <p class="filename">fastapi/applications.py:1249</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1249">fastapi/applications.py:1249</a></p>
           <pre>         check_dir: Annotated[
 <span class="del">-            bool,</span>
 <span class="add">+            bool | Literal["auto"],</span>
@@ -888,7 +901,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
 
           <p>
             The same hunk lands on <code>APIRouter.frontend</code> at
-            <code>fastapi/routing.py:2645</code>. Changing a default is a
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2645"><code>fastapi/routing.py:2645</code></a>. Changing a default is a
             compatibility decision, and this one is safe in the direction that
             matters: code that passed an explicit
             <code>True</code> or <code>False</code> behaves exactly as before,
@@ -898,7 +911,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
 
           <h3>2. The resolver</h3>
 
-          <p class="filename">fastapi/routing.py:1880</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1880">fastapi/routing.py:1880</a></p>
           <pre>def _resolve_frontend_check_dir(
     *,
     directory: str | os.PathLike[str],
@@ -942,7 +955,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
             call.
           </p>
 
-          <p class="filename">fastapi/applications.py:1291</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1291">fastapi/applications.py:1291</a></p>
           <pre><span class="add">+        check_dir = routing._resolve_frontend_check_dir(</span>
 <span class="add">+            directory=directory, check_dir=check_dir</span>
 <span class="add">+        )</span>
@@ -1059,7 +1072,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
             the filename rather than the message.
           </p>
 
-          <p class="filename">tests/test_frontend.py:1197</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1197">tests/test_frontend.py:1197</a></p>
           <pre>def test_check_dir_auto_router_warning_points_to_user_code(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("FASTAPI_ENV", "development")
     router = APIRouter()
@@ -1072,7 +1085,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
           <p>
             <code>warnings[0]</code> also quietly asserts there is a first
             warning to inspect, and the app-path test at
-            <code>tests/test_frontend.py:1186</code> makes the same assertion
+            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1186"><code>tests/test_frontend.py:1186</code></a> makes the same assertion
             from the side where a duplicate could appear.
           </p>
 
@@ -1101,7 +1114,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
 
           <p>Only the lowest of the three acts on the value.</p>
 
-          <p class="filename">fastapi/routing.py:1898</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1898">fastapi/routing.py:1898</a></p>
           <pre>class _FrontendStaticFiles(StaticFiles):
     def __init__(
         self,
@@ -1126,7 +1139,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
 
           <h3>6. The dependency floor</h3>
 
-          <p class="filename">pyproject.toml:61</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/pyproject.toml#L61">pyproject.toml:61</a></p>
           <pre><span class="del">-    "fastapi-cli[standard] &gt;=0.0.8",</span>
 <span class="add">+    "fastapi-cli[standard] &gt;=0.0.32",</span></pre>
 
@@ -1165,7 +1178,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
             Four tests are new. One was edited, and it is the interesting one.
           </p>
 
-          <p class="filename">tests/test_frontend.py:1179</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1179">tests/test_frontend.py:1179</a></p>
           <pre><span class="del">-        app.frontend("/", directory="missing")</span>
 <span class="add">+        app.frontend("/", directory="missing", check_dir=True)</span></pre>
 
@@ -1230,7 +1243,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000</div>
 
           <h3>8. Documentation</h3>
 
-          <p class="filename">docs/en/docs/tutorial/frontend.md:109</p>
+          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/docs/en/docs/tutorial/frontend.md#L109">docs/en/docs/tutorial/frontend.md:109</a></p>
           <pre><span class="del">-By default, `app.frontend()` checks that the directory exists when the app is created.</span>
 <span class="add">+By default, `app.frontend()` uses `check_dir="auto"`.</span>
 <span class="add">+</span>

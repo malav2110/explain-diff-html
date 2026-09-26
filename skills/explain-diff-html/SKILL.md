@@ -45,9 +45,16 @@ Continue when the work still happens another way, and say what was weaker.
 Verify them up front:
 
 ```bash
-command -v git node || echo "install the missing tool before continuing"
-command -v gh && gh auth status   # pull request targets only
+command -v git  >/dev/null || echo "git is required"
+command -v node >/dev/null || echo "node is required for a page with a Mermaid diagram"
+command -v gh   >/dev/null && gh auth status   # pull request targets only
 ```
+
+One `command -v` per name. `command -v git node` exits 0 in bash whenever the
+first name resolves, so a combined check passes on a machine with no `node` and
+the run fails later, in step 4, which is what this gate exists to prevent. zsh
+returns 1 for the same line, so the defect is invisible on macOS and live in the
+bash the Windows instructions above require.
 
 ### Shell and platform
 
@@ -60,8 +67,12 @@ So on Windows, run the skill from a WSL or Git Bash session. Check first rather
 than discovering it at the first command:
 
 ```bash
-[ -n "$BASH_VERSION" ] || echo "run this from WSL or Git Bash, not PowerShell"
+command -v mktemp sed >/dev/null || echo "run this from WSL or Git Bash, not PowerShell"
 ```
+
+Test for the tools rather than for bash. Every command here is POSIX, so zsh is
+fine, and a `$BASH_VERSION` test would reject it. PowerShell never sees this
+line either way, since it cannot parse it.
 
 The output directory follows from the same rule. It is a `code-explanations`
 folder in the user's home directory, which `$HOME` resolves on every supported
@@ -98,22 +109,36 @@ therefore no Node. The hand-built families cover it.
 
 - One self-contained HTML file. All CSS and JavaScript inline. Hand-built
   HTML/CSS diagrams need no network. The only permitted external request is the
-  Mermaid library from a CDN, and only when a structural diagram is present.
+  Mermaid library from a CDN, and only when a structural diagram is present. A
+  source link is not a request: it fetches nothing until a reader clicks it.
 - One long page with section headers and a table of contents. Do not use tabs
   for the top-level structure.
 - Responsive enough to read on a phone.
-- A provenance line under the lead, in the `.provenance` paragraph the template
-  carries: the source, the exact ref, and the date the page was written, as in
+- A provenance line under the lead, in the `.provenance` paragraph that
+  `html-template.html`, the scaffold every page starts from, already carries: the source, the exact ref, and the date the page was written, as in
   `owner/repo PR 1234 at abc1234, explained 2026-09-01`. Use the short form of
   the same commit every `file:line` anchor was resolved against, not the branch
   name and not the base. For a branch or a commit range, name that instead of a
-  pull request. The page is a snapshot, and this is the only thing on it that
-  says which snapshot, so a reader can tell in one glance whether the branch has
-  moved on since.
+  pull request. A single commit needs no range notation, so write
+  `owner/repo abc1234, explained 2026-09-01`. The page is a snapshot, and this
+  is the only thing on it that says which snapshot, so a reader can tell in one
+  glance whether the branch has moved on since.
+- The same provenance line says whether the references are linked. Close it with
+  `References link to this commit.` when they are, or with the reason when they
+  are not, as in `References are not linked: the host is not GitHub.` A bare
+  `file:line` carries no clue about why it is bare, so without this a reader
+  cannot tell a deliberate choice from a broken page.
 - Written outside the repo, to `"$HOME/code-explanations"`.
 - Filename `YYYY-MM-DD-<KEY>-explanation.html`, date first so files time-sort,
-  key second so they are greppable. `<KEY>` is the issue key when the branch
-  carries one, otherwise a short kebab-case slug.
+  key second so they are greppable. `<KEY>` is, in order: a tracker-style issue
+  key from the branch name, a labeled issue number from the branch name,
+  `pr-<n>` for a pull request, `commit-<short sha>` for a single commit, a
+  kebab-case slug of the newer endpoint for a commit range, and otherwise a
+  kebab-case slug of the branch name. Step 1 gives the patterns.
+- `<KEY>` carries only `A-Za-z0-9` and `-`. Replace anything else with `-` and
+  collapse repeats. A branch named `fix-#456` would otherwise produce a filename
+  that needs quoting in every later command and truncates at the `#` when opened
+  as a `file://` URL.
 
 ## Workflow
 
@@ -133,6 +158,7 @@ Determine what to explain, in this precedence:
   `gh pr view <n> --json headRefName,title,body,url` then `gh pr diff <n>`.
 - A named branch: diff it against the repo's default branch.
 - A commit range such as `abc123..def456`: diff the range directly.
+- A single commit such as `abc123`: diff it against its first parent.
 - No argument: the current branch against the default branch.
 
 Resolve the default branch rather than assuming a name. It is `main` in many
@@ -141,13 +167,34 @@ needs no network:
 
 ```bash
 base="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
-base="${base:-$(git remote show origin | sed -n 's/.*HEAD branch: //p')}"
+base="${base:-origin/$(git remote show origin | sed -n 's/.*HEAD branch: //p')}"
 ```
+
+Keep the `origin/` prefix on both paths. The first form already returns
+`origin/main`; the second returns a bare `main`, which resolves to the local
+branch. A local branch is routinely behind the remote and missing entirely in a
+single-branch clone, and the diff then silently covers the wrong range.
 
 `refs/remotes/origin/HEAD` is missing in some clones, which is why the network
 call is the fallback rather than the first attempt. Fall back again to whichever
 of `origin/main` or `origin/master` exists, and fetch the base fresh before
 diffing.
+
+Peel a tag to its commit before you use it anywhere. For an annotated tag,
+`git rev-parse v4.6.6` returns the tag object, not the commit it points at, and
+nothing downstream complains. The diff still works, the provenance line prints a
+plausible-looking sha, and every source link built from it resolves to nothing.
+Ask for the commit explicitly:
+
+```bash
+git rev-parse "v4.6.6^{commit}"   # the commit, whatever kind of tag it is
+git cat-file -t v4.6.6            # "tag" is annotated, "commit" is lightweight
+```
+
+Do not try to settle this with `git ls-remote --tags <url> <pattern>`. A pattern
+argument filters out the peeled `refs/tags/<name>^{}` row, which is the row that
+would have told you the tag was annotated, so the output looks exactly like a
+lightweight tag.
 
 For a pull request, fetch `refs/pull/<n>/head` into a named local ref and
 resolve every anchor against that commit. A branch fetch through `FETCH_HEAD`
@@ -159,30 +206,97 @@ tree, so nothing you write can be committed by accident:
 
 ```bash
 work="$(mktemp -d)"
-git fetch origin "refs/pull/<n>/head:refs/explain/pr-<n>"   # pull request only
-git diff "$base"...refs/explain/pr-<n> > "$work/diff.txt"
+git fetch origin "refs/pull/<n>/head:refs/explain/pr-<n>"       # pull request only
+pr_base="$(gh pr view <n> --json baseRefOid -q .baseRefOid)"    # the commit it opened against
+git fetch origin "$pr_base" ||
+  git fetch origin "$(gh pr view <n> --json baseRefName -q .baseRefName)"
+git diff "$pr_base" refs/explain/pr-<n> > "$work/diff.txt"      # base first, then head
 ```
 
-For a branch or the current checkout, put that ref in place of
-`refs/explain/pr-<n>`. Keep the three-dot form: it diffs against the merge base,
-so unrelated commits that landed on the base branch since the work started stay
-out of the page.
+A pull request diffs against its own recorded base, not against the current
+default branch. Three dots against the branch works while the pull request is
+open and breaks once it merges, and which way it breaks depends on how it was
+merged. A merge commit or a rebase puts the head commit onto the branch, so the
+merge base becomes the head itself and `git diff "$base"...<head>` is empty. A
+squash merge creates a new commit and leaves the head off the branch, so the
+same command keeps working. The failure is silent: an empty diff produces a
+blank page, not an error. Evidence: uPortal PR 2983 gives 0 files that way and
+17 the correct way, while fastapi PR 15800 gives the right answer both ways
+because it was squashed.
+
+`gh pr diff <n>` returns the same diff and needs no fetch, so use it when `gh`
+is available and keep the git form for when it is not.
+
+Fetching a bare sha is not always allowed. The server decides whether to serve
+an object that no ref advertises. GitHub.com serves one that is reachable, and a
+GitHub Enterprise install may refuse. A base branch that was force-pushed or
+deleted can also leave `baseRefOid` unreachable. So fall back to fetching the
+base branch, as above, because without that fallback the failure is another empty
+diff and another blank page.
+
+For a branch or the current checkout there is no recorded base, so use the
+three-dot form against the default branch:
+
+```bash
+git diff "$base"...<ref> > "$work/diff.txt"
+```
+
+Three dots diffs against the merge base, so unrelated commits that landed on the
+base branch since the work started stay out of the page.
+
+A commit range takes two dots, not three:
+
+```bash
+git diff "<from>".."<to>" > "$work/diff.txt"   # two dots, endpoint to endpoint
+```
+
+The two forms agree whenever the older endpoint is an ancestor of the newer one,
+which is the usual case for consecutive release tags, so a wrong choice here
+passes unnoticed until it does not. They part company once the endpoints sit on
+separate lines of history, such as two release branches. Three dots then diffs
+from the merge base and hides everything that landed on the older branch, which
+is not what a reader asking about a range wants to see. Peel both endpoints
+first when either is a tag.
+
+A single commit is the one target that does not diff against the base at all:
+
+```bash
+git diff "<sha>^" "<sha>" > "$work/diff.txt"     # two dots, against its parent
+```
+
+Three dots would compare against the merge base and drag in every other commit
+on the same branch. Refuse a merge commit as a target. `<sha>^` names only its
+first parent, so the diff would hide everything the merge brought in from the
+other side, and the page would describe a change it never showed. Ask for one of
+the parents or for the range instead.
 
 Capture once and query the saved file as many times as you need. Do not filter
 at the source with `head` or `grep`, because re-querying then re-runs the diff.
 
-Derive the filename key from the branch name, in this precedence:
+The output contract gives the filename key precedence. These are the patterns
+behind it.
 
-1. A tracker-style issue key matching `[A-Z][A-Z0-9]+-[0-9]+`, such as
-   `PROJ-1234`.
-2. An issue number that is explicitly labeled as one, matching
-   `(issue|gh|#)[-_]?[0-9]+`, such as `issue-456` or `gh-456`. Require the label:
-   a bare number pattern also matches a date or a version in a branch name such
-   as `cleanup-2024-q1`, which produces a meaningless filename.
-3. A short kebab-case slug from the branch name or the pull request title.
+A tracker-style issue key matches `[A-Z][A-Z0-9]+-[0-9]+`, such as `PROJ-1234`.
+A labeled issue number matches `(issue|gh|#)[-_]?[0-9]+`, such as `issue-456` or
+`gh-456`. Require the label: a bare number also matches a date or a version in a
+branch name such as `cleanup-2024-q1`, which produces a meaningless filename.
 
-For a pull request with no key in the branch name, the pull request number is a
-better key than a slug, because it is unique and greppable. Use `pr-<n>`.
+Both read the branch name, so both apply only to a pull request, a named branch,
+or the current checkout. A commit range and a single commit have no branch, which
+is why the contract gives each its own key.
+
+`pr-<n>` beats a slug for a pull request, and `commit-<short sha>` beats one for
+a single commit, because a number and a sha are unique and greppable where a slug
+from a title or a commit subject is neither. For a range, slug the newer
+endpoint, so `v4.6.5..v4.6.6` gives `v4-6-6`: that endpoint names the state the
+page describes, and every anchor on the page resolves there.
+
+Sanitize whatever you land on, as the contract requires. The `#` the labeled
+pattern accepts is the case that bites:
+
+```bash
+key="$(printf '%s' "$key" | tr -c 'A-Za-z0-9-' '-' | tr -s '-')"
+```
 
 ### 2. Gather surrounding context
 
@@ -275,19 +389,88 @@ or test declaration while quoting lines from inside it. Mixing the two
 conventions on one page sends a reader to a line that does not contain the code
 they just read, and the mechanical checks cannot catch it.
 
+Link every reference to the code it names. The provenance line already carries
+the repo and the commit, which is all a blob URL needs. Resolve the host once,
+before you draft:
+
+```bash
+# Pull request: gh knows the real host, so a GitHub Enterprise install works too
+gh pr view <n> --json url -q .url    # https://github.com/owner/repo/pull/<n>
+                                     # strip the trailing /pull/<n>
+
+# Branch, commit range, single commit, or no argument:
+git remote get-url origin | sed -E 's#^git@([^:]+):#https://\1/#; s#\.git$##'
+```
+
+Build each link against the same commit the provenance line names, using the
+full 40-character sha:
+
+```
+<base>/blob/<full-sha>/<path>#L<n>         a single line
+<base>/blob/<full-sha>/<path>#L<a>-L<b>    a range
+```
+
+The provenance line shows the short form because a reader has to read it. A
+link does not, and the short form is not reliable there. GitHub resolves an
+abbreviated sha only for a commit reachable from a branch or a tag, and a pull
+request head that was squash-merged is reachable only through
+`refs/pull/<n>/head`. So the full sha loads and the abbreviation returns 404 on
+the same commit. This is not hypothetical: `blob/7abcdfb/` 404s on fastapi
+PR 16102 while `blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/` serves the file.
+The failure is invisible when you write the page, because the commit is still on
+a branch until it merges.
+
+Pin to the commit, never to a branch. A branch moves, so `blob/main/...` sends a
+reader to whatever that file holds months from now instead of the code the page
+describes.
+
+Wrap the anchor around the reference rather than inside it, so the code styling
+still applies:
+
+```html
+<a class="srcref" href="https://github.com/owner/repo/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/src/parser.rs#L88"><code>src/parser.rs:88</code></a>
+```
+
+Link both places a reference appears: the `<code>` spans in prose, and the
+`.filename` label above each quoted block. The label is the one a reader reaches
+for, because it sits directly above the code they are reading, and it is the one
+easiest to forget.
+
+Leave a reference bare in two cases. The first is a host you could not resolve.
+The second is a path that is not in this repo at this ref, such as a file from a
+dependency. One page may carry a mix, and an unlinked reference reads exactly as
+it does today.
+
+This is GitHub only, on purpose. A url from `gh` names a GitHub-family host by
+construction, so link against whatever host it gives you. A parsed remote could
+be any forge, so link it only when the host is exactly `github.com`. GitLab and
+Bitbucket build blob URLs differently, and a GitHub-shaped URL aimed at them
+resolves to nothing. Leave those references bare rather than guess.
+
+Do not cite a line by number while describing the code as it was before the
+change. Both the anchor and its link resolve at the target ref, so a reader who
+clicks one next to "previously this returned early" lands on the new code and
+finds no early return. Quote the old lines from the diff instead, and save the
+numbered reference for the state the page is anchored to.
+
+A hyperlink is not a network request. The page still opens offline and still
+meets the self-contained rule. The link reaches the network only if a reader
+clicks it.
+
 When you shorten a quoted snippet, name what you removed. Write
 `// elided: the development-only warning for skipToken misuse`, not `// ...`.
 A bare ellipsis reads as unimportant boilerplate, and a reader who later opens
 the file finds code the page chose not to mention.
 
-Use the layer names the project itself uses. A web backend may run request to handler to service to
-model; a single-page frontend may run component to store to client; a data
-pipeline may run source to transform to sink. Read the project's structure and
+Use the layer names the project itself uses. A web backend may go request,
+handler, service, model. A single-page frontend may go component, store, client.
+A data pipeline may go source, transform, sink. Read the project's structure and
 borrow its vocabulary rather than imposing one.
 
 Before pasting any code or diff line into a `<pre>` or `<code>` block,
-HTML-escape it: `&` to `&amp;`, `<` to `&lt;`, `>` to `&gt;`. Wrap the `.del`
-and `.add` spans around the escaped text. Raw angle brackets are parsed as
+HTML-escape it: `&` to `&amp;`, `<` to `&lt;`, `>` to `&gt;`. Then wrap the
+escaped text in a `.del` or `.add` span, the template's classes for a removed
+and an added line. Raw angle brackets are parsed as
 tags: a line such as `list.get<T>(index)`, a JSX `<Foo />`, or a plain `a < b`
 opens an unknown element that HTML5 never auto-closes, so it swallows the rest
 of the document and breaks the sections and table-of-contents anchors below it.
@@ -330,7 +513,7 @@ loaded from a CDN. Match the diagram type to the change:
   the data-flow family's job, and a flowchart drawn for a linear path wastes
   vertical space and adds nothing.
 
-A sequence diagram is the one most often reached for by mistake. It earns its
+A sequence diagram is the easiest of these to reach for wrongly. It earns its
 place when ordering, waiting, or a real back-and-forth carries the meaning. When
 both lanes are a single pass with no wait and no reply, the shape is wrong, and a
 participant talking only to itself is the tell.
@@ -350,8 +533,11 @@ load in the template is pinned the same way and for the same reason. To move
 versions, change the number here after checking the release, the way you would
 for the CDN below.
 
-Four `--strict` rules catch people out:
+Five `--strict` rules catch people out:
 
+- Every node label must be double-quoted. Write `H["SYNOPSIS section"]`, not
+  `H[SYNOPSIS section]`. Unquoted labels parse fine in Mermaid itself, so this
+  one only appears when you validate, which is the reason to validate first.
 - State-diagram transition labels reject hyphens and commas, so phrase labels
   without them.
 - Flowchart edge labels must use pipe syntax, not quotes. Write
@@ -361,7 +547,7 @@ Four `--strict` rules catch people out:
 - An apostrophe inside a double-quoted node label breaks the parse. Write
   `A["a file only uPortal has"]`, not `A["uPortal's own file"]`.
 
-All four are quick to hit and quick to fix, which is the reason to validate
+All five are quick to hit and quick to fix, which is the reason to validate
 before pasting rather than after.
 
 The `.mermaid` container style and a non-blocking loader already ship in the
@@ -370,7 +556,7 @@ exact Mermaid version and checks it with a Subresource Integrity hash. To move
 versions, change the `@x.y.z` in the `src` and recompute the hash:
 
 ```bash
-curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A
+curl -sfL <url> | openssl dgst -sha384 -binary | openssl base64 -A
 ```
 
 A stale hash makes the browser block the script, and the diagrams then fail
@@ -440,10 +626,10 @@ Build the five questions from these shapes, at most two of any one shape:
   joined them up.
 - Apply it elsewhere. Take the concept the change turns on and ask how it would
   land at a different site in the same codebase, one the page has already named.
-  Knowledge tied to a single context tends to stay tied to it.
+  Knowledge tied to a single context stays tied to it.
 - Name the general principle. Ask what the change is an instance of, and make
   the distractors neighboring principles rather than wrong facts. This is the
-  shape that survives longest after the reader forgets the diff.
+  shape least tied to this particular diff.
 
 Seven rules bind every question, whichever shape it takes:
 
@@ -469,9 +655,9 @@ Seven rules bind every question, whichever shape it takes:
   leaving each option as a bare claim.
 - Vary where the correct option sits in the source. The template's script
   shuffles the options on every page load, so position is random for the reader
-  either way. Vary it anyway: write each question with its correct answer first,
-  because that is how the reasoning comes out, then move it to a different
-  position per question. That keeps the raw HTML honest for anyone reading the
+  either way. Vary it anyway. Write each question with its correct answer first,
+  which is how the reasoning falls out, then move it to a different position per
+  question. That keeps the raw HTML honest for anyone reading the
   file, printing it, or opening it with scripts disabled, where the shuffle never
   runs. Count the positions before saving.
 - Write each option so it stands alone. The shuffle reorders them, so an option
@@ -495,8 +681,8 @@ An author misses its own tells. Do not self-edit the draft in the main thread.
 Dispatch a read-only sub-agent that reads the drafted Background, Intuition,
 and Code narrative cold against the catalogue below and returns findings
 anchored to the passages they concern, then apply the findings in the main
-thread. The cold read is the point: the sub-agent has not written the sentences
-and so does not read its own intent into them.
+thread. A cold read works because the sub-agent has not written the sentences,
+so it cannot read its own intent into them.
 
 When your tools include no way to dispatch a sub-agent, run the pass inline
 against the catalogue, and say which pass ran when you report the finished
@@ -531,6 +717,32 @@ explanation:
 - Invented compound terms. Coining a capitalised name for a concept the project
   does not name, then using it as though the reader knows it.
 
+The tells above are about word choice. A page can pass every one of them and
+still lose its reader through density, which is what a technical explanation
+actually fails at. Ask for these too:
+
+- Shorthand before its definition. A term the project uses freely, dropped in
+  before the page says what it is. "Still set in italics the way value names
+  are", where value name has not been introduced.
+- An identifier cited but never named. Referring to a function only as
+  `render.rs:157` while describing what it does, so the reader cannot connect
+  the description to the name when the name finally appears. Name it where you
+  first describe it.
+- A back-reference reaching too far. "Both fall out of the render order below",
+  pointing past three intervening examples. Either move the explanation closer
+  or say where it is.
+- Stacked noun phrases. "The flag-rendering match arms" reads more plainly as
+  "the match arms that render each flag".
+- Participial openers. "Marking the group required tells clap to reject..."
+  becomes "A required group rejects...".
+- Process-order narration. What you searched, tried, and found in the order it
+  happened. The page carries the result.
+- A fact with no consequence. A count or a diffstat that closes a section
+  without telling the reader what it changes for them. Say what it means or cut
+  it.
+- Uniform sentence length. A long run of sentences at the same length reads as
+  generated even when every one is correct. Vary them.
+
 Write in the project's vocabulary, one idea per sentence, active voice with the
 actor named, and the simplest word that carries the meaning.
 
@@ -555,12 +767,28 @@ failures the catalogue misses:
 
 ### 7. Self-check before saving
 
-Start with the anchors and the code claims. Dispatch a read-only sub-agent that
-re-reads each cited `path:line` at the target ref, checks that what the page
-says about that code still holds, and reports mismatches, then fix them before
-saving. A wrong anchor and a wrong claim both survive every check below. The
-path exists, the line number is a number, and the sentence reads as if someone
-looked. Only re-reading the file at the ref catches either one.
+Start with the anchors, the code claims, and the links. Dispatch a read-only
+sub-agent that re-reads each cited `path:line` at the target ref, checks that
+what the page says about that code still holds, and reports mismatches, then fix
+them before saving. A wrong anchor and a wrong claim both survive every check
+below. The path exists, the line number is a number, and the sentence reads as
+if someone looked. Only re-reading the file at the ref catches either one.
+
+Give that same agent the links. It already holds both halves of every URL, the
+ref and the path, so checking them there costs almost nothing. For each
+reference it reports whether the path resolves in the repo at that ref, and
+whether the href names that same commit in full 40-character form, which is not
+what the provenance line prints. A reference whose
+path does not resolve has to be bare, and an href carrying any other commit
+points a reader at code the page never described.
+
+Ask it two things about ranges specifically, because neither falls out of
+checking that a line number matches. A reference written `path:42-48` needs an
+href ending `#L42-L48`, not `#L42`; an agent told only to match the cited line
+will pass the single-line form. And the end of the range has to be the last line
+actually quoted. Count the lines in the block and compare, rather than trusting
+the label: an off-by-one that runs the range onto a blank line reads as correct
+in every other check.
 
 When your tools include no way to dispatch a sub-agent, do both checks
 yourself. Re-reading a line at a ref is mechanical, so the anchor check loses
@@ -569,7 +797,18 @@ half is weaker. Read the code first and your own sentence about it second, and
 say that the claim check ran inline when you report the finished page. The
 sub-agent is there to keep whole files out of the main context.
 
-The rest of the step is yours to run:
+The rest of the step is yours to run. Several checks below read the drafted
+page, so name it once before you start:
+
+```bash
+page="$work/draft.html"   # the drafted page; step 8 writes it to its final home
+sha=abc1234               # the short commit the provenance line names
+```
+
+Do not reuse `$out` here. Step 8 defines it as the output directory, and what
+greps do with a directory varies: some exit 2 with an error, others report no
+matches and exit 0. Either way the check is reading the wrong thing, and on the
+implementations that stay quiet it reports success on a page it never opened.
 
 - Every code block is a `<pre>`, or a styled element whose CSS sets
   `white-space: pre` or `white-space: pre-wrap`. Scan each block in the HTML
@@ -587,7 +826,35 @@ The rest of the step is yours to run:
   parses, so `<br/>` and `-->` survive.
 
 - The file is self-contained: CSS and JS inline, no external request except the
-  Mermaid CDN when a Mermaid diagram is present.
+  Mermaid CDN when a Mermaid diagram is present. A source link is not an
+  external request. It fetches nothing until a reader clicks it, so the page
+  still opens offline.
+
+- The page linked the references it should have, and every link names the
+  provenance commit. Count both sides before scanning for mismatches:
+
+  ```bash
+  # flatten, then strip anchors, so a linked reference still counts as a reference
+  refs=$(tr '\n' ' ' < "$page" | sed -E 's#</?a[^>]*>##g; s/  +/ /g' \
+    | grep -oE '(<code[^>]*>|class="filename"[^>]*>) *[^<]*\.[A-Za-z]+:[0-9]+' | wc -l | tr -d ' ')
+  links=$(grep -o 'class="srcref"' "$page" | wc -l | tr -d ' ')
+  echo "references=$refs linked=$links"
+  grep -o 'href="[^"]*/blob/[^"]*"' "$page" | grep -v "$sha"   # expect no output
+  ```
+
+  Both the `tr` and the `sed` are load-bearing. A `.filename` label reads
+  `class="filename">path:line` when bare and `class="filename"><a ...>path:line`
+  once linked, so without the `sed` the count misses exactly the references that
+  succeeded. And `sed` is line-based, while the template writes that anchor
+  across several lines, so without the `tr` the opening tag is never stripped and
+  the same reference goes uncounted. Either way `links` ends up exceeding `refs`
+  on a page where everything worked.
+
+  The mismatch scan on the last line proves nothing on its own: with no links on
+  the page it finds nothing and reports success, which is exactly when the
+  feature is most broken. So compare the counts first. `links` should equal
+  `refs` minus the references you deliberately left bare, and you should be able
+  to name every one of those and say which of the two reasons applies.
 
 - Every table-of-contents link resolves to a section anchor on the page, and
   every section on the page appears in the table of contents.
@@ -608,11 +875,38 @@ The rest of the step is yours to run:
   Name the option by its content instead. This check is mechanical:
 
   ```bash
-  grep -nEi 'the (first|second|third|last) option|the (former|latter)' "$out"
+  quiz() { sed -n '/<section id="quiz"/,/<\/section>/p' "$page" \
+    | tr '\n' ' ' | sed -E 's/<[^>]+>/ /g; s/  +/ /g'; }
+
+  quiz | grep -oEi 'the (first|second|third|last) option|the (former|latter)\b'
   ```
 
-  Expect no hits inside the quiz section. Stating the rule is not enough on its
-  own; it has been violated by authors who had it in front of them.
+  Expect no output. The `tr` is what makes it work: prose in the HTML wraps, and
+  a line-based `grep` never sees "The" at the end of one line joined to "second
+  option" at the start of the next. Every sample in this repository has a quiz
+  line ending in "the", so the hazard is not rare, it is universal, and a
+  line-based version of this check reports clean on a page that violates the
+  rule. The `sed` range confines the search to the quiz, since the template's own
+  comments say things like "the first render".
+
+  Then run the wider sweep, which is advisory rather than pass or fail:
+
+  ```bash
+  quiz | grep -oEi 'the (first|second|third|last|former|latter)\b[^.]{0,40}'
+  ```
+
+  This one catches an ordinal used on its own, as in "the first names a real
+  practice", which points at a position without ever saying "option". It also
+  fires on ordinary prose such as "the second check" or "the first call", so
+  expect hits and read each one. The question for each is whether the ordinal
+  names a quiz option or a thing in the code. Do not try to tighten the pattern
+  until it returns nothing; across the samples in this repository every hit was
+  the second kind, and a pattern narrow enough to clear them would be narrow
+  enough to miss the first kind.
+
+  Stating the rule is not enough on its own. It has been violated by authors who
+  had it in front of them, and by an author whose check reported clean because it
+  was searching line by line.
 
 - The page is checked in dark mode, not only in light. Any Mermaid diagram is
   the thing that breaks here: the loader switches Mermaid's theme with the
@@ -628,13 +922,14 @@ The rest of the step is yours to run:
 
 - Every number the page states about the change is produced by a command, not by
   looking at a snippet: files changed, lines or characters added or removed,
-  occurrences of a pattern, how many call sites a helper has. Reading a count off
-  the screen is how a five-line block becomes "four lines". Run it:
+  occurrences of a pattern, how many call sites a helper has. Read a count off the
+  screen and a five-line block becomes "four lines". Run it:
 
   ```bash
-  sed -n '1880,1895p' fastapi/routing.py | wc -l   # lines in a quoted block
+  # lines actually pasted into a <pre>, which a range label has to match
+  sed -n '/<pre>/,/<\/pre>/p' "$page" | sed '1d;$d' | wc -l
   wc -l fastapi/cli.py                             # lines in a file
-  grep -c 'pattern' path                           # occurrences
+  grep -o 'pattern' path | wc -l                   # occurrences
   ```
 
   Then grep the page for every number it states and confirm each against the
@@ -658,18 +953,22 @@ path their file manager will open.
 
 ## Template
 
-Start from `html-template.html`, which carries the responsive layout, the
-sticky table of contents, light and dark color tokens, callout and code-block
-styles with the `white-space` rule already set, the three HTML and CSS diagram
-families, a `.filename` label for the path above a code block, a
-`table.vals` comparison table with `.yes` and `.no` cells, the `.mermaid`
-container style, a theme-aware non-blocking Mermaid loader, and the quiz
-interaction script. Fill in the content; do not rebuild the scaffold per run.
+Start from `html-template.html`. Fill in the content; do not rebuild the
+scaffold per run. It carries:
+
+- The responsive layout and the sticky table of contents.
+- Light and dark color tokens, redefined under `prefers-color-scheme: dark`.
+- Callout and code-block styles, with the `white-space` declaration already set.
+- `.del` and `.add` spans for a removed and an added line inside a `<pre>`.
+- `a.srcref`, the anchor around a linked `file:line` reference.
+- A `.filename` label for the path above a code block, with a linked example.
+- The three HTML and CSS diagram families of step 4.
+- A `table.vals` comparison table with `.yes` and `.no` cells.
+- The `.mermaid` container style and a theme-aware, non-blocking loader.
+- The quiz interaction script, which shuffles the options on every load.
 
 Each finished page carries its own copy of that scaffold, because the output must
 be self-contained. So a change to the template does not reach pages already
 written. When you change the template, decide whether the existing pages need
 the same edit, and say so.
 
-The output is a read-only artifact the reader reads, not edits, so it must be
-correct and self-contained the moment it is written.

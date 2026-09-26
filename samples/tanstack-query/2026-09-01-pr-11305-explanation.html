@@ -192,6 +192,19 @@
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
       }
+      /* A file:line reference linked to the code it names. Wraps a <code> span
+         in prose, or the bare text of a .filename label. */
+      a.srcref {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--muted);
+      }
+      a.srcref:hover {
+        border-bottom-color: var(--accent);
+      }
+      a.srcref:hover code {
+        background: var(--accent-soft);
+      }
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
@@ -506,7 +519,7 @@
             deciding that some errors did not count.
           </p>
           <p class="provenance">
-            TanStack/query PR 11305 at fc00bf4, explained 2026-09-01
+            TanStack/query PR 11305 at fc00bf4, explained 2026-09-01. References link to this commit.
           </p>
         </header>
 
@@ -577,7 +590,7 @@
             boundary rather than returned as state?
           </p>
 
-          <p class="filename">packages/react-query/src/errorBoundaryUtils.ts:70-77</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L70-L77">packages/react-query/src/errorBoundaryUtils.ts:70-77</a></p>
           <pre>return (
   result.isError &amp;&amp;
   !errorResetBoundary.isReset() &amp;&amp;
@@ -625,7 +638,7 @@
           <p>
             Both hooks throw during render. <code>useQuery</code> throws on
             <code>getHasError</code> and nothing else: its throw site at
-            <code>useBaseQuery.ts:127-137</code> has exactly one condition, and
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useBaseQuery.ts#L127-L137"><code>useBaseQuery.ts:127-137</code></a> has exactly one condition, and
             that condition is the helper. <code>useQueries</code> throws on
             <code>getHasError</code> <em>and</em> a truthiness check on the
             error value the helper just ruled on. Most of the time those two
@@ -841,7 +854,7 @@
             <code>throwOnError</code> collapses into one answer.
           </p>
 
-          <p class="filename">packages/query-core/src/utils.ts:470-480</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/query-core/src/utils.ts#L470-L480">packages/query-core/src/utils.ts:470-480</a></p>
           <pre>export function shouldThrowError&lt;T extends (...args: Array&lt;any&gt;) =&gt; boolean&gt;(
   throwOnError: boolean | T | undefined,
   params: Parameters&lt;T&gt;,
@@ -856,7 +869,7 @@
 
           <p>
             A user-supplied function does get the error value, at
-            <code>errorBoundaryUtils.ts:76</code>, and may refuse the throw on
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L76"><code>errorBoundaryUtils.ts:76</code></a>, and may refuse the throw on
             that basis. Note where that happens: inside
             <code>getHasError</code>, folded into the one decision, rather than
             as a second gate after it.
@@ -872,7 +885,7 @@
             something to return before any fetch settles.
           </p>
 
-          <p class="filename">packages/react-query/src/useQueries.ts:310-328</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useQueries.ts#L310-L328">packages/react-query/src/useQueries.ts:310-328</a></p>
           <pre>const firstSingleResultWhichShouldThrow = optimisticResult.find(
   (result, index) =&gt; {
     const query = defaultedQueries[index]
@@ -921,7 +934,7 @@
             is asymmetric: <code>useQuery</code> never had it.
           </p>
 
-          <p class="filename">packages/react-query/src/useBaseQuery.ts:126-137</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useBaseQuery.ts#L126-L137">packages/react-query/src/useBaseQuery.ts:126-137</a></p>
           <pre>// Handle error boundary
 if (
   getHasError({
@@ -953,7 +966,7 @@ if (
 
           <h3>4. Where the fix travels for free</h3>
 
-          <p class="filename">packages/react-query/src/useSuspenseQueries.ts:189-211</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useSuspenseQueries.ts#L189-L211">packages/react-query/src/useSuspenseQueries.ts:189-211</a></p>
           <pre>export function useSuspenseQueries(options: any, queryClient?: QueryClient) {
   return useQueries(
     {
@@ -990,7 +1003,7 @@ if (
             count.
           </p>
 
-          <p class="filename">packages/react-query/src/__tests__/useQuery.test.tsx:2776</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useQuery.test.tsx#L2776">packages/react-query/src/__tests__/useQuery.test.tsx:2776</a></p>
           <pre>it('should throw error if queryFn rejects with a falsy error and throwOnError is in use', ...</pre>
 
           <p>
@@ -1000,7 +1013,7 @@ if (
             instead of assuming it.
           </p>
 
-          <p class="filename">packages/react-query/src/__tests__/useQueries.test.tsx:287-289</p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useQueries.test.tsx#L287-L289">packages/react-query/src/__tests__/useQueries.test.tsx:287-289</a></p>
           <pre>queryFn: () =&gt; Promise.reject(),
 retry: false,
 throwOnError: true,</pre>
@@ -1011,7 +1024,7 @@ throwOnError: true,</pre>
             <code>throwOnError: true</code> asks for the boundary at all.
             <code>retry: false</code> stops the query retrying, which matters
             twice over: <code>getHasError</code> refuses to throw while a fetch
-            is in flight, at <code>errorBoundaryUtils.ts:73</code>, and a
+            is in flight, at <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L73"><code>errorBoundaryUtils.ts:73</code></a>, and a
             retrying query still reports <code>pending</code> status, so
             <code>result.isError</code> would be false too. The test advances
             fake timers by zero, which would never clear a retry backoff. Remove
@@ -1020,7 +1033,7 @@ throwOnError: true,</pre>
 
           <p>
             The <code>useSuspenseQueries</code> test at
-            <code>useSuspenseQueries.test.tsx:580</code> sets no
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useSuspenseQueries.test.tsx#L580"><code>useSuspenseQueries.test.tsx:580</code></a> sets no
             <code>throwOnError</code>, because suspense supplies its own
             default, and rejects after a delay so the assertion can watch the
             fallback replace the loading state.
