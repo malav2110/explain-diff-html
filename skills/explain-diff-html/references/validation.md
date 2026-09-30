@@ -15,9 +15,10 @@ Give that same agent the links. It already holds both halves of every URL, the
 ref and the path, so checking them there costs almost nothing. For each
 reference it reports whether the path resolves in the repo at that ref, and
 whether the href names that same commit in full 40-character form, which is not
-what the provenance line prints. A reference whose
-path does not resolve has to be bare, and an href carrying any other commit
-points a reader at code the page never described.
+what the provenance line prints. For a Markdown file, it also reports whether
+the href carries `?plain=1`. A reference whose path does not
+resolve has to be bare. An href carrying any other commit points a reader at
+code the page never described.
 
 Ask it two things about ranges specifically, because neither falls out of
 checking that a line number matches. A reference written `path:42-48` needs an
@@ -74,7 +75,9 @@ that mistake now fails instead of passing.
 
 - The page linked the references it should have, and every link names the
   provenance commit. The script prints both counts as `references=N linked=M`,
-  then fails on any `/blob/` link that does not name the short commit.
+  then fails on any `/blob/` link that does not name the short commit. It also
+  fails on a link to a `.md` or `.markdown` file that has a line anchor and no
+  `?plain=1`.
 
   The script's count needs both the `tr` and the `sed`. A `.filename` label
   reads `class="filename">path:line` when bare and

@@ -39,6 +39,18 @@ else
   echo "pass: no blob link names another commit"
 fi
 
+# GitHub renders Markdown, and the rendered view ignores a line anchor. Match
+# every Markdown line link, whatever query it carries, then keep the bare ones.
+md='href="[^"]*/blob/[^"]*\.(md|markdown)(\?[^"#]*)?#L[^"]*"'
+bare=$(grep -oiE "$md" "$page" | grep -v 'plain=1')
+if [ -n "$bare" ]; then
+  echo "FAIL: Markdown links with a line anchor and no ?plain=1:"
+  echo "$bare"
+  status=1
+else
+  echo "pass: every Markdown line link carries ?plain=1"
+fi
+
 quiz() {
   sed -n '/<section id="quiz"/,/<\/section>/p' "$page" \
     | tr '\n' ' ' | sed -E 's/<[^>]+>/ /g; s/  +/ /g'

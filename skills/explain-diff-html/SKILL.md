@@ -421,9 +421,14 @@ Build each link against the same commit the provenance line names, using the
 full 40-character sha:
 
 ```
-<base>/blob/<full-sha>/<path>#L<n>         a single line
-<base>/blob/<full-sha>/<path>#L<a>-L<b>    a range
+<base>/blob/<full-sha>/<path>#L<n>            a single line
+<base>/blob/<full-sha>/<path>#L<a>-L<b>       a range
+<base>/blob/<full-sha>/<path>?plain=1#L<n>    a line in a Markdown file
 ```
+
+GitHub shows a Markdown file in rendered form. That view ignores a line anchor.
+The link lands at the top of the document instead. `?plain=1` opens the source
+view, where the line exists. A range needs `?plain=1` too.
 
 The provenance line shows the short form because a reader has to read it. A
 link does not, and the short form is not reliable there. GitHub resolves an
