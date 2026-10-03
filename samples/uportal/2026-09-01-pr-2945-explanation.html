@@ -671,7 +671,7 @@
           </p>
 
           <p class="filename">
-            uPortal-rendering/.../cache/LimitingTeeOutputStream.java, before
+            uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java, before
           </p>
           <pre>    private final Function&lt;LimitingTeeOutputStream, ?&gt; limitReachedCallback;</pre>
 
@@ -687,7 +687,7 @@
           </p>
 
           <p class="filename">
-            uPortal-rendering/.../cache/LimitingTeeOutputStream.java, before
+            uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java, before
           </p>
           <pre>            if (this.limitReachedCallback != null) {
                 // Named 'unused' to satisfy ErrorProne's CheckReturnValue; the callback's
@@ -779,10 +779,7 @@
             spell out an anonymous class ending in <code>return null</code>.
           </p>
 
-          <p class="filename">
-            uPortal-rendering/.../cache/CachingPortletOutputHandler.java:104,
-            before. The stream call site at :130 is the same shape.
-          </p>
+          <p class="filename">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java, before the change. The stream call site is the same shape.</p>
           <pre>                            new Function&lt;LimitingTeeWriter, Object&gt;() {
                                 @Override
                                 public Object apply(LimitingTeeWriter input) {
@@ -792,10 +789,7 @@
                                 }
                             });</pre>
 
-          <p class="filename">
-            uPortal-rendering/.../cache/CachingPortletOutputHandler.java:104,
-            after
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L104">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java:104</a>, after</p>
           <pre>                            input -&gt; clearCachedWriter());</pre>
 
           <p>
@@ -833,9 +827,7 @@
 
           <h3>1. The two classes, in step</h3>
 
-          <p class="filename">
-            uPortal-rendering/.../cache/LimitingTeeOutputStream.java:32
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java#L32">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java:32</a></p>
           <pre>    private final Consumer&lt;LimitingTeeOutputStream&gt; limitReachedCallback;</pre>
 
           <p>
@@ -849,9 +841,7 @@
 
           <h3>2. The invocation</h3>
 
-          <p class="filename">
-            uPortal-rendering/.../cache/LimitingTeeOutputStream.java:83
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java#L83">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java:83</a></p>
           <pre>            if (this.limitReachedCallback != null) {
 <span class="del">-                // Named 'unused' to satisfy ErrorProne's CheckReturnValue; the callback's</span>
 <span class="del">-                // signature is Function&lt;T,?&gt; but its return value is intentionally discarded.</span>
@@ -948,9 +938,7 @@
             different reason.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/.../events/aggr/PortalRawEventsAggregatorImplTest.java:178
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/events/aggr/PortalRawEventsAggregatorImplTest.java#L178">uPortal-webapp/src/test/java/org/apereo/portal/events/aggr/PortalRawEventsAggregatorImplTest.java:178</a></p>
           <pre>                                Boolean ignored =
                                         ((Function&lt;PortalEvent, Boolean&gt;)
                                                         invocation.getArguments()[3])

@@ -606,7 +606,7 @@
           </p>
 
           <p class="filename">
-            uPortal-webapp/.../media/skins/respondr/common/common_skin.xml,
+            uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml,
             before
           </p>
           <pre>    &lt;js included="plain" resource="true"&gt;/rs/underscore/1.8.3/underscore.js&lt;/js&gt;</pre>
@@ -624,9 +624,7 @@
             The theme calls into Java for every skin entry.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/src/main/resources/layout/theme/resourcesTemplates.xsl:30
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/layout/theme/resourcesTemplates.xsl#L30">uPortal-webapp/src/main/resources/layout/theme/resourcesTemplates.xsl:30</a></p>
           <pre>&lt;xsl:template name="skinResources"&gt;
     &lt;xsl:param name="path" /&gt;
     &lt;xsl:variable name="resourceHelper" select="resources:getElmenentsProvider($RESOURCES_ELEMENTS_HELPER)" /&gt;
@@ -635,7 +633,7 @@
 
           <p>
             That reaches a thin delegate in this repository, at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-web/src/main/java/org/apereo/portal/web/skin/ResourcesElementsXsltcHelper.java#L58"><code>uPortal-web/.../web/skin/ResourcesElementsXsltcHelper.java:58</code></a>,
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-web/src/main/java/org/apereo/portal/web/skin/ResourcesElementsXsltcHelper.java#L58"><code>uPortal-web/src/main/java/org/apereo/portal/web/skin/ResourcesElementsXsltcHelper.java:58</code></a>,
             which hands straight off to a provider bean built at
             <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/java/org/apereo/portal/context/rendering/RenderingPipelineConfiguration.java#L325"><code>RenderingPipelineConfiguration.java:325</code></a> with no context
             path or base URL configured on it.
@@ -711,9 +709,7 @@
             the behavior rather than asserting it.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/src/test/resources/.../web/skin/resources1.xml:30
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/test/resources/org/apereo/portal/web/skin/resources1.xml#L30">uPortal-webapp/src/test/resources/org/apereo/portal/web/skin/resources1.xml:30</a></p>
           <pre>&lt;!-- absolute won't get touched, prove the 2 don't aggregate --&gt;</pre>
 
           <p>
@@ -866,9 +862,7 @@ $ awk '/^diff --git/{f=$3} /^-/ &amp;&amp; /rs:resourceURL/{print f}' diff.txt |
             goes and the path becomes literal.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/.../WEB-INF/jsp/Statistics/reportGraph.jsp:26
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L26">uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp:26</a></p>
           <pre><span class="del">-&lt;rs:resourceURL var="rgbcolorScriptPath" value="/rs/canvg/r144/rgbcolor-r144.min.js"/&gt;</span>
 <span class="add">+&lt;c:set var="rgbcolorScriptPath" value="/resource-server/rs/canvg/r144/rgbcolor-r144.min.js"/&gt;</span></pre>
 
@@ -897,7 +891,7 @@ $ </pre>
           <p>
             No hits. The binding that makes the prefix available is still there,
             at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp#L30"><code>uPortal-webapp/.../WEB-INF/jsp/include.jsp:30</code></a>:
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp#L30"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp:30</code></a>:
           </p>
 
           <pre>&lt;%@ taglib prefix="rs" uri="http://www.jasig.org/resource-server" %&gt;</pre>
@@ -921,9 +915,7 @@ $ </pre>
             and writes replacements for exactly the functions each page called.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/.../WEB-INF/jsp/Invoker/sitemap.jsp:73
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L73">uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp:73</a></p>
           <pre>    // hasPath('a.b.c', obj) — supports the dot-path semantics of lodash _.has
     function hasPath(obj, dotPath) {
         var parts = dotPath.split('.');
@@ -962,9 +954,7 @@ $ </pre>
             One deletion carries its own justification in the file.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/.../media/skins/respondr/common/common_skin.xml:26
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L26">uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:26</a></p>
           <pre>    &lt;!-- modernizr removed 2026-05-06: zero Modernizr.* callsites in workspace,
          no .no-js/.js class dependencies. Pure dead weight. --&gt;</pre>
 
@@ -973,11 +963,11 @@ $ </pre>
           </p>
 
           <pre>$ grep -rIn -i 'modernizr' . | grep -v '^./.git/'
-uPortal-webapp/.../respondr/common/common_skin.xml:26:    &lt;!-- modernizr removed ...
+uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:26:    &lt;!-- modernizr removed ...
 docs/architecture/subsystem-analysis.md:261:| **Modernizr** | 2.6.2 | Outdated | ...
 docs/architecture/subsystem-analysis.md:327:- Modernizr (unnecessary for modern ...
 $ grep -rIn 'no-js' . | grep -v '^./.git/'
-uPortal-webapp/.../respondr/common/common_skin.xml:27:         no .no-js/.js class ...</pre>
+uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:27:         no .no-js/.js class ...</pre>
 
           <p>
             Printing the paths rather than counting them is the point here. The
@@ -1018,7 +1008,7 @@ uPortal-webapp/.../respondr/common/common_skin.xml:27:         no .no-js/.js cla
 
           <p>
             The first is seed data, at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml#L45"><code>.../tenants/sampledata/portlet-definition/skin.portlet-definition.xml:45</code></a>.
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml#L45"><code>uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml:45</code></a>.
             It is imported when a tenant is created, through a listener
             configured at
             <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/properties/portal.properties#L751"><code>portal.properties:751</code></a>. So a stale path here would be
@@ -1028,7 +1018,7 @@ uPortal-webapp/.../respondr/common/common_skin.xml:27:         no .no-js/.js cla
 
           <p>
             The second, at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml#L48"><code>uPortal-webapp/src/test/resources/.../portlet/test_4-0.portlet.xml:48</code></a>,
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml#L48"><code>uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml:48</code></a>,
             is an import fixture in the 4.0 document format. No test in the
             checkout names it. The edit keeps its paths consistent with the rest
             of the change.
@@ -1096,7 +1086,7 @@ $ grep -rIn 'resource="true"' . | grep -v '^./.git/' | wc -l
             Two statements in the tree sit against each other at this commit.
             The comment replacing the polyfill entries gives modern browser
             support as the reason they are unnecessary.
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/docs/SUPPORTED_BROWSERS.md#L10"><code>docs/SUPPORTED_BROWSERS.md:10</code></a> lists Internet Explorer
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/docs/SUPPORTED_BROWSERS.md?plain=1#L10"><code>docs/SUPPORTED_BROWSERS.md:10</code></a> lists Internet Explorer
             among supported browsers. Reading the code alone would not tell you
             which one describes the project's intent.
           </p>

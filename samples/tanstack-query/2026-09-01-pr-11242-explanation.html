@@ -601,9 +601,7 @@
             before the change:
           </p>
 
-          <p class="filename">
-            packages/query-broadcast-client-experimental/src/index.ts:55, before
-          </p>
+          <p class="filename">packages/query-broadcast-client-experimental/src/index.ts, before the change</p>
           <pre>  let transaction = false
   const tx = (cb: () =&gt; void) =&gt; {
     transaction = true
@@ -622,9 +620,7 @@
             top of the cache subscriber.
           </p>
 
-          <p class="filename">
-            packages/query-broadcast-client-experimental/src/index.ts:112
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L112">packages/query-broadcast-client-experimental/src/index.ts:112</a></p>
           <pre>  const unsubscribe = queryCache.subscribe((queryEvent) =&gt; {
     if (transaction) {
       return
@@ -739,9 +735,7 @@
 
           <h3>The fix</h3>
 
-          <p class="filename">
-            packages/query-broadcast-client-experimental/src/index.ts:56
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L56">packages/query-broadcast-client-experimental/src/index.ts:56</a></p>
           <pre>  const tx = (cb: () =&gt; void) =&gt; {
     transaction = true
 <span class="del">-    cb()</span>
@@ -797,9 +791,7 @@
 
           <h3>1. The only caller</h3>
 
-          <p class="filename">
-            packages/query-broadcast-client-experimental/src/index.ts:148
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L148">packages/query-broadcast-client-experimental/src/index.ts:148</a></p>
           <pre>  channel.onmessage = (action) =&gt; {
     if (!action?.type) {
       return
@@ -887,9 +879,7 @@
             first test, and the two assertions do different jobs.
           </p>
 
-          <p class="filename">
-            packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:69
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L69">packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:69</a></p>
           <pre>      expect(() =&gt; {
         lastCreatedChannel.onmessage?.({
           type: 'added',
@@ -907,9 +897,7 @@
             flag too, and this assertion rules that out.
           </p>
 
-          <p class="filename">
-            packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:78
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L78">packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:78</a></p>
           <pre>      explodingUnsubscribe()
       mockPostMessage.mockClear()
 
@@ -937,9 +925,7 @@
 
           <h3>4. The seam the test needed</h3>
 
-          <p class="filename">
-            packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:16
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L16">packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:16</a></p>
           <pre>    BroadcastChannel: class MockBroadcastChannel {
       onmessage = null
       postMessage = mockPostMessage
