@@ -36,15 +36,20 @@ say that the claim check ran inline when you report the finished page. The
 sub-agent is there to keep whole files out of the main context.
 
 The rest of the step is yours to run. `scripts/validate-output.sh` runs the
-checks below that are commands. Give it the drafted page and the short commit
-that the provenance line names. Write both out literally, because a shell
-variable set in an earlier tool call no longer exists. `<this skill's folder>`
-is the folder that holds `SKILL.md`:
+checks below that are commands. Give it the drafted page, the short commit that
+the provenance line names, and the work directory. Write all three out
+literally, because a shell variable set in an earlier tool call no longer
+exists. `<this skill's folder>` is the folder that holds `SKILL.md`:
 
 ```bash
 sh "<this skill's folder>/scripts/validate-output.sh" \
-  "<work>/draft.html" "<short sha>"
+  "<work>/draft.html" "<short sha>" "<work>"
 ```
+
+Pass the work directory on every run. The coverage check reads
+`<work>/diff.txt`, and without the directory it prints `skip` and checks
+nothing. The argument is optional only so a page whose work directory is gone
+can still be checked.
 
 Do not pass step 8's `$out` as the page. Step 8 defines it as the output
 directory, and what greps do with a directory varies: some exit 2 with an error,
@@ -52,6 +57,15 @@ others report no matches and exit 0. Either way the check is reading the wrong
 thing, and on the implementations that stay quiet it reports success on a page
 it never opened. The script refuses anything that is not a non-empty file, so
 that mistake now fails instead of passing.
+
+Every script line that reads `pass` or `FAIL` is a pass/fail check, and the
+script exits 1 when any of them fails. Fix each failure before saving. When a
+check still fails after your fixes, save the page anyway, with the
+`check-banner` at the top of `main` naming each failed check. Delete the banner
+when every check passes. A page that names its own defect serves a reader
+better than one that hides it. The step 8 report lists the same checks. Run the
+script once more after you add or delete the banner. It fails a banner that
+names no check, and a banner left on a page whose checks pass.
 
 - Every code block is a `<pre>`, or a styled element whose CSS sets
   `white-space: pre` or `white-space: pre-wrap`. Scan each block in the HTML
@@ -93,6 +107,23 @@ that mistake now fails instead of passing.
   `refs` minus the references you deliberately left bare, and you should be able
   to name every one of those and say which of the two reasons applies.
 
+- Every changed file appears on the page. It may sit in the walkthrough, in an
+  "Also changed" row, under a directory row, or in a theme's path list. The
+  script reads the paths from the `diff --git` headers in `<work>/diff.txt`,
+  because a binary file carries no `+++` line. It also fails when the table
+  caption's `(N of M)` does not match the files the table covers and the files
+  in the diff. Only the table's first column covers a file, so a reason that
+  names a folder covers nothing.
+
+- The quiz has the count `references/quiz-design.md` sets: three questions for
+  at most two `h3.core-step` headings, five otherwise. A lower count passes
+  only when the quiz section declares it in `data-quiz-count`, with a reason in
+  `data-quiz-reason`.
+
+- The `p.lead` paragraph is one sentence, and so is each table reason. The
+  script masks `<code>` spans, then treats a period, `!`, or `?` followed by a
+  capital letter as the start of a second sentence.
+
 - Every table-of-contents link resolves to a section anchor on the page, and
   every section on the page appears in the table of contents.
 
@@ -102,9 +133,11 @@ that mistake now fails instead of passing.
 - The quiz is not answerable without reading it. Count the words in every option
   and check two things: that no option in a question runs more than about a
   quarter longer than the shortest, and that the longest option is the correct
-  one in no more than one or two of the five questions. Guessing "longest"
-  should do no better than guessing at random, and this is the one quiz defect
-  that survives the shuffle, because shuffling changes position and not length.
+  one in at most two of five questions, or one question of a shorter quiz.
+  Guessing "longest" should do no better than guessing at random, and this is
+  the one quiz defect that survives the shuffle, because shuffling changes
+  position and not length. The script runs the second check. It counts a
+  question only when the correct option has more words than every other option.
 
 - No quiz feedback names an option by its position. The script shuffles the
   options on every page load, so "the first option" points at a different option

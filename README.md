@@ -115,9 +115,11 @@ the code around it, and writes a single page with four sections:
 - Intuition, on the core idea, with toy data and diagrams rather than full
   detail.
 - Code walkthrough, ordered by the path a request or an action takes through the
-  system, not by filename.
-- Quiz, five interactive multiple-choice questions that test whether the reader
-  understood why the change is shaped the way it is.
+  system, not by filename. The edits that carry the change get a step each.
+  Every other changed file gets one line in an "Also changed" table at the end.
+- Quiz, three or five interactive multiple-choice questions that test whether
+  the reader understood why the change is shaped the way it is. A small change
+  gets three, or fewer when it carries fewer testable decisions.
 
 The output is one HTML file with the CSS and JavaScript inline. It opens with a
 double click, reads on a phone, and follows the reader's light or dark system
