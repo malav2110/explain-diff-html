@@ -2,6 +2,9 @@
 
 This is step 4 of the workflow in `SKILL.md`.
 
+Draw one diagram per idea. A second picture of an idea the page already drew
+repeats it, so leave it out.
+
 Pick a small number of diagram families and reuse them across the page. Do not
 use ASCII diagrams; build them in HTML and CSS. The template carries three:
 
