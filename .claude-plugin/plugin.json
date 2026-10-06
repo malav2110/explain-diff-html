@@ -2,7 +2,7 @@
   "name": "explain-diff-html",
   "displayName": "Explain Diff (HTML)",
   "version": "1.2.0",
-  "description": "Turn a pull request, branch, or commit range into one self-contained HTML page that teaches a reader what changed and why. It explains a change; it does not review one.",
+  "description": "Turn a pull request, branch, or commit range into one self-contained HTML page that teaches a reader what changed and why, at a beginner or familiar level. It explains a change; it does not review one.",
   "author": {
     "name": "Malav Shah",
     "url": "https://github.com/malav2110"

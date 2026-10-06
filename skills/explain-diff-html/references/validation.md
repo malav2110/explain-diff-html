@@ -124,6 +124,26 @@ names no check, and a banner left on a page whose checks pass.
   script masks `<code>` spans, then treats a period, `!`, or `?` followed by a
   capital letter as the start of a second sentence.
 
+- No `file:line` reference shortens its path with `...`. The script fails on
+  `.../` inside a `.filename` label or a `<code>` span. A shortened path cannot
+  become a link, so the reference stays bare. Write the full path from the
+  repository root.
+
+- A familiar page has no collapsed block, and a beginner page has at most one.
+  The script reads the level from the provenance line's `Level:` sentence. A
+  page that does not record a level predates levels, and counts as beginner for
+  this check.
+
+- Background or Intuition introduces every name the quiz uses. The script
+  takes each identifier-shaped `<code>` name in a quiz stem or option. It
+  fails when no paragraph, list item, table cell, or callout in Background or
+  Intuition names it outside the collapsed block. It also fails on a quiz or
+  Code name that only the collapsed block names, because a reader who skips the
+  block never meets it. Answer feedback is not checked. A value after `=`, a
+  file name, an example address, and a language keyword or builtin are exempt.
+  A Code name that appears nowhere before the walkthrough is advisory, so read
+  each one and define it where a reader would need it.
+
 - Every table-of-contents link resolves to a section anchor on the page, and
   every section on the page appears in the table of contents.
 

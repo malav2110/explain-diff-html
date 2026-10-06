@@ -46,7 +46,7 @@ questions, use each shape at most once:
   the distractors neighboring principles rather than wrong facts. This is the
   shape least tied to this particular diff.
 
-Seven rules bind every question, whichever shape it takes:
+Eight rules bind every question, whichever shape it takes:
 
 - Avoid any question whose answer can be copied straight out of the diff. If a
   reader who has not understood the change can still answer it by pattern
@@ -76,6 +76,11 @@ Seven rules bind every question, whichever shape it takes:
   question. That keeps the raw HTML honest for anyone reading the
   file, printing it, or opening it with scripts disabled, where the shuffle never
   runs. Count the positions before saving.
+- Write each stem so it stands alone. Restate the data the question works on,
+  and leave out the reasoning step it tests. Never point at a section or an
+  example by its place on the page, as in "the toy URL from Intuition". A
+  familiar page keeps this quiz but shortens Intuition, Background, and the
+  walkthrough. A stem that points back can then name something that page lacks.
 - Write each option so it stands alone. The shuffle reorders them, so an option
   cannot refer to another by position: no "both of the above", no "the first
   option but for the router path". The feedback block may discuss the options by

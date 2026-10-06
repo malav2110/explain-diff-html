@@ -647,14 +647,18 @@
           </p>
           <p class="provenance">
             <!-- FILL: owner/repo PR 1234 at abc1234, explained YYYY-MM-DD.
-                 Then either "References link to this commit." or the reason
-                 they do not, as in "References are not linked: the host is
-                 not GitHub." -->
+                 Then the level and its source, as in "Level: familiar, as
+                 requested." Then either "References link to this commit." or
+                 the reason they do not, as in "References are not linked: the
+                 host is not GitHub." -->
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
+          <!-- Beginner pages only, and optional: at most one collapsed block.
+               Delete it on a familiar page. Define every name the Code and
+               Quiz sections use outside it, in the prose below. -->
           <details class="skippable">
             <summary>
               New to this area? Expand for the deeper background.
@@ -682,7 +686,9 @@
 
         <section id="intuition">
           <h2>Intuition</h2>
-          <!-- FILL: the core idea, with concrete toy-data examples -->
+          <!-- FILL: the core idea. On a beginner page, with concrete toy-data
+               examples. On a familiar page, the idea alone, with one example
+               only when that example is the demonstration itself. -->
 
           <!-- Diagram family 1: simplified UI -->
           <div class="ui-mockup">
@@ -750,6 +756,9 @@
           <!-- A reference inside prose takes the same anchor around a <code> span:
                <a class="srcref" href="...#L88"><code>src/parser.rs:88</code></a> -->
 
+          <!-- One row per file. A familiar page may group files of one kind
+               into one row whose first cell says (N files) and lists every
+               path. -->
           <table class="vals also-changed">
             <caption>
               Every other changed file (<!-- FILL: N --> of <!-- FILL: M -->)
