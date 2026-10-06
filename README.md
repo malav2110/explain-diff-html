@@ -357,6 +357,12 @@ the skill fills in rather than rebuilding per run:
 
 </details>
 
+## Contributors
+
+Thank you to everyone who has contributed to this repo:
+
+- [@andyhorn](https://github.com/andyhorn)
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
