@@ -108,16 +108,22 @@ learning opportunity again.
 ## What it produces
 
 Point it at a pull request, a branch, or a commit range. It reads the diff, then
-the code around it, and writes a single page with four sections:
+the code around it, and writes a single page with four sections. Each page has
+one of two levels. Beginner is for a reader new to the code, and familiar is
+for one who already knows it.
 
-- Background, on the system the change lands in, with the beginner-level part
-  collapsed so a familiar reader can skip it.
-- Intuition, on the core idea, with toy data and diagrams rather than full
-  detail.
+- Background, on the system the change lands in. A beginner page may collapse
+  a deeper part that a reader who knows the area can skip. A familiar page
+  keeps only what the change needs.
+- Intuition, on the core idea. A beginner page uses toy data and diagrams
+  rather than full detail. A familiar page states the idea directly.
 - Code walkthrough, ordered by the path a request or an action takes through the
-  system, not by filename.
-- Quiz, five interactive multiple-choice questions that test whether the reader
-  understood why the change is shaped the way it is.
+  system, not by filename. The edits that carry the change get a step each.
+  Every other changed file gets one line in an "Also changed" table at the end.
+- Quiz, three or five interactive multiple-choice questions that test whether
+  the reader understood why the change is shaped the way it is. A small change
+  gets three, or fewer when it carries fewer testable decisions. A familiar
+  page keeps the beginner page's quiz.
 
 The output is one HTML file with the CSS and JavaScript inline. It opens with a
 double click, reads on a phone, and follows the reader's light or dark system
@@ -267,12 +273,21 @@ walk me through this branch
 explain the changes between abc123 and def456
 ```
 
+Name the level in the same request, as in `explain PR 1234, familiar` or
+`explain PR 1234 for a beginner`. When the request names no level, the skill
+asks you to choose beginner or familiar. A run that cannot ask, such as a
+headless run, writes beginner and says so. Both levels keep the quiz.
+
 It writes the page to a `code-explanations` folder in your home directory,
 `$HOME/code-explanations`, named
 `YYYY-MM-DD-<KEY>-explanation.html`, and reports the path. The date comes first
 so the files sort by time, and the key comes second so you can grep for a ticket
 or a pull request later. `<KEY>` is an issue key such as `PROJ-1234` when the
 branch name carries one, otherwise `pr-1234`, otherwise a short slug.
+
+A familiar page goes next to its beginner page, as
+`YYYY-MM-DD-<KEY>--familiar-explanation.html`. When the beginner page does not
+exist yet, the skill writes it first.
 
 Output lands outside the repository on purpose. An explanation is not a project
 artifact, and writing it into the working tree invites committing it by accident.
@@ -313,7 +328,9 @@ a motive.
    for state, entity-relationship, and sequence.
 5. Write the quiz to the question shapes that test transfer rather than recall.
 6. Hand the prose to a fresh reader for an editing pass, because an author
-   misses their own tells.
+   misses their own tells. Then give the page, with the quiz answers removed,
+   to another fresh reader, to check that the page teaches what each question
+   asks.
 7. Run the self-check, including re-reading every cited `file:line` at the
    target ref.
 8. Write the file.
@@ -321,7 +338,8 @@ a motive.
 Steps 4 to 7 keep a short summary in `SKILL.md` and send the agent to a file in
 `references/` for the detail: `diagrams.md`, `quiz-design.md`,
 `writing-quality.md`, and `validation.md`. The commands step 7 runs are in
-`scripts/validate-output.sh`.
+`scripts/validate-output.sh`, and `scripts/quiz-copy.sh` writes the copy
+without answers that step 6's quiz reader gets.
 
 Step 7 carries two checks that exist because of past failures. It confirms
 every code block is HTML-escaped, because a single raw `<` in a pasted diff line

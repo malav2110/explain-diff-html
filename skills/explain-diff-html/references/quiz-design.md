@@ -10,7 +10,20 @@ Each question renders as an interactive multiple-choice block: clicking an
 option reveals whether it was correct and gives feedback that connects the
 choice to the underlying reasoning.
 
-Build the five questions from these shapes, at most two of any one shape:
+The walkthrough sets the count, so fix its `h3.core-step` headings before you
+draft a question. The quiz has three questions when the page has at most two of
+those headings, and five otherwise. A change can carry fewer testable decisions
+than that. Then ask only as many questions as it carries, and declare the lower
+count and its reason on the quiz section:
+
+```html
+<section id="quiz" data-quiz-count="2" data-quiz-reason="FILL: why two">
+```
+
+The step 8 report repeats the reason.
+
+Build the questions from these shapes, at most two of any one shape. Below five
+questions, use each shape at most once:
 
 - Why this approach. Ask why the change is shaped the way it is, and make the
   distractors the alternatives a competent engineer would actually consider.
@@ -33,7 +46,7 @@ Build the five questions from these shapes, at most two of any one shape:
   the distractors neighboring principles rather than wrong facts. This is the
   shape least tied to this particular diff.
 
-Seven rules bind every question, whichever shape it takes:
+Eight rules bind every question, whichever shape it takes:
 
 - Avoid any question whose answer can be copied straight out of the diff. If a
   reader who has not understood the change can still answer it by pattern
@@ -49,12 +62,13 @@ Seven rules bind every question, whichever shape it takes:
   understood picks the longest option, and the correct answer attracts length
   because it is the one carrying its own justification. No option may run more
   than about a quarter longer than the shortest in its question. Then count
-  across the whole quiz: if the longest option is the correct one in more than
-  one or two of the five questions, the page can be answered by word count no
-  matter where the answers sit. The fix is not to pad the distractors, which
-  makes every option unreadable. It is to cut the reasoning out of the correct
-  option and put it in the feedback block, which is where the reasoning belongs,
-  leaving each option as a bare claim.
+  across the whole quiz. The longest option may be the correct one in at most
+  two of five questions, and in at most one question of a shorter quiz. Past
+  that, the page can be answered by word count no matter where the answers sit.
+  The fix is not to pad the distractors, which makes every option unreadable.
+  It is to cut the reasoning out of the correct option and put it in the
+  feedback block, which is where the reasoning belongs, leaving each option as
+  a bare claim.
 - Vary where the correct option sits in the source. The template's script
   shuffles the options on every page load, so position is random for the reader
   either way. Vary it anyway. Write each question with its correct answer first,
@@ -62,6 +76,11 @@ Seven rules bind every question, whichever shape it takes:
   question. That keeps the raw HTML honest for anyone reading the
   file, printing it, or opening it with scripts disabled, where the shuffle never
   runs. Count the positions before saving.
+- Write each stem so it stands alone. Restate the data the question works on,
+  and leave out the reasoning step it tests. Never point at a section or an
+  example by its place on the page, as in "the toy URL from Intuition". A
+  familiar page keeps this quiz but shortens Intuition, Background, and the
+  walkthrough. A stem that points back can then name something that page lacks.
 - Write each option so it stands alone. The shuffle reorders them, so an option
   cannot refer to another by position: no "both of the above", no "the first
   option but for the router path". The feedback block may discuss the options by

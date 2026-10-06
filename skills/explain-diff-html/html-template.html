@@ -245,6 +245,25 @@
       table.vals td.warn {
         background: var(--edge-soft);
       }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
       /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
@@ -616,28 +635,40 @@
       </nav>
 
       <main>
+        <!-- Delete this banner when every pass/fail check passes. -->
+        <div class="check-banner" role="alert">
+          <strong>Failed checks:</strong>
+          <!-- FILL: each check still failing after step 7 -->
+        </div>
         <header>
           <h1><!-- FILL: title --></h1>
           <p class="lead">
-            <!-- FILL: one-sentence summary of what this change does -->
+            <!-- FILL: the change's purpose in one sentence, derived from the diff -->
           </p>
           <p class="provenance">
             <!-- FILL: owner/repo PR 1234 at abc1234, explained YYYY-MM-DD.
-                 Then either "References link to this commit." or the reason
-                 they do not, as in "References are not linked: the host is
-                 not GitHub." -->
+                 Then the level and its source, as in "Level: familiar, as
+                 requested." Then either "References link to this commit." or
+                 the reason they do not, as in "References are not linked: the
+                 host is not GitHub." -->
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
+          <!-- Beginner pages only, and optional: at most one collapsed block.
+               Delete it on a familiar page. Define every name the Code and
+               Quiz sections use outside it, in the prose below. -->
           <details class="skippable">
             <summary>
               New to this area? Expand for the deeper background.
             </summary>
             <!-- FILL: beginner-level background on the existing system -->
           </details>
-          <!-- FILL: narrow background, directly relevant to the change -->
+          <!-- FILL: narrow background: the reason, names, data shapes, and
+               the entry point the Code flow map starts from, as far as the
+               core edits need. Describe the code before the change at that
+               level, and leave what each changed line does to Code. -->
 
           <div class="callout">
             <span class="label">Key concept</span>
@@ -655,7 +686,9 @@
 
         <section id="intuition">
           <h2>Intuition</h2>
-          <!-- FILL: the core idea, with concrete toy-data examples -->
+          <!-- FILL: the core idea. On a beginner page, with concrete toy-data
+               examples. On a familiar page, the idea alone, with one example
+               only when that example is the demonstration itself. -->
 
           <!-- Diagram family 1: simplified UI -->
           <div class="ui-mockup">
@@ -701,7 +734,11 @@
 
         <section id="code">
           <h2>Code walkthrough</h2>
-          <!-- FILL: one-line flow map, then the grouped, flow-ordered walkthrough -->
+          <!-- FILL: one-line flow map, then one h3.core-step per core edit in flow
+               order, or per theme on a large change, with brief edits inside
+               their step. Every other path goes in the Also changed table at
+               the end of this section. -->
+          <h3 class="core-step"><!-- FILL: what this core step does --></h3>
           <!-- The path label above a code block. Link it when the run resolved a
                host: the anchor goes outside the text, and the href ends #L<n> for
                a single line or #L<a>-L<b> for a range. Drop the <a> and keep the
@@ -718,11 +755,42 @@
 
           <!-- A reference inside prose takes the same anchor around a <code> span:
                <a class="srcref" href="...#L88"><code>src/parser.rs:88</code></a> -->
+
+          <!-- One row per file. A familiar page may group files of one kind
+               into one row whose first cell says (N files) and lists every
+               path. -->
+          <table class="vals also-changed">
+            <caption>
+              Every other changed file (<!-- FILL: N --> of <!-- FILL: M -->)
+            </caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <a
+                    class="srcref"
+                    href="https://github.com/OWNER/REPO/blob/SHA/path/to/file.ext"
+                    ><code><!-- FILL: path/to/file.ext --></code></a
+                  >
+                </td>
+                <td><!-- FILL: one sentence --></td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
-          <!-- Repeat this block five times. data-correct marks the right option. -->
+          <!-- Repeat this block once per question: three when the page has at
+               most two h3.core-step headings, five otherwise. A lower count
+               adds data-quiz-count and data-quiz-reason to this section, as
+               references/quiz-design.md shows. data-correct marks the right
+               option. -->
           <div class="quiz-question">
             <p class="q"><!-- FILL: question 1 --></p>
             <button class="quiz-option"><!-- FILL: option --></button>

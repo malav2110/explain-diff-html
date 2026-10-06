@@ -79,3 +79,33 @@ failures the catalogue misses:
   introduced?
 - Does Intuition give the core idea before the walkthrough starts, or does it
   ask the reader to take the central claim on trust until a later section?
+
+## The quiz reader
+
+Step 6 ends with a second sub-agent, the quiz reader. It reads only the copy
+that `scripts/quiz-copy.sh` writes, which carries no answer feedback and no
+`data-correct` marks. Its prompt must ask it to:
+
+- Answer each question, with a one-line reason that cites the passage on the
+  page it relied on.
+- Name each question it answered by near-lookup, where a sentence on the page
+  all but states the answer.
+- Name each question it answered by ruling out the other options rather than
+  by knowing the right one.
+- Read the copy only, never the repository, the diff, or the draft.
+
+Compare its answers with the marked answers, and act on each finding:
+
+- A wrong answer means the page did not teach the mechanism. Fix the section
+  the question tests, so it teaches the mechanism without stating the answer.
+  Change the question only when the reason shows the stem itself misleads. On
+  a familiar page, fix the prose and report a misleading stem instead.
+- A correct answer whose reason cites nothing on the page may come from general
+  knowledge. Flag it in the step 8 report.
+- A near-lookup or an answer by elimination is a finding against the question.
+  On a beginner page, rewrite the question to the rules in
+  `references/quiz-design.md`. On a familiar page the quiz is fixed, so report
+  the finding instead.
+
+The quiz reader works because it has not seen the answers. Never give it the
+draft, the feedback text, or your own summary of the page.
