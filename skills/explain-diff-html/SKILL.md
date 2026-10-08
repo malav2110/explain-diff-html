@@ -168,7 +168,15 @@ needs no network:
 
 ```bash
 base="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
-base="${base:-origin/$(git remote show origin | sed -n 's/.*HEAD branch: //p')}"
+if [ -z "$base" ]; then
+  head="$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p')"
+  base="${head:+origin/$head}"    # empty, not "origin/", when the call fails
+fi
+for b in origin/main origin/master; do
+  [ -n "$base" ] && break
+  git rev-parse --verify -q "$b" >/dev/null && base="$b"
+done
+echo "${base:?no default branch found}"
 ```
 
 Keep the `origin/` prefix on both paths. The first form already returns
@@ -177,9 +185,11 @@ branch. A local branch is routinely behind the remote and missing entirely in a
 single-branch clone, and the diff then silently covers the wrong range.
 
 `refs/remotes/origin/HEAD` is missing in some clones, which is why the network
-call is the fallback rather than the first attempt. Fall back again to whichever
-of `origin/main` or `origin/master` exists, and fetch the base fresh before
-diffing.
+call is the fallback rather than the first attempt. The snippet adds `origin/`
+only to a non-empty answer, because a failed network call would otherwise leave
+the non-empty string `origin/` and skip the last fallback. That last fallback
+takes whichever of `origin/main` or `origin/master` exists. Fetch the base fresh
+before diffing.
 
 Peel a tag to its commit before you use it anywhere. For an annotated tag,
 `git rev-parse v4.6.6` returns the tag object, not the commit it points at, and
@@ -210,9 +220,18 @@ work="$(mktemp -d)"
 echo "$work"   # write this path out in later steps
 git fetch origin "refs/pull/<n>/head:refs/explain/pr-<n>"       # pull request only
 pr_base="$(gh pr view <n> --json baseRefOid -q .baseRefOid)"    # the commit it opened against
-git fetch origin "$pr_base" ||
-  git fetch origin "$(gh pr view <n> --json baseRefName -q .baseRefName)"
-git diff "$pr_base" refs/explain/pr-<n> > "$work/diff.txt"      # base first, then head
+if [ -z "$pr_base" ] || ! git fetch origin "$pr_base"; then
+  # The sha is unreachable or refused: diff from where the head left the base branch.
+  base_name="$(gh pr view <n> --json baseRefName -q .baseRefName)"
+  [ -n "$base_name" ] && git fetch origin "$base_name" &&
+    pr_base="$(git merge-base FETCH_HEAD refs/explain/pr-<n>)"
+fi
+if [ -z "$pr_base" ]; then
+  echo "STOP: no base commit; ask the user which commit the pull request is based on"
+else
+  git diff "$pr_base" refs/explain/pr-<n> > "$work/diff.txt"    # base first, then head
+  [ -s "$work/diff.txt" ] || echo "STOP: the diff is empty; resolve the base before drafting"
+fi
 ```
 
 Each tool call starts a new shell, so `$work` is empty in every later command.
@@ -232,15 +251,20 @@ blank page, not an error. Evidence: uPortal PR 2983 gives 0 files that way and
 17 the correct way, while fastapi PR 15800 gives the right answer both ways
 because it was squashed.
 
-`gh pr diff <n>` returns the same diff and needs no fetch, so use it when `gh`
-is available and keep the git form for when it is not.
+`gh pr diff <n>` returns the same diff and needs no fetch, so use it when it
+works. The git form above still asks `gh` for the base commit, so it does not
+replace `gh`. Without `gh`, ask the user which commit the pull request is based
+on rather than guessing one.
 
 Fetching a bare sha is not always allowed. The server decides whether to serve
 an object that no ref advertises. GitHub.com serves one that is reachable, and a
 GitHub Enterprise install may refuse. A base branch that was force-pushed or
 deleted can also leave `baseRefOid` unreachable. So fall back to fetching the
-base branch, as above, because without that fallback the failure is another empty
-diff and another blank page.
+base branch, as above, and diff from its merge base with the head, because
+without that fallback the failure is another empty diff and another blank page.
+The empty-diff check is the backstop. A pull request merged with a merge commit
+is already on its base branch, so the fallback's merge base is the head itself
+and the diff is empty. Stop there rather than draft a blank page.
 
 For a branch or the current checkout there is no recorded base, so use the
 three-dot form against the default branch:
@@ -285,9 +309,11 @@ The output contract gives the filename key precedence. These are the patterns
 behind it.
 
 A tracker-style issue key matches `[A-Z][A-Z0-9]+-[0-9]+`, such as `PROJ-1234`.
-A labeled issue number matches `(issue|gh|#)[-_]?[0-9]+`, such as `issue-456` or
-`gh-456`. Require the label: a bare number also matches a date or a version in a
-branch name such as `cleanup-2024-q1`, which produces a meaningless filename.
+A labeled issue number matches `(^|[/_-])(issue|gh|#)[-_]?[0-9]+`, such as
+`issue-456` or `gh-456`; drop the leading separator from the match. Require the
+label: a bare number also matches a date or a version in a branch name such as
+`cleanup-2024-q1`, which produces a meaningless filename. Require it to start the
+name or follow a separator, too, or `fix-high-5` yields `gh-5` from inside "high".
 
 Both read the branch name, so both apply only to a pull request, a named branch,
 or the current checkout. A commit range and a single commit have no branch, which
