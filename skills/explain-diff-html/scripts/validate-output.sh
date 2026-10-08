@@ -29,10 +29,27 @@ fi
 status=0
 
 # Flatten, then strip anchors, so a linked reference still counts as a reference.
-refs=$(tr '\n' ' ' < "$page" | sed -E 's#</?a[^>]*>##g; s/  +/ /g' \
-  | grep -oE '(<code[^>]*>|class="filename"[^>]*>) *[^<]*\.[A-Za-z]+:[0-9]+' | wc -l | tr -d ' ')
+# A reference is a <code> span or .filename label that starts with path.ext:line.
+# A host:port such as example.com:8080 looks the same, so drop common TLDs.
+flat=$(tr '\n' ' ' < "$page" | sed -E 's#</?a[^>]*>##g; s/  +/ /g')
+ref='(<code[^>]*>|class="filename"[^>]*>) *[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+(-[0-9]+)?[ ,<]'
+tld='\.(com|org|net|io|dev|app|local|internal|localhost):'
+count() { printf '%s\n' "$flat" | grep -oE "$ref" | grep -vE "$tld" | grep -cE "$1"; }
+refs=$(count '.')
+marked=$(count 'data-bare=')
 links=$(grep -o 'class="srcref"' "$page" | wc -l | tr -d ' ')
-echo "references=$refs linked=$links"
+echo "references=$refs linked=$links marked-bare=$marked"
+
+# Every reference is linked unless the page marks it with data-bare, or the
+# provenance line says the host could not be linked at all.
+if printf '%s\n' "$flat" | grep -q 'References are not linked'; then
+  echo "pass: provenance says references are not linked"
+elif [ "$links" -lt $((refs - marked)) ]; then
+  echo "FAIL: $((refs - marked - links)) references are neither linked nor marked data-bare"
+  status=1
+else
+  echo "pass: every reference is linked or marked data-bare"
+fi
 
 # A link names the full 40-character sha. GitHub resolves an abbreviation only
 # while the commit is on a branch, so a short sha 404s once a squash merge lands.

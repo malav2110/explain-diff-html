@@ -481,6 +481,12 @@ The second is a path that is not in this repo at this ref, such as a file from a
 dependency. One page may carry a mix, and an unlinked reference reads exactly as
 it does today.
 
+Mark each reference you leave bare in the second case with a `data-bare`
+attribute, as in `<code data-bare="outside-repo">main.py:8</code>`. The
+validation script fails a page whose unlinked references are not marked, so an
+unmarked one reads as a link the run forgot. The first case needs no marker,
+because the provenance line already says `References are not linked`.
+
 This is GitHub only, on purpose. A url from `gh` names a GitHub-family host by
 construction, so link against whatever host it gives you. A parsed remote could
 be any forge, so link it only when the host is exactly `github.com`, which the

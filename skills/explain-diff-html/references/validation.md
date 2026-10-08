@@ -74,10 +74,19 @@ that mistake now fails instead of passing.
   still opens offline.
 
 - The page linked the references it should have, and every link names the
-  provenance commit in full. The script prints both counts as
-  `references=N linked=M`, then fails on any `/blob/` link whose sha is not the
-  full 40 characters starting with the short commit. It also fails on a link to
-  a `.md` or `.markdown` file that has a line anchor and no `?plain=1`.
+  provenance commit in full. The script prints `references=N linked=M
+  marked-bare=B`, then fails when fewer than `N - B` references are linked.
+  It skips that comparison when the provenance line says `References are not
+  linked`, the host case, where every reference is bare by design. It also fails
+  on any `/blob/` link whose sha is not the full 40 characters starting with the
+  short commit, and on a link to a `.md` or `.markdown` file that has a line
+  anchor and no `?plain=1`.
+
+  Mark each reference you deliberately leave bare with a `data-bare` attribute
+  naming the reason, as in `<code data-bare="outside-repo">main.py:8</code>` or
+  `<p class="filename" data-bare="outside-repo">`. The attribute does not change
+  how the page renders. It is how the script tells a deliberate choice from a
+  reference the run forgot to link.
 
   The script's count needs both the `tr` and the `sed`. A `.filename` label
   reads `class="filename">path:line` when bare and
@@ -87,11 +96,13 @@ that mistake now fails instead of passing.
   `tr` the opening tag is never stripped and the same reference goes uncounted.
   Either way `links` ends up exceeding `refs` on a page where everything worked.
 
-  The mismatch scan proves nothing on its own: with no links on
-  the page it finds nothing and reports success, which is exactly when the
-  feature is most broken. So compare the counts first. `links` should equal
-  `refs` minus the references you deliberately left bare, and you should be able
-  to name every one of those and say which of the two reasons applies.
+  The count takes a `<code>` span or `.filename` label that starts with
+  `path.ext:line`. A `host:port` such as `example.com:8080` has the same shape,
+  so the script drops one whose extension is a common top-level domain.
+
+  The sha check alone proves nothing: with no links on the page it finds
+  nothing and reports success, which is exactly when the feature is most
+  broken. The count comparison is what catches that case.
 
 - Every table-of-contents link resolves to a section anchor on the page, and
   every section on the page appears in the table of contents.
