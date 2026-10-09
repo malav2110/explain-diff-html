@@ -1,0 +1,15 @@
+{
+  "name": "explain-diff-html-validator",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "dependencies": {
+    "css-select": "7.0.0",
+    "domhandler": "6.0.1",
+    "domutils": "4.0.2",
+    "parse5": "8.0.1",
+    "parse5-htmlparser2-tree-adapter": "8.0.1"
+  }
+}

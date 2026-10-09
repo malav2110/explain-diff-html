@@ -57,11 +57,30 @@ Please:
    explain-diff-html checkout:
 
    ```sh
-   sh skills/explain-diff-html/scripts/validate-output.sh <page> <short commit>
+   npm ci --omit=dev --prefix skills/explain-diff-html/scripts
+   node skills/explain-diff-html/scripts/validate-output.ts <page> <short commit>
    ```
 
    The short commit is the one named at the top of the page. Fix what the script
    reports before you open your pull request.
+
+## Changing the validator
+
+The validator is `skills/explain-diff-html/scripts/validate-output.ts`. It needs
+Node 24.12 or later. Install both sets of dependencies, then run the checks CI
+runs:
+
+```sh
+npm ci
+npm ci --prefix skills/explain-diff-html/scripts
+npm run check
+npm test
+```
+
+To add a regression case, add a page to `tests/validate-output/pass/` if every
+check should pass, or to `tests/validate-output/fail/<check id>/` if that one
+check should fail. Every link on a case page names the commit
+`0123456789abcdef0123456789abcdef01234567`.
 
 AI-assisted pull requests are welcome. Check the code, the generated page, and
 every claim in the PR body yourself before you open it.

@@ -37,17 +37,19 @@ carry a defect nobody can see by reading it: an unvalidated Mermaid source
 fails silently in the browser, so a reader never learns a diagram is missing.
 Continue when the work still happens another way, and say what was weaker.
 
-| Tool   | Needed when                              | Used for                                               |
-| ------ | ---------------------------------------- | ------------------------------------------------------ |
-| `git`  | Every run                                | Resolving the base, fetching the ref, reading the diff |
-| `gh`   | Explaining a pull request                | Fetching the pull request title, body, and URL         |
-| `node` | Every run that carries a Mermaid diagram | Validating Mermaid sources in step 4, through `npx`    |
+| Tool   | Needed when                              | Used for                                                                   |
+| ------ | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `git`  | Every run                                | Resolving the base, fetching the ref, reading the diff                     |
+| `gh`   | Explaining a pull request                | Fetching the pull request title, body, and URL                             |
+| `node` | Every run, version 24.12 or later        | Validating the page in step 7, and Mermaid sources in step 4 through `npx` |
 
 Verify them up front:
 
 ```bash
 command -v git  >/dev/null || echo "git is required"
-command -v node >/dev/null || echo "node is required for a page with a Mermaid diagram"
+node -e 'const [major, minor] = process.versions.node.split(".").map(Number);
+  process.exit(major > 24 || (major === 24 && minor >= 12) ? 0 : 1)' 2>/dev/null ||
+  echo "node 24.12 or later is required"
 command -v gh   >/dev/null && gh auth status   # pull request targets only
 ```
 
@@ -483,6 +485,12 @@ The second is a path that is not in this repo at this ref, such as a file from a
 dependency. One page may carry a mix, and an unlinked reference reads exactly as
 it does today.
 
+Mark each reference you leave bare in the second case with a `data-bare`
+attribute, as in `<code data-bare="outside-repo">main.py:8</code>`. The
+validation script fails a page whose unlinked references are not marked, so an
+unmarked one reads as a link the run forgot. The first case needs no marker,
+because the provenance line already says `References are not linked`.
+
 This is GitHub only, on purpose. A url from `gh` names a GitHub-family host by
 construction, so link against whatever host it gives you. A parsed remote could
 be any forge, so link it only when the host is exactly `github.com`, which the
@@ -571,13 +579,22 @@ line names. `<this skill's folder>` is the folder that holds this `SKILL.md`.
 Write each path and the commit out literally, as step 1 explains:
 
 ```bash
-sh "<this skill's folder>/scripts/validate-output.sh" \
+[ -f "<this skill's folder>/scripts/node_modules/.package-lock.json" ] ||
+  npm ci --omit=dev --prefix "<this skill's folder>/scripts"
+node "<this skill's folder>/scripts/validate-output.ts" \
   "<work>/draft.html" "<short sha>"
 ```
 
-The script prints the reference and link counts, and lists the advisory ordinal
-hits for you to read. It exits 1 on a link that names another commit, or on a
-quiz option named by position.
+The first run installs the script's pinned dependencies, so it needs the npm
+registry once. The script prints the reference and link counts, and lists the
+advisory ordinal hits for you to read. It exits 1 on a reference that is neither
+linked nor marked `data-bare`, a link that names another commit, a Markdown line
+link without `?plain=1`, a missing quiz, or a quiz option named by position.
+
+If the output has no `pass:` or `FAIL:` line, the script never ran: Node is
+older than 24.12 or the install failed. That is a setup failure, not a page
+failure. Run the command checks in `references/validation.md` by hand, and say
+in your report which ones ran that way.
 
 ### 8. Write the file
 

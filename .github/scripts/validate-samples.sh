@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs the skill's validate-output.sh on every page under samples/. The
+# Runs the skill's validate-output.ts on every page under samples/. The
 # validate-samples workflow runs this on each pull request into main.
 #
 # Usage: sh .github/scripts/validate-samples.sh
@@ -7,7 +7,7 @@
 # Exits 0 when every page passes, 1 when a page fails or no page is found.
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
-validate="$root/skills/explain-diff-html/scripts/validate-output.sh"
+validate="$root/skills/explain-diff-html/scripts/validate-output.ts"
 
 status=0
 count=0
@@ -25,10 +25,10 @@ while IFS= read -r page; do
   fi
   echo "::group::$name at $commit"
   result=0
-  sh "$validate" "$page" "$commit" || result=$?
+  node "$validate" "$page" "$commit" || result=$?
   echo "::endgroup::"
   if [ "$result" -ne 0 ]; then
-    echo "::error file=$name::validate-output.sh exited $result"
+    echo "::error file=$name::validate-output.ts exited $result"
     status=1
   fi
 done <<EOF

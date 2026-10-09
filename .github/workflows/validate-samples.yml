@@ -16,5 +16,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run validate-output.sh on every sample page
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Install the validator's dependencies
+        run: npm ci --omit=dev --prefix skills/explain-diff-html/scripts
+
+      - name: Run validate-output.ts on every sample page
         run: sh .github/scripts/validate-samples.sh
