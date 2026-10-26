@@ -16,5 +16,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # v2.0.0
+        env:
+          SHELLCHECK_OPTS: -s sh
+
       - name: Run validate-output.sh on every sample page
         run: sh .github/scripts/validate-samples.sh
