@@ -364,6 +364,7 @@ Thank you to everyone who has contributed to this repo:
 - [@andyhorn](https://github.com/andyhorn)
 - [@ChristianMurphy](https://github.com/ChristianMurphy)
 - [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
+- [@skshah27](https://github.com/skshah27)
 
 ## License
 
