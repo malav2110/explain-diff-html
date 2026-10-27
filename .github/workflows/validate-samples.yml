@@ -18,6 +18,8 @@ jobs:
 
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # v2.0.0
+        with:
+          version: v0.11.0
         env:
           SHELLCHECK_OPTS: -s sh
 
