@@ -278,9 +278,10 @@ export const checks: Check[] = [
         : {
             isFailed: true,
             message: "elements inside a code block other than .del, .add, and .hi spans:",
-            findings: [...stray].map(
-              (node) => `<${node.name}> in ${getText(node.parent as Element)}`,
-            ),
+            findings: [...stray].map((node) => {
+              const tag = [node.name, ...(getAttributeValue(node, "class")?.split(" ") ?? [])];
+              return `<${tag.filter(Boolean).join(".")}> in ${getText(node.parent as Element)}`;
+            }),
           };
     },
   },

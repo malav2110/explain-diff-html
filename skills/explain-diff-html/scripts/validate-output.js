@@ -10315,7 +10315,9 @@ const checks = [
 			} : {
 				isFailed: true,
 				message: "elements inside a code block other than .del, .add, and .hi spans:",
-				findings: [...stray].map((node) => `<${node.name}> in ${getText(node.parent)}`)
+				findings: [...stray].map((node) => {
+					return `<${[node.name, ...getAttributeValue(node, "class")?.split(" ") ?? []].filter(Boolean).join(".")}> in ${getText(node.parent)}`;
+				})
 			};
 		}
 	},
