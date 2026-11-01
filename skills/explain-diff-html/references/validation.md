@@ -63,8 +63,8 @@ mistake fails instead of reporting on a page the script never opened.
   line.
 
 - Every code block is HTML-escaped: `&`, `<`, and `>` inside a `<pre>` or
-  `<code>` block appear as `&amp;`, `&lt;`, `&gt;`, with the `.del` and `.add`
-  spans wrapping the escaped text. Raw angle brackets are parsed as tags and
+  `<code>` block appear as `&amp;`, `&lt;`, `&gt;`, with the `.del`, `.add`,
+  and `.hi` spans wrapping the escaped text. Raw angle brackets are parsed as tags and
   silently break the document tree and every anchor below.
 
 - Any Mermaid source in a `<pre class="mermaid">` block is HTML-escaped the same
