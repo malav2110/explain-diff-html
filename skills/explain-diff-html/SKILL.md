@@ -37,17 +37,19 @@ carry a defect nobody can see by reading it: an unvalidated Mermaid source
 fails silently in the browser, so a reader never learns a diagram is missing.
 Continue when the work still happens another way, and say what was weaker.
 
-| Tool   | Needed when                              | Used for                                               |
-| ------ | ---------------------------------------- | ------------------------------------------------------ |
-| `git`  | Every run                                | Resolving the base, fetching the ref, reading the diff |
-| `gh`   | Explaining a pull request                | Fetching the pull request title, body, and URL         |
-| `node` | Every run that carries a Mermaid diagram | Validating Mermaid sources in step 4, through `npx`    |
+| Tool   | Needed when                              | Used for                                                                   |
+| ------ | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `git`  | Every run                                | Resolving the base, fetching the ref, reading the diff                     |
+| `gh`   | Explaining a pull request                | Fetching the pull request title, body, and URL                             |
+| `node` | Every run, version 22.18 or later        | Validating the page in step 7, and Mermaid sources in step 4 through `npx` |
 
 Verify them up front:
 
 ```bash
 command -v git  >/dev/null || echo "git is required"
-command -v node >/dev/null || echo "node is required for a page with a Mermaid diagram"
+node -e 'const [major, minor] = process.versions.node.split(".").map(Number);
+  process.exit(major > 22 || (major === 22 && minor >= 18) ? 0 : 1)' 2>/dev/null ||
+  echo "node 22.18 or later is required"
 command -v gh   >/dev/null && gh auth status   # pull request targets only
 ```
 
@@ -68,7 +70,9 @@ So on Windows, run the skill from a WSL or Git Bash session. Check first rather
 than discovering it at the first command:
 
 ```bash
-command -v mktemp sed >/dev/null || echo "run this from WSL or Git Bash, not PowerShell"
+for tool in mktemp sed openssl; do
+  command -v "$tool" >/dev/null || echo "missing $tool: run this from WSL or Git Bash, not PowerShell"
+done
 ```
 
 Test for the tools rather than for bash. Every command here is POSIX, so zsh is
@@ -103,8 +107,8 @@ paste an unvalidated Mermaid source: an invalid source fails in the browser with
 no error the reader would notice, leaving a blank gap where the diagram should
 be.
 
-A run whose change warrants none of those four shapes needs no Mermaid, and
-therefore no Node. The hand-built families cover it.
+A run whose change warrants none of those four shapes needs no Mermaid. The
+hand-built families cover it. Step 7 still needs Node to run the validator.
 
 ## Output contract
 
@@ -173,7 +177,15 @@ needs no network:
 
 ```bash
 base="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
-base="${base:-origin/$(git remote show origin | sed -n 's/.*HEAD branch: //p')}"
+if [ -z "$base" ]; then
+  head="$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p')"
+  base="${head:+origin/$head}"    # empty, not "origin/", when the call fails
+fi
+for b in origin/main origin/master; do
+  [ -n "$base" ] && break
+  git rev-parse --verify -q "$b" >/dev/null && base="$b"
+done
+echo "${base:?no default branch found}"
 ```
 
 Keep the `origin/` prefix on both paths. The first form already returns
@@ -182,9 +194,11 @@ branch. A local branch is routinely behind the remote and missing entirely in a
 single-branch clone, and the diff then silently covers the wrong range.
 
 `refs/remotes/origin/HEAD` is missing in some clones, which is why the network
-call is the fallback rather than the first attempt. Fall back again to whichever
-of `origin/main` or `origin/master` exists, and fetch the base fresh before
-diffing.
+call is the fallback rather than the first attempt. The snippet adds `origin/`
+only to a non-empty answer, because a failed network call would otherwise leave
+the non-empty string `origin/` and skip the last fallback. That last fallback
+takes whichever of `origin/main` or `origin/master` exists. Fetch the base fresh
+before diffing.
 
 Peel a tag to its commit before you use it anywhere. For an annotated tag,
 `git rev-parse v4.6.6` returns the tag object, not the commit it points at, and
@@ -215,9 +229,19 @@ work="$(mktemp -d)"
 echo "$work"   # write this path out in later steps
 git fetch origin "refs/pull/<n>/head:refs/explain/pr-<n>"       # pull request only
 pr_base="$(gh pr view <n> --json baseRefOid -q .baseRefOid)"    # the commit it opened against
-git fetch origin "$pr_base" ||
-  git fetch origin "$(gh pr view <n> --json baseRefName -q .baseRefName)"
-git diff "$pr_base" refs/explain/pr-<n> > "$work/diff.txt"      # base first, then head
+if [ -z "$pr_base" ] || ! git fetch origin "$pr_base"; then
+  # No sha from gh, or the server refused it: diff from where the head left the base branch.
+  pr_base=""
+  base_name="$(gh pr view <n> --json baseRefName -q .baseRefName)"
+  [ -n "$base_name" ] && git fetch origin "$base_name" &&
+    pr_base="$(git merge-base FETCH_HEAD refs/explain/pr-<n>)"
+fi
+if [ -z "$pr_base" ]; then
+  echo "STOP: no base commit; ask the user which commit the pull request is based on"
+else
+  git diff "$pr_base" refs/explain/pr-<n> > "$work/diff.txt"    # base first, then head
+  [ -s "$work/diff.txt" ] || echo "STOP: the diff is empty; resolve the base before drafting"
+fi
 ```
 
 Each tool call starts a new shell, so `$work` is empty in every later command.
@@ -237,10 +261,12 @@ blank page, not an error. Evidence: uPortal PR 2983 gives 0 files that way and
 17 the correct way, while fastapi PR 15800 gives the right answer both ways
 because it was squashed.
 
-`gh pr diff <n>` returns the same diff and needs no fetch, so use it when `gh`
-is available and keep the git form for when it is not. Create `<work>` first
-either way, and save the diff to the same file, so every target leaves a
-`<work>/diff.txt` for the later steps:
+`gh pr diff <n>` returns the same diff and needs no fetch, so use it when it
+works. The git form above still asks `gh` for the base commit, so it does not
+replace `gh`. Without `gh`, ask the user which commit the pull request is based
+on rather than guessing one. Create `<work>` first either way, and save the diff
+to the same file, so every target leaves a `<work>/diff.txt` for the later
+steps:
 
 ```bash
 work="$(mktemp -d)"
@@ -252,8 +278,11 @@ Fetching a bare sha is not always allowed. The server decides whether to serve
 an object that no ref advertises. GitHub.com serves one that is reachable, and a
 GitHub Enterprise install may refuse. A base branch that was force-pushed or
 deleted can also leave `baseRefOid` unreachable. So fall back to fetching the
-base branch, as above, because without that fallback the failure is another empty
-diff and another blank page.
+base branch, as above, and diff from its merge base with the head, because
+without that fallback the failure is another empty diff and another blank page.
+The empty-diff check is the backstop. A pull request merged with a merge commit
+is already on its base branch, so the fallback's merge base is the head itself
+and the diff is empty. Stop there rather than draft a blank page.
 
 For a branch or the current checkout there is no recorded base, so use the
 three-dot form against the default branch:
@@ -298,9 +327,11 @@ The output contract gives the filename key precedence. These are the patterns
 behind it.
 
 A tracker-style issue key matches `[A-Z][A-Z0-9]+-[0-9]+`, such as `PROJ-1234`.
-A labeled issue number matches `(issue|gh|#)[-_]?[0-9]+`, such as `issue-456` or
-`gh-456`. Require the label: a bare number also matches a date or a version in a
-branch name such as `cleanup-2024-q1`, which produces a meaningless filename.
+A labeled issue number matches `(^|[/_-])(issue|gh|#)[-_]?[0-9]+`, such as
+`issue-456` or `gh-456`; drop the leading separator from the match. Require the
+label: a bare number also matches a date or a version in a branch name such as
+`cleanup-2024-q1`, which produces a meaningless filename. Require it to start the
+name or follow a separator, too, or `fix-high-5` yields `gh-5` from inside "high".
 
 Both read the branch name, so both apply only to a pull request, a named branch,
 or the current checkout. A commit range and a single commit have no branch, which
@@ -342,6 +373,20 @@ descending order of reliability:
 A sparse pull request body leaves the Background section with no why. When no
 record supplies one, say what the change does and what it enables, and do not
 invent a motivation the record does not support.
+
+When the page says a fact cannot be verified, name the public artifact that
+would let a reader check it: the pull request number and URL, branch name, commit
+SHA, or other concrete ref. Do not leave phrases such as "the earlier pull
+request" or "another branch" unanchored when the source record identifies them.
+Link those artifacts when the host supports it. When an artifact exists only on
+a personal fork, link the upstream pull request that carries it and write the
+SHA or branch name as plain text rather than a fork URL. This rule identifies
+public objects, not people.
+
+Do not name individual contributors on the page, and do not publish unresolved
+claims about whether someone was credited correctly. If attribution is not
+necessary to explain the code change, omit the attribution discussion entirely
+rather than investigating or repeating it.
 
 Delegate broad reads to read-only sub-agents so the main context stays lean.
 A sub-agent returns only its summary, so ask for the conclusions and the
@@ -508,8 +553,28 @@ gh pr view <n> --json url -q .url    # https://github.com/owner/repo/pull/<n>
                                      # strip the trailing /pull/<n>
 
 # Branch, commit range, single commit, or no argument:
-git remote get-url origin | sed -E 's#^git@([^:]+):#https://\1/#; s#\.git$##'
+git remote get-url origin | sed -E '
+  # Drop a port. This runs before the scheme goes, because after that the
+  # owner in git@github.com:1234/repo.git would read like a port.
+  s#^([a-z+]+://[^/]*):[0-9]+/#\1/#
+  # Drop the scheme, such as https://, ssh://, or git+ssh://.
+  s#^[a-z+]+://##
+  # Drop credentials, such as git@ or user:token@, so no token reaches a link.
+  s#^[^@/]*@##
+  # Turn the host:owner form into host/owner.
+  s#^([^:/]+):#\1/#
+  # Drop a trailing .git, then a trailing slash.
+  s#\.git/?$##
+  s#/$##
+  # Print nothing unless the host is exactly github.com.
+  /^github\.com\//!d
+  s#^#https://#'
 ```
+
+Empty output means leave every reference bare. A CI clone's remote can embed a
+token, as in `https://x-access-token:<token>@github.com/owner/repo.git`, and
+without the credentials line that token lands in every link on a page meant
+for sharing.
 
 Build each link against the same commit the provenance line names, using the
 full 40-character sha:
@@ -555,9 +620,16 @@ The second is a path that is not in this repo at this ref, such as a file from a
 dependency. One page may carry a mix, and an unlinked reference reads exactly as
 it does today.
 
+Mark each reference you leave bare in the second case with a `data-bare`
+attribute, as in `<code data-bare="outside-repo">main.py:8</code>`. The
+validation script fails a page whose unlinked references are not marked, so an
+unmarked one reads as a link the run forgot. The first case needs no marker,
+because the provenance line already says `References are not linked`.
+
 This is GitHub only, on purpose. A url from `gh` names a GitHub-family host by
 construction, so link against whatever host it gives you. A parsed remote could
-be any forge, so link it only when the host is exactly `github.com`. GitLab and
+be any forge, so link it only when the host is exactly `github.com`, which the
+`sed` above enforces. GitLab and
 Bitbucket build blob URLs differently, and a GitHub-shaped URL aimed at them
 resolves to nothing. Leave those references bare rather than guess.
 
@@ -608,6 +680,10 @@ this skill's folder. Read it before you write a question. The file sets the
 count from the walkthrough's `h3.core-step` headings. Its rules stop a reader
 from answering by recall, by option length, or by position.
 
+Keep the quiz as the last section in `<main>`, where the template puts it, and
+add no section after it. The validation script reads only the element whose `id`
+is `quiz`, so text placed after it gets none of the quiz checks.
+
 ### 6. Humanize the prose
 
 An author misses its own tells. Do not self-edit the draft in the main thread.
@@ -639,15 +715,23 @@ is the folder that holds this `SKILL.md`. Write each path and the commit out
 literally, as step 1 explains:
 
 ```bash
-sh "<this skill's folder>/scripts/validate-output.sh" \
+node "<this skill's folder>/scripts/validate-output.js" \
   "<work>/draft.html" "<short sha>" "<work>"
 ```
 
-The script prints the words per section, the reference and link counts, and the
-advisory ordinal hits for you to read. Every other check prints `pass` or
-`FAIL`, and the script exits 1 when one fails. A failure you cannot fix goes in
-the page's banner, as `references/validation.md` explains. The coverage check
-prints `skip` when it gets no work directory, so always pass `<work>`.
+The script carries its dependencies, so it needs no install and no network. It
+prints the words per section, the reference and link counts, and the advisory
+ordinal hits for you to read. Every other check prints `pass:` or `FAIL:`, and
+the script exits 1 when one fails. A failure you cannot fix goes in the page's
+banner, as `references/validation.md` explains. The coverage check prints
+`skip:` when it gets no work directory, so always pass `<work>`.
+
+A `usage:` line means the arguments are wrong. Fix the page path or the short
+commit and run the command again. If the output has no `pass:`, `FAIL:`, or
+`usage:` line, the script did not finish: Node is missing or too old. That is a
+setup failure, not a page failure. Run the command checks in
+`references/validation.md` by hand, and say in your report which ones ran that
+way.
 
 ### 8. Write the file
 

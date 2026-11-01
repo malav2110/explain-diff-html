@@ -188,11 +188,11 @@ tests the prose against the skill's writing rules.
 <details markdown="1">
 <summary>git, gh, and node, plus what runs on which platform.</summary>
 
-| Tool   | Needed when                              | Used for                                               |
-| ------ | ---------------------------------------- | ------------------------------------------------------ |
-| `git`  | Every run                                | Resolving the base, fetching the ref, reading the diff |
-| `gh`   | Explaining a pull request                | Fetching the pull request title, body, and URL         |
-| `node` | Every run that carries a Mermaid diagram | Validating Mermaid sources in step 4, through `npx`    |
+| Tool   | Needed when                              | Used for                                                                   |
+| ------ | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `git`  | Every run                                | Resolving the base, fetching the ref, reading the diff                     |
+| `gh`   | Explaining a pull request                | Fetching the pull request title, body, and URL                             |
+| `node` | Every run, version 22.18 or later        | Validating the page in step 7, and Mermaid sources in step 4 through `npx` |
 
 `gh` must be authenticated, not only installed. Check with `gh auth status`.
 
@@ -234,7 +234,7 @@ a newer version, and `npx skills remove` takes it out again.
 ### Installing by hand
 
 The skill is the `skills/explain-diff-html` directory, so copying that one
-directory into place works too, and needs no Node.
+directory into place works too. The validator in step 7 still needs Node.
 
 For every project you work on:
 
@@ -323,7 +323,7 @@ a motive.
 Steps 4 to 7 keep a short summary in `SKILL.md` and send the agent to a file in
 `references/` for the detail: `diagrams.md`, `quiz-design.md`,
 `writing-quality.md`, and `validation.md`. The commands step 7 runs are in
-`scripts/validate-output.sh`.
+`scripts/validate-output.js`, a single file built from `src/validate-output.ts`.
 
 Step 7 carries two checks that exist because of past failures. It confirms
 every code block is HTML-escaped, because a single raw `<` in a pasted diff line
@@ -358,6 +358,15 @@ the skill fills in rather than rebuilding per run:
   remove it. The `.colophon` rules style nothing else, so delete those too.
 
 </details>
+
+## Contributors
+
+Thank you to everyone who has contributed to this repo:
+
+- [@andyhorn](https://github.com/andyhorn)
+- [@ChristianMurphy](https://github.com/ChristianMurphy)
+- [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
+- [@skshah27](https://github.com/skshah27)
 
 ## License
 

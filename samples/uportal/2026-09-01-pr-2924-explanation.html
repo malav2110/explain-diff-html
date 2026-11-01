@@ -625,9 +625,7 @@
             named <code>first</code> and <code>second</code>.
           </p>
 
-          <p class="filename">
-            uPortal-rendering/.../url/UrlSyntaxProviderImpl.java:894
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L894">uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:894</a></p>
           <pre>protected Tuple&lt;String, IPortletWindowId&gt; parsePortletParameterName(
         HttpServletRequest request, String name, Set&lt;String&gt; additionalPortletIds) {</pre>
 
@@ -639,9 +637,7 @@
             the definition, and if the definition is not there, it throws.
           </p>
 
-          <p class="filename">
-            uPortal-rendering/.../portlet/registry/PortletEntityRegistryImpl.java:757
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/portlet/registry/PortletEntityRegistryImpl.java#L757">uPortal-rendering/src/main/java/org/apereo/portal/portlet/registry/PortletEntityRegistryImpl.java:757</a></p>
           <pre>if (portletDefinition == null) {
     throw new IllegalArgumentException(
             "No parent IPortletDefinition found for "
@@ -847,7 +843,7 @@ found for 27. The parameter will be ignored.</div>
 
           <h3>2. The 500 path, before</h3>
 
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-web/src/main/java/org/apereo/portal/web/ExceptionLoggingFilter.java#L46">uPortal-web/.../web/ExceptionLoggingFilter.java:46</a></p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-web/src/main/java/org/apereo/portal/web/ExceptionLoggingFilter.java#L46">uPortal-web/src/main/java/org/apereo/portal/web/ExceptionLoggingFilter.java:46</a></p>
           <pre>try {
     chain.doFilter(request, response);
 } catch (Throwable t) {
@@ -871,9 +867,7 @@ found for 27. The parameter will be ignored.</div>
 
           <h3>3. The fix, and where control actually goes</h3>
 
-          <p class="filename">
-            uPortal-rendering/.../url/UrlSyntaxProviderImpl.java:908
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L908">uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:908</a></p>
           <pre><span class="add">+            try {</span>
                  final IPortletWindowId portletWindowId =
                          this.portletWindowRegistry.getPortletWindowId(request, additionalPortletId);
@@ -947,9 +941,7 @@ found for 27. The parameter will be ignored.</div>
             comparing precisely.
           </p>
 
-          <p class="filename">
-            uPortal-rendering/.../url/UrlSyntaxProviderImpl.java:945
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L945">uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:945</a></p>
           <pre>            try {
                 return this.portletWindowRegistry.getPortletWindowId(request, portletWindowIdStr);
             } catch (IllegalArgumentException e) {
@@ -1022,9 +1014,7 @@ found for 27. The parameter will be ignored.</div>
             that an exception escapes.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/.../url/UrlSyntaxProviderImplTest.java:1059
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L1059">uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java:1059</a></p>
           <pre>    public void testParsePortletParameterNameWithInvalidPortletEntity() {</pre>
 
           <p>
@@ -1056,9 +1046,7 @@ found for 27. The parameter will be ignored.</div>
             the description.
           </p>
 
-          <p class="filename">
-            uPortal-webapp/.../url/UrlSyntaxProviderImplTest.java:53
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L53">uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java:53</a></p>
           <pre><span class="del">-@Ignore // Breaks on move to Gradle</span>
 <span class="del">-@RunWith(MockitoJUnitRunner.class)</span>
 <span class="add">+@RunWith(MockitoJUnitRunner.Silent.class)</span>
@@ -1098,9 +1086,7 @@ found for 27. The parameter will be ignored.</div>
             <code>portletWindow2</code>, which stands in for a delegate window:
           </p>
 
-          <p class="filename">
-            uPortal-webapp/.../url/UrlSyntaxProviderImplTest.java:421-423
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L421-L423">uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java:421-423</a></p>
           <pre>        when(portletWindow2.getPortletEntity()).thenReturn(portletEntity2);
         when(portletWindow2.getDelegationParentId()).thenReturn(portletWindowId1);
         when(portletEntity2.getLayoutNodeId()).thenReturn(subscribeId2);</pre>
@@ -1135,9 +1121,7 @@ found for 27. The parameter will be ignored.</div>
             is the fact you need to judge the edits.
           </p>
 
-          <p class="filename">
-            uPortal-security/.../url/ClassicMaxInactiveStrategy.java:47
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/ClassicMaxInactiveStrategy.java#L47">uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/ClassicMaxInactiveStrategy.java:47</a></p>
           <pre><span class="del">-            log.info(</span>
 <span class="add">+            log.debug(</span>
                      "No {} permissions apply to user '{}'",</pre>
@@ -1150,9 +1134,7 @@ found for 27. The parameter will be ignored.</div>
             authenticated session per five minutes.
           </p>
 
-          <p class="filename">
-            uPortal-utils/.../personalize/PersonalizerImpl.java:110
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/personalize/PersonalizerImpl.java#L110">uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/personalize/PersonalizerImpl.java:110</a></p>
           <pre><span class="del">-                log.warn("Person attribute value is not a string!! : [{}]", key);</span>
 <span class="add">+                log.debug("Person attribute value is not a string : [{}]", key);</span></pre>
 

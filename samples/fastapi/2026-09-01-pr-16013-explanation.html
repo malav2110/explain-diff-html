@@ -574,8 +574,7 @@ def read_item(id: int):
     return {"id": id}
 
 app = FastAPI()
-app.include_router(router, prefix="/api")</pre
-            >
+app.include_router(router, prefix="/api")</pre>
             <p>
               Routers nest, and each level can add a prefix, dependencies, tags,
               and response settings. So the path a request matches, and the
@@ -617,8 +616,7 @@ app.include_router(router, prefix="/api")</pre
 @dataclass
 class _IncludedRouter(BaseRoute):
     original_router: "APIRouter"
-    include_context: _RouterIncludeContext</pre
-          >
+    include_context: _RouterIncludeContext</pre>
 
           <p>
             The version is not a plain counter on one router. It is a sum over
@@ -639,8 +637,7 @@ class _IncludedRouter(BaseRoute):
         for route in self.routes:
             if isinstance(route, _IncludedRouter):
                 version += route.original_router._get_routes_version(seen)
-        return version</pre
-          >
+        return version</pre>
 
           <p>
             Six methods bump a router's own counter:
@@ -666,8 +663,7 @@ class _IncludedRouter(BaseRoute):
             ...
             self._effective_candidates.append(route_context)
         self._effective_candidates_version = routes_version
-        return self._effective_candidates</pre
-          >
+        return self._effective_candidates</pre>
 
           <div class="callout">
             <span class="label">Key concept</span>
@@ -754,8 +750,7 @@ sequenceDiagram
     A-&gt;&gt;C: append into the list B just replaced
     A-&gt;&gt;C: set version to current
     B-&gt;&gt;C: reads a list that is neither complete nor its own
-    B--)B: a valid route 404s</pre
-          >
+    B--)B: a valid route 404s</pre>
 
           <p>
             Step 8 is the one to look at. Thread A stamps the version while
@@ -872,8 +867,7 @@ sequenceDiagram
                 ...
             self._effective_candidates = effective_candidates
             self._effective_candidates_version = routes_version
-            return effective_candidates</pre
-          >
+            return effective_candidates</pre>
 
           <p>
             Four things to name: the duplicated check, the local list, the
@@ -1045,8 +1039,7 @@ sequenceDiagram
 def test_included_router_candidate_cache_is_thread_safe():
     router = APIRouter()
     route_count = 120
-    thread_count = 6</pre
-          >
+    thread_count = 6</pre>
 
           <p>
             The test uses the same shape as the discussion's example code, 120
@@ -1061,8 +1054,7 @@ def test_included_router_candidate_cache_is_thread_safe():
     assert len(results) == thread_count
     assert all(result is results[0] for result in results)
     assert len(results[0]) == route_count
-    assert TestClient(app).get("/items/0").json() == {"index": 0}</pre
-          >
+    assert TestClient(app).get("/items/0").json() == {"index": 0}</pre>
 
           <p>
             The second is the interesting one. It uses
@@ -1083,8 +1075,7 @@ def test_included_router_candidate_cache_is_thread_safe():
 
           <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L935">tests/test_router_include_context.py:935</a></p>
           <pre>
-def test_included_router_low_priority_cache_rechecks_version_after_lock(monkeypatch):</pre
-          >
+def test_included_router_low_priority_cache_rechecks_version_after_lock(monkeypatch):</pre>
 
           <p>
             The second test targets the branch that only exists because of this
