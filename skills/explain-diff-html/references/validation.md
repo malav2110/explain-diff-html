@@ -63,9 +63,12 @@ mistake fails instead of reporting on a page the script never opened.
   line.
 
 - Every code block is HTML-escaped: `&`, `<`, and `>` inside a `<pre>` or
-  `<code>` block appear as `&amp;`, `&lt;`, `&gt;`, with the `.del` and `.add`
-  spans wrapping the escaped text. Raw angle brackets are parsed as tags and
-  silently break the document tree and every anchor below.
+  `<code>` block appear as `&amp;`, `&lt;`, `&gt;`, with the `.del`, `.add`,
+  and `.hi` spans wrapping the escaped text. Raw angle brackets are parsed as
+  tags and silently break the document tree and every anchor below. The script
+  fails on any element inside a `<pre>` or `<code>` other than those spans,
+  which is what a raw `<` before a letter becomes. It does not see a raw end
+  tag such as `</div>` or a raw `<!--`, so read the blocks for those.
 
 - Any Mermaid source in a `<pre class="mermaid">` block is HTML-escaped the same
   way. An unescaped `<br/>` vanishes from the rendered label and a bare `<`

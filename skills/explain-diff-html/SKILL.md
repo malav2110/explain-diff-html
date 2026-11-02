@@ -628,7 +628,8 @@ The script carries its dependencies, so it needs no install and no network. It
 prints the reference and link counts, and lists the advisory ordinal hits for
 you to read. It exits 1 on a reference that is neither linked nor marked
 `data-bare`, a link that names another commit, a Markdown line link without
-`?plain=1`, a missing quiz, or a quiz option named by position.
+`?plain=1`, an element inside a code block other than a `.del`, `.add`, or
+`.hi` span, a missing quiz, or a quiz option named by position.
 
 A `usage:` line means the arguments are wrong. Fix the page path or the short
 commit and run the command again. If the output has no `pass:`, `FAIL:`, or

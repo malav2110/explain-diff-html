@@ -262,6 +262,30 @@ export const checks: Check[] = [
     },
   },
   {
+    // A raw `<` that starts a tag becomes an element inside the block, so only the
+    // diff and highlight spans may sit in a code block.
+    id: "code-escaped",
+    run({ document }) {
+      const stray = new Set(
+        selectAll<AnyNode, Element>("pre, code", document).flatMap((block) =>
+          selectAll<AnyNode, Element>("*", block.children).filter(
+            (node) => !is<AnyNode, Element>(node, "span.del, span.add, span.hi"),
+          ),
+        ),
+      );
+      return stray.size === 0
+        ? { isFailed: false, message: "every code block holds only text and .del, .add, .hi spans" }
+        : {
+            isFailed: true,
+            message: "elements inside a code block other than .del, .add, and .hi spans:",
+            findings: [...stray].map((node) => {
+              const tag = [node.name, ...(getAttributeValue(node, "class")?.split(" ") ?? [])];
+              return `<${tag.filter(Boolean).join(".")}> in ${getText(node.parent as Element)}`;
+            }),
+          };
+    },
+  },
+  {
     id: "quiz-present",
     run({ document }) {
       return getQuizText(document) === ""

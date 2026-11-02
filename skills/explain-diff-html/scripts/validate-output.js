@@ -10306,6 +10306,22 @@ const checks = [
 		}
 	},
 	{
+		id: "code-escaped",
+		run({ document }) {
+			const stray = new Set(selectAll("pre, code", document).flatMap((block) => selectAll("*", block.children).filter((node) => !is(node, "span.del, span.add, span.hi"))));
+			return stray.size === 0 ? {
+				isFailed: false,
+				message: "every code block holds only text and .del, .add, .hi spans"
+			} : {
+				isFailed: true,
+				message: "elements inside a code block other than .del, .add, and .hi spans:",
+				findings: [...stray].map((node) => {
+					return `<${[node.name, ...getAttributeValue(node, "class")?.split(" ") ?? []].filter(Boolean).join(".")}> in ${getText(node.parent)}`;
+				})
+			};
+		}
+	},
+	{
 		id: "quiz-present",
 		run({ document }) {
 			return getQuizText(document) === "" ? {
