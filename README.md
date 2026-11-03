@@ -188,8 +188,8 @@ tests the prose against the skill's writing rules.
 
 | Tool   | Needed when                              | Used for                                                                   |
 | ------ | ---------------------------------------- | -------------------------------------------------------------------------- |
-| `git`  | Every run                                | Resolving the base, fetching the ref, reading the diff                     |
-| `gh`   | Explaining a pull request                | Fetching the pull request title, body, and URL                             |
+| `git`  | Reading from a local clone               | Resolving the base, fetching the ref, reading the diff                     |
+| `gh`   | Explaining a pull request                | Fetching the pull request data; with no clone, also the diff and files     |
 | `node` | Every run, version 22.18 or later        | Validating the page in step 7, and Mermaid sources in step 4 through `npx` |
 
 `gh` must be authenticated, not only installed. Check with `gh auth status`.
