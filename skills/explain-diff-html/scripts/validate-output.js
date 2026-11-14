@@ -1,6 +1,7 @@
 // Built from src/validate-output.ts by `npm run build`. Edit the source, not this file.
 // The licenses of the packages it includes are in THIRD-PARTY-LICENSES.txt.
 import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 //#region \0rolldown/runtime.js
 var __defProp = Object.defineProperty;
 var __exportAll = (all, no_symbols) => {
@@ -10246,6 +10247,159 @@ function getOrdinalPhrases(text) {
 	}
 	return phrases;
 }
+function getSentenceText(node) {
+	if (isText(node)) return node.data;
+	if (!isTag(node)) return "";
+	if (node.name === "code") return "CODE";
+	return node.children.map(getSentenceText).join(" ");
+}
+function getSentence(node) {
+	return getSentenceText(node).replace(/\s+/g, " ").trim();
+}
+const abbreviations = [
+	"e.g",
+	"i.e",
+	"vs",
+	"etc"
+];
+function hasSecondSentence(text) {
+	for (let index = 0; index < text.length; index += 1) {
+		const character = text[index] ?? "";
+		if (!".!?".includes(character)) continue;
+		const before = text.slice(0, index);
+		if (character === "." && abbreviations.some((word) => before.endsWith(word))) continue;
+		let next = index + 1;
+		while (isMadeOf(text[next] ?? "", `"')`)) next += 1;
+		if (text[next] === " " && isMadeOf(text[next + 1] ?? "", letters.toUpperCase())) return true;
+	}
+	return false;
+}
+function countWords(text) {
+	return text.split(/\s+/).filter((token) => Array.from(token).some((character) => alphanumerics.includes(character))).length;
+}
+function isCorrectLongest(question) {
+	let correct = -1;
+	let other = -1;
+	for (const option of selectAll("button", question)) {
+		const words = countWords(getVisibleText(option));
+		if (getAttributeValue(option, "data-correct") !== void 0) correct = words;
+		else other = Math.max(other, words);
+	}
+	return correct > other;
+}
+function getTableReasons(document) {
+	return selectAll("table.also-changed tr", document).flatMap((row) => {
+		const reason = selectAll("td", row).at(-1);
+		return reason ? [getSentence(reason)] : [];
+	});
+}
+const escapes = {
+	t: 9,
+	n: 10,
+	"\"": 34,
+	"\\": 92
+};
+function unquotePath(quoted) {
+	const encoder = new TextEncoder();
+	const bytes = [];
+	for (let index = 0; index < quoted.length; index += 1) {
+		const character = quoted[index] ?? "";
+		const octal = quoted.slice(index + 1, index + 4);
+		const next = quoted[index + 1] ?? "";
+		if (character !== "\\") bytes.push(...encoder.encode(character));
+		else if (octal.length === 3 && isMadeOf(octal, "01234567")) {
+			bytes.push(Number.parseInt(octal, 8));
+			index += 3;
+		} else {
+			bytes.push(escapes[next] ?? next.charCodeAt(0));
+			index += 1;
+		}
+	}
+	return new TextDecoder().decode(new Uint8Array(bytes));
+}
+function getChangedPaths(diff) {
+	return diff.split("\n").flatMap((line) => {
+		if (!line.startsWith("diff --git ")) return [];
+		const isQuoted = line.endsWith("\"");
+		const marker = isQuoted ? " \"b/" : " b/";
+		const start = line.lastIndexOf(marker);
+		if (start === -1) return [];
+		const path = line.slice(start + marker.length, isQuoted ? -1 : void 0);
+		return [isQuoted ? unquotePath(path) : path];
+	});
+}
+function getPageText(node) {
+	if (isTag(node) && is(node, ".check-banner")) return "";
+	if (!isTag(node) || [
+		"script",
+		"style",
+		"template"
+	].includes(node.name)) return getVisibleText(node);
+	return node.children.map(getPageText).join(" ");
+}
+function getBarePath(token) {
+	let end = token.length;
+	for (let index = 0; index < token.length; index += 1) if (token[index] === ":" && isMadeOf(token[index + 1] ?? "", digits)) {
+		end = index;
+		break;
+	}
+	let bare = token.slice(0, end);
+	while (isMadeOf(bare.at(-1) ?? "", ",.;:)")) bare = bare.slice(0, -1);
+	while (bare.startsWith("(")) bare = bare.slice(1);
+	return bare;
+}
+function getTokens(text) {
+	const tokens = text.split(/\s+/).filter((token) => token !== "");
+	return new Set(tokens.flatMap((token) => [token, getBarePath(token)]));
+}
+function isTableRow(path, tableTokens) {
+	const parts = path.split("/");
+	return tableTokens.has(path) || parts.slice(1).some((_, index) => tableTokens.has(`${parts.slice(0, index + 1).join("/")}/`));
+}
+function getCoverage(document, paths) {
+	const body = selectOne("body", document);
+	const pageText = body ? getPageText(body).replace(/\s+/g, " ") : "";
+	const pageTokens = getTokens(pageText);
+	const firstColumn = selectAll("table.also-changed tr", document).flatMap((row) => selectAll("td", row).slice(0, 1)).map(getText).join(" ");
+	const tableTokens = getTokens(firstColumn);
+	let inTable = 0;
+	const missing = [];
+	for (const path of paths) {
+		const hasSpace = path.includes(" ");
+		const isNamedAsText = hasSpace && pageText.includes(path);
+		if (hasSpace && firstColumn.includes(path)) inTable += 1;
+		else if (!isNamedAsText && isTableRow(path, tableTokens)) inTable += 1;
+		else if (!isNamedAsText && !pageTokens.has(path)) missing.push(path);
+	}
+	return {
+		inTable,
+		missing
+	};
+}
+function getProseText(node) {
+	if (isTag(node) && node.name === "pre") return "";
+	if (!isTag(node) || [
+		"script",
+		"style",
+		"template"
+	].includes(node.name)) return getVisibleText(node);
+	return node.children.map(getProseText).join(" ");
+}
+function getSectionWords(document) {
+	const counts = selectAll("section[id]", document).map((section) => ({
+		id: getAttributeValue(section, "id") ?? "",
+		words: countWords(getProseText(section))
+	}));
+	const total = counts.reduce((sum, { words }) => sum + words, 0);
+	return `words: ${[...counts.map(({ id, words }) => `${id} ${words}`), `total ${total}`].join("  ")}`;
+}
+function getCaptionCount(table) {
+	const label = "Every other changed file (";
+	const text = getText(table);
+	const start = text.indexOf(label);
+	const end = text.indexOf(")", start);
+	return start === -1 || end === -1 ? void 0 : text.slice(start + 26, end).trim();
+}
 const checks = [
 	{
 		id: "unlinked-reference",
@@ -10306,6 +10460,55 @@ const checks = [
 		}
 	},
 	{
+		id: "coverage",
+		run({ document, diff }) {
+			if (!diff) return {
+				isFailed: false,
+				isSkipped: true,
+				message: "coverage, no work directory given"
+			};
+			if (diff.text === "") return {
+				isFailed: true,
+				message: `${diff.path} is missing or empty`,
+				findings: []
+			};
+			const paths = getChangedPaths(diff.text);
+			if (paths.length === 0) return {
+				isFailed: true,
+				message: `${diff.path} has no diff --git headers`,
+				findings: []
+			};
+			const { missing } = getCoverage(document, paths);
+			return missing.length === 0 ? {
+				isFailed: false,
+				message: `all ${paths.length} changed files appear on the page`
+			} : {
+				isFailed: true,
+				message: "changed files the page never names:",
+				findings: missing
+			};
+		}
+	},
+	{
+		id: "table-caption",
+		run({ document, diff }) {
+			const table = selectOne("table.also-changed", document);
+			if (!diff || diff.text === "" || !table) return { isFailed: false };
+			const paths = getChangedPaths(diff.text);
+			const expected = `${getCoverage(document, paths).inTable} of ${paths.length}`;
+			const count = getCaptionCount(table);
+			const caption = count === void 0 ? "no caption" : `Every other changed file (${count})`;
+			return count === expected ? {
+				isFailed: false,
+				message: `table caption counts ${expected}`
+			} : {
+				isFailed: true,
+				message: `table caption reads '${caption}', expected (${expected})`,
+				findings: []
+			};
+		}
+	},
+	{
 		id: "quiz-present",
 		run({ document }) {
 			return getQuizText(document) === "" ? {
@@ -10328,6 +10531,110 @@ const checks = [
 				findings: positionalPhrases
 			};
 		}
+	},
+	{
+		id: "quiz-count",
+		run({ document }) {
+			const quiz = selectOne("main #quiz", document);
+			if (!quiz) return { isFailed: false };
+			const steps = selectAll("h3.core-step", document).length;
+			const asked = selectAll(".quiz-question", quiz).length;
+			const expected = steps <= 2 ? 3 : 5;
+			const declared = getAttributeValue(quiz, "data-quiz-count") ?? "";
+			if (!isMadeOf(declared, digits)) return asked === expected ? {
+				isFailed: false,
+				message: `${asked} questions for ${steps} core steps`
+			} : {
+				isFailed: true,
+				message: `${asked} questions for ${steps} core steps, expected ${expected}`,
+				findings: []
+			};
+			const count = Number(declared);
+			const reason = getAttributeValue(quiz, "data-quiz-reason") ?? "";
+			return count >= 1 && count <= expected && asked === count && reason !== "" && !reason.includes("FILL") ? {
+				isFailed: false,
+				message: `${asked} questions, the declared count, because: ${reason}`
+			} : {
+				isFailed: true,
+				message: `${asked} questions, declared ${count} of at most ${expected}, reason '${reason}'`,
+				findings: []
+			};
+		}
+	},
+	{
+		id: "quiz-longest-option",
+		run({ document }) {
+			const quiz = selectOne("main #quiz", document);
+			if (!quiz) return { isFailed: false };
+			const questions = selectAll(".quiz-question", quiz);
+			const longest = questions.filter(isCorrectLongest).length;
+			const allowed = questions.length >= 5 ? 2 : 1;
+			const counts = `${longest} of ${questions.length} questions`;
+			return longest <= allowed ? {
+				isFailed: false,
+				message: `the longest option is correct in ${counts}`
+			} : {
+				isFailed: true,
+				message: `the longest option is correct in ${counts}, at most ${allowed} allowed`,
+				findings: []
+			};
+		}
+	},
+	{
+		id: "lead-sentence",
+		run({ document }) {
+			const lead = selectOne("p.lead", document);
+			const sentence = lead ? getSentence(lead) : "";
+			if (sentence === "") return {
+				isFailed: true,
+				message: "the page has no p.lead sentence",
+				findings: []
+			};
+			return hasSecondSentence(sentence) ? {
+				isFailed: true,
+				message: "p.lead runs past one sentence:",
+				findings: [sentence]
+			} : {
+				isFailed: false,
+				message: "p.lead is one sentence"
+			};
+		}
+	},
+	{
+		id: "table-reason-sentence",
+		run({ document }) {
+			const reasons = getTableReasons(document);
+			if (reasons.length === 0) return { isFailed: false };
+			const longReasons = reasons.filter(hasSecondSentence);
+			return longReasons.length === 0 ? {
+				isFailed: false,
+				message: "every table reason is one sentence"
+			} : {
+				isFailed: true,
+				message: "table reasons that run past one sentence:",
+				findings: longReasons
+			};
+		}
+	},
+	{
+		id: "check-banner",
+		run(page) {
+			const banner = selectOne(".check-banner", page.document);
+			if (!banner) return { isFailed: false };
+			if (getText(banner).replace("Failed checks:", "").trim() === "") return {
+				isFailed: true,
+				message: "the check banner names no check",
+				findings: []
+			};
+			return checks.some((check) => check.id !== "check-banner" && check.run(page).isFailed) ? {
+				isFailed: false,
+				message: "the check banner names the failed checks"
+			} : {
+				isFailed: true,
+				message: "the check banner is still on a page whose checks pass",
+				findings: []
+			};
+		}
 	}
 ];
 function parsePage(html) {
@@ -10339,10 +10646,17 @@ function validate(page) {
 		result: check.run(page)
 	}));
 }
+function readDiff(work) {
+	const path = join(work, "diff.txt");
+	return {
+		path,
+		text: statSync(path, { throwIfNoEntry: false })?.isFile() ? readFileSync(path, "utf8") : ""
+	};
+}
 function main(args) {
-	const [path, sha] = args;
+	const [path, sha, work] = args;
 	if (!path || !sha) {
-		console.error("usage: node validate-output.js <drafted page> <short commit>");
+		console.error("usage: node validate-output.js <drafted page> <short commit> [<work directory>]");
 		return 2;
 	}
 	if (sha.length < 4 || sha.length > 40 || !isMadeOf(sha, hexDigits)) {
@@ -10355,19 +10669,22 @@ function main(args) {
 		return 1;
 	}
 	const document = parsePage(readFileSync(path, "utf8"));
+	console.log(getSectionWords(document));
 	const references = getReferences(document);
 	const linked = selectAll("a.srcref", document).length;
 	const marked = references.filter(isMarkedBare).length;
 	console.log(`references=${references.length} linked=${linked} marked-bare=${marked}`);
 	let status = 0;
+	const diff = work ? readDiff(work) : void 0;
 	for (const { result } of validate({
 		document,
-		sha
+		sha,
+		diff
 	})) if (result.isFailed) {
 		console.log(`FAIL: ${result.message}`);
 		for (const finding of result.findings) console.log(finding);
 		status = 1;
-	} else if (result.message) console.log(`pass: ${result.message}`);
+	} else if (result.message) console.log(`${result.isSkipped ? "skip" : "pass"}: ${result.message}`);
 	console.log("advisory: ordinals in the quiz, read each one:");
 	const ordinals = getOrdinalPhrases(getQuizText(document));
 	console.log(ordinals.length === 0 ? "  none" : ordinals.join("\n"));
@@ -10375,4 +10692,4 @@ function main(args) {
 }
 process.exitCode = main(process.argv.slice(2));
 //#endregion
-export { checks, parsePage, validate };
+export { checks, parsePage, readDiff, validate };

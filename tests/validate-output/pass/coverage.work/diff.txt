@@ -1,0 +1,32 @@
+diff --git a/a.py b/a.py
+--- a/a.py
++++ b/a.py
+@@ -9 +9 @@
+-    return 0
++    return None
+diff --git a/docs/cache.md b/docs/cache.md
+--- a/docs/cache.md
++++ b/docs/cache.md
+@@ -1 +1 @@
+-The cache returns zero.
++The cache returns None.
+diff --git a/tests/unit/test_a.py b/tests/unit/test_a.py
+--- a/tests/unit/test_a.py
++++ b/tests/unit/test_a.py
+@@ -1 +1 @@
+-assert get() == 0
++assert get() is None
+diff --git a/assets/logo.png b/assets/logo.png
+Binary files a/assets/logo.png and b/assets/logo.png differ
+diff --git a/src/my file.py b/src/my file.py
+--- a/src/my file.py
++++ b/src/my file.py
+@@ -1 +1 @@
+-DEFAULT = 0
++DEFAULT = None
+diff --git "a/src/caf\303\251.py" "b/src/caf\303\251.py"
+--- "a/src/caf\303\251.py"
++++ "b/src/caf\303\251.py"
+@@ -1 +1 @@
+-DEFAULT = 0
++DEFAULT = None

@@ -1,0 +1,12 @@
+diff --git a/a.py b/a.py
+--- a/a.py
++++ b/a.py
+@@ -9 +9 @@
+-    return 0
++    return None
+diff --git a/b.py b/b.py
+--- a/b.py
++++ b/b.py
+@@ -1 +1 @@
+-DEFAULT = 0
++DEFAULT = None
