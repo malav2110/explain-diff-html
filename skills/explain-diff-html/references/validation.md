@@ -4,7 +4,9 @@ This is step 7 of the workflow in `SKILL.md`: what each check is, and why it
 exists.
 
 Start with the anchors, the code claims, and the links. Dispatch a read-only
-sub-agent that re-reads each cited `path:line` at the target ref, checks that
+sub-agent that re-reads each cited `path:line` at the target ref (with no clone,
+a changed file is at `<work>/files/<path>` and any other file is fetched, as
+step 1 of `SKILL.md` describes), checks that
 what the page says about that code still holds, and reports mismatches. Wait for
 that report, as step 2 of `SKILL.md` says, then fix every mismatch before
 saving. A wrong anchor and a wrong claim both survive every check below. The

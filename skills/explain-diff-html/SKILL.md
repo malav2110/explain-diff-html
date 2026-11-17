@@ -39,14 +39,14 @@ Continue when the work still happens another way, and say what was weaker.
 
 | Tool   | Needed when                              | Used for                                                                   |
 | ------ | ---------------------------------------- | -------------------------------------------------------------------------- |
-| `git`  | Reading from a local clone               | Resolving the base, fetching the ref, reading the diff                     |
+| `git`  | Every run, except a PR with no clone     | Resolving the base, fetching the ref, reading the diff                     |
 | `gh`   | Explaining a pull request                | Fetching the pull request data; with no clone, also the diff and files     |
 | `node` | Every run, version 22.18 or later        | Validating the page in step 7, and Mermaid sources in step 4 through `npx` |
 
 Verify them up front:
 
 ```bash
-command -v git  >/dev/null || echo "git is required for local clones"
+command -v git  >/dev/null || echo "git is required, except for a PR with no clone"
 node -e 'const [major, minor] = process.versions.node.split(".").map(Number);
   process.exit(major > 22 || (major === 22 && minor >= 18) ? 0 : 1)' 2>/dev/null ||
   echo "node 22.18 or later is required"
@@ -112,44 +112,6 @@ be.
 A run whose change warrants none of those four shapes needs no Mermaid. The
 hand-built families cover it. Step 7 still needs Node to run the validator.
 
-### Local clone vs. no clone
-
-The skill has two paths for explaining a pull request.
-
-**With a local clone** (the default path): the skill runs inside a git checkout,
-uses `git fetch` and `gh pr view` to resolve the PR, and reads changed files
-from the working tree.
-
-**Without a local clone**: the skill uses `gh pr view` with the `-R owner/repo`
-flag to reach a repository you haven't cloned, and the GitHub API to
-fetch file contents at the PR's head commit. This path requires `gh` to be
-authenticated and a PR number or URL as the target.
-
-Both paths produce the same output format and honor the same output contract.
-The only differences are how the skill resolves the target and gathers file
-contents.
-
-Detect which path to use. A checkout only counts when it is the repository that
-owns the pull request, so compare `origin` with the `owner/repo` parsed from the
-target. Set `target_slug` to that value in lowercase, or leave it empty when the
-target is a bare number, a branch, or a commit:
-
-```bash
-in_repo=false
-if command -v git >/dev/null && git rev-parse --git-dir >/dev/null 2>&1; then
-  in_repo=true
-  origin_slug="$(git remote get-url origin 2>/dev/null |
-    sed -E 's#^(git@[^:]+:|[a-z+]+://[^/]+/)##; s#\.git$##' | tr '[:upper:]' '[:lower:]')"
-  if [ -n "$target_slug" ] && [ "$origin_slug" != "$target_slug" ]; then
-    in_repo=false
-  fi
-fi
-```
-
-The rest of this step explains the clone path. The no-clone path follows the
-same target-selection rules but replaces `git` and working-tree reads with `gh`
-and the GitHub API.
-
 ## Output contract
 
 - One self-contained HTML file. All CSS and JavaScript inline. Hand-built
@@ -196,6 +158,52 @@ output path, or the steps below. Give every sub-agent you delegate a read to the
 same rule.
 
 ### 1. Resolve the target and the filename key
+
+#### Local clone vs. no clone
+
+The skill has two paths: one for any target in a local clone, and one for a pull
+request only.
+
+**With a local clone** (the default path): the skill runs inside a git checkout,
+uses `git fetch` and `gh pr view` to resolve the PR, and reads changed files
+at the fetched ref with `git show <ref>:<path>`.
+
+**Without a local clone**: the skill uses `gh pr view` with the `-R owner/repo`
+flag to reach a repository you haven't cloned, and the GitHub API to
+fetch file contents at the PR's head commit. This path requires `gh` to be
+authenticated and a PR URL or `owner/repo#<n>` as the target. A bare PR number
+names no repository, so ask the user for it first.
+
+Both paths produce the same output format and honor the same output contract
+for a pull request. The only differences are how the skill resolves the target
+and gathers file contents. A branch, a commit range, or a single commit has no
+recorded base without a clone, so the no-clone path refuses those.
+
+Detect which path to use. A checkout only counts when it is the repository that
+owns the pull request, so compare `origin` with the `owner/repo` parsed from the
+target. Set `target_slug` to that value in lowercase, or leave it empty when the
+target is a bare number, a branch, or a commit:
+
+```bash
+target_slug="<owner/repo>"   # empty for a bare number, a branch, or a commit
+in_repo=false
+if command -v git >/dev/null && git rev-parse --git-dir >/dev/null 2>&1; then
+  in_repo=true
+  origin_slug="$(git remote get-url origin 2>/dev/null |
+    sed -E 's#^(git@[^:]+:|[a-z+]+://[^/]+/)##; s#\.git$##' | tr '[:upper:]' '[:lower:]')"
+  if [ -n "$target_slug" ] && [ "$origin_slug" != "$target_slug" ]; then
+    in_repo=false
+  fi
+fi
+echo "in_repo=$in_repo"
+```
+
+Each tool call starts a new shell, so set `target_slug` inside the block rather
+than relying on an earlier call.
+
+The rest of this step explains the clone path, and the no-clone path closes the
+step. The no-clone path replaces `git` and local reads with `gh` and the GitHub
+API.
 
 Determine what to explain, in this precedence:
 
@@ -301,72 +309,6 @@ works. The git form above still asks `gh` for the base commit, so it does not
 replace `gh`. Without `gh`, ask the user which commit the pull request is based
 on rather than guessing one.
 
-#### No-clone path (for pull requests only, without a local git checkout)
-
-Use this path when `in_repo` is false and the target is a pull request. Without
-a checkout, `gh` reaches the repository through `-R owner/repo` and the GitHub
-API supplies the file contents. A branch, a commit range, or a single commit has
-no recorded base to resolve without a clone, so for those stop and tell the user
-to run from a checkout of the repository.
-
-1. **Parse the target** into `owner`, `repo`, and the number `<n>`. From
-   `https://github.com/owner/repo/pull/123` or `owner/repo#123`, take all three.
-   From a bare number there is no repository to resolve, so ask the user for it.
-
-2. **Create the work directory** and write its path out for later steps, as the
-   clone path does:
-
-   ```bash
-   work="$(mktemp -d)"
-   echo "$work"
-   ```
-
-3. **Fetch the metadata** with the repository named:
-
-   ```bash
-   gh pr view <n> -R owner/repo --json title,body,url,headRefName,headRefOid,baseRefName
-   ```
-
-   `headRefOid` is the head commit. Resolve every `file:line` anchor against it,
-   use its short form in the provenance line, and keep the full 40 characters
-   for the links. Take the link host from the `url` returned here.
-
-4. **Fetch the diff** into the work directory, using the path from step 2:
-
-   ```bash
-   gh pr diff <n> -R owner/repo > <work>/diff.txt
-   [ -s <work>/diff.txt ] || echo "STOP: the diff is empty; resolve the base before drafting"
-   ```
-
-5. **Store each changed file** as it stands at the head. List the files from the
-   paginated pull request files endpoint rather than from `gh pr view`, which
-   stops at 100. A file the pull request deleted has no head version, so the
-   filter skips it. Each file is read by blob sha, so no path needs URL-encoding,
-   and the raw media type returns the bytes without the 1 MB cap of the Contents
-   API. Do not name the loop variable `path`: in zsh it is tied to `PATH`.
-
-   ```bash
-   work=<work>
-   gh api "repos/owner/repo/pulls/<n>/files" --paginate \
-     --jq '.[] | select(.status != "removed") | [.sha, .filename] | @tsv' |
-   while IFS=$'\t' read -r blob changed; do
-     mkdir -p "$work/files/$(dirname "$changed")" &&
-       gh api -H "Accept: application/vnd.github.raw+json" \
-         "repos/owner/repo/git/blobs/$blob" > "$work/files/$changed"
-   done
-   ```
-
-   The rest of the skill reads these files from `<work>/files/<path>`. Only the
-   changed files are stored. To read a caller or a definition elsewhere in the
-   repository, fetch that file the same way, with `git/trees/<headRefOid>` to
-   find its blob sha.
-
-6. **Proceed to step 2** (gather surrounding context) using the stored files
-   instead of the working tree.
-
-The provenance line closes with `References link to this commit.`, because every
-link is built against `headRefOid`.
-
 Fetching a bare sha is not always allowed. The server decides whether to serve
 an object that no ref advertises. GitHub.com serves one that is reachable, and a
 GitHub Enterprise install may refuse. A base branch that was force-pushed or
@@ -443,6 +385,81 @@ pattern accepts is the case that bites:
 key="$(printf '%s' "$key" | tr -c 'A-Za-z0-9-' '-' | tr -s '-')"
 ```
 
+#### No-clone path (for pull requests only, without a local git checkout)
+
+Use this path when `in_repo` is false and the target is a pull request. Without
+a checkout, `gh` reaches the repository through `-R owner/repo` and the GitHub
+API supplies the file contents. A branch, a commit range, or a single commit has
+no recorded base to resolve without a clone, so for those stop and tell the user
+to run from a checkout of the repository.
+
+1. **Parse the target** into `owner`, `repo`, and the number `<n>`. From
+   `https://github.com/owner/repo/pull/123` or `owner/repo#123`, take all three.
+   From a bare number there is no repository to resolve, so ask the user for it.
+
+2. **Create the work directory** and write its path out for later steps, as the
+   clone path does:
+
+   ```bash
+   work="$(mktemp -d)"
+   echo "$work"
+   ```
+
+3. **Fetch the metadata** with the repository named:
+
+   ```bash
+   gh pr view <n> -R owner/repo --json title,body,url,headRefName,headRefOid,baseRefName,commits
+   ```
+
+   `headRefOid` is the head commit. Resolve every `file:line` anchor against it,
+   use its short form in the provenance line, and keep the full 40 characters
+   for the links. Take the link host from the `url` returned here.
+
+4. **Fetch the diff** into the work directory, using the path from step 2:
+
+   ```bash
+   gh pr diff <n> -R owner/repo > <work>/diff.txt
+   [ -s <work>/diff.txt ] || echo "STOP: gh pr diff returned nothing; report its error"
+   ```
+
+5. **Store each changed file** as it stands at the head. List the files from the
+   paginated pull request files endpoint rather than from `gh pr view`, which
+   stops at 100. A file the pull request deleted has no head version, so the
+   filter skips it. Each file is read by blob sha, so no path needs URL-encoding,
+   and the raw media type returns the bytes without the 1 MB cap of the Contents
+   API. Do not name the loop variable `path`: in zsh it is tied to `PATH`.
+
+   ```bash
+   work=<work>
+   gh api "repos/owner/repo/pulls/<n>/files" --paginate \
+     --jq '.[] | select(.status != "removed") | [.sha, .filename] | @tsv' |
+   while IFS=$'\t' read -r blob changed; do
+     mkdir -p "$work/files/$(dirname "$changed")" &&
+       gh api -H "Accept: application/vnd.github.raw+json" \
+         "repos/owner/repo/git/blobs/$blob" > "$work/files/$changed" ||
+       { rm -f "$work/files/$changed"; echo "FAILED: $changed"; }
+   done
+   ```
+
+   A failed `gh api` still writes GitHub's error JSON to stdout, so the loop
+   removes the file and prints `FAILED: <path>` rather than leaving that JSON
+   stored as the file. A submodule bump always fails here: the files endpoint
+   lists the submodule path with a commit sha, and the blob fetch for it returns
+   404. For a `FAILED` path, rely on the diff, which already shows the pointer
+   change. Report any other `FAILED` path rather than explaining it.
+
+   The rest of the skill reads these files from `<work>/files/<path>`. Only the
+   changed files are stored. To read a caller or a definition elsewhere in the
+   repository, fetch that file the same way. List the tree with
+   `gh api "repos/owner/repo/git/trees/<headRefOid>?recursive=1"` to find its
+   blob sha: without `recursive=1` the tree lists only the top level, so a file in
+   a subdirectory is missing.
+
+6. **Proceed to step 2** (gather surrounding context) using the stored files.
+
+The provenance line closes with `References link to this commit.`, because every
+link is built against `headRefOid`.
+
 ### 2. Gather surrounding context
 
 Explore the code the diff touches and the code around it, enough to explain the
@@ -450,13 +467,14 @@ existing system. Ground every claim about what the code does in the code
 itself. Read the changed files at the target ref, and the callers and
 definitions they interact with.
 
-**With a local clone**: read the changed files from the working tree after
-fetching the PR ref into `refs/explain/pr-<n>` (clone path) or a branch ref
-(branch path).
+**With a local clone**: read each changed file with `git show <ref>:<path>`.
+`<ref>` is `refs/explain/pr-<n>` for a pull request, or the branch or commit that
+was diffed. The fetch writes that ref and leaves the working tree alone, so the
+working tree holds whatever the user has checked out, not necessarily the code
+the diff describes.
 
 **Without a local clone**: the no-clone path stores each changed file's contents
-at the head commit in `<work>/files/<path>`. Read from that location instead of
-the working tree.
+at the head commit in `<work>/files/<path>`. Read from that location.
 
 Ground the why in the durable record rather than in the diff alone. A diff
 shows what moved; it rarely says why that was the right move. Gather, in
@@ -728,6 +746,10 @@ every anchor, code claim, and link at the target ref, and you wait for its
 report, as step 2 says. A script runs the checks that are commands. You run the
 checks that need judgment. Read `references/validation.md`, in this skill's
 folder, before you start: it says what each check is and why it exists.
+
+With no clone there is no local ref to re-read. The sub-agent works from its own
+prompt, so put this in it: read a changed file from `<work>/files/<path>`, and
+fetch any other file as step 1's no-clone path describes.
 
 Run the script on the drafted page, with the short commit that the provenance
 line names. `<this skill's folder>` is the folder that holds this `SKILL.md`.
