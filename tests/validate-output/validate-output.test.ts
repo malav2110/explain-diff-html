@@ -18,8 +18,9 @@ const script = fileURLToPath(
 const sha = "0123456";
 
 function getFailedCheckIds(path: string): string[] {
-  const document = parsePage(readFileSync(path, "utf8"));
-  return validate({ document, sha })
+  const html = readFileSync(path, "utf8");
+  const document = parsePage(html);
+  return validate({ document, html, sha })
     .filter(({ result }) => result.isFailed)
     .map(({ id }) => id);
 }
@@ -71,8 +72,9 @@ for (const checkId of checkIds) {
 
 test("an unlinked reference is listed by its text", () => {
   const path = join(failFolder, "unlinked-reference", "spare-srcref.html");
-  const document = parsePage(readFileSync(path, "utf8"));
-  const unlinked = validate({ document, sha }).find(({ id }) => id === "unlinked-reference");
+  const html = readFileSync(path, "utf8");
+  const document = parsePage(html);
+  const unlinked = validate({ document, html, sha }).find(({ id }) => id === "unlinked-reference");
   expect(unlinked?.result.isFailed ? unlinked.result.findings : []).toEqual(["b.py:9"]);
 });
 
