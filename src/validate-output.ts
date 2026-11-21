@@ -10,8 +10,8 @@
 
 import { readFileSync, statSync } from "node:fs";
 import { is, selectAll, selectOne } from "css-select";
-import { isTag, isText, type AnyNode, type Document, type Element } from "domhandler";
-import { getAttributeValue, textContent } from "domutils";
+import { isComment, isTag, isText, type AnyNode, type Document, type Element } from "domhandler";
+import { filter, getAttributeValue, textContent } from "domutils";
 import { parse } from "parse5";
 import { adapter } from "parse5-htmlparser2-tree-adapter";
 
@@ -21,6 +21,7 @@ export type Result =
 
 export interface Page {
   document: Document;
+  html: string;
   sha: string;
 }
 
@@ -262,26 +263,80 @@ export const checks: Check[] = [
     },
   },
   {
-    // A raw `<` that starts a tag becomes an element inside the block, so only the
-    // diff and highlight spans may sit in a code block.
+    // parse5 drops unmatched end tags from the tree, so scan the source.
+    // Comments stay in the tree.
     id: "code-escaped",
-    run({ document }) {
-      const stray = new Set(
-        selectAll<AnyNode, Element>("pre, code", document).flatMap((block) =>
-          selectAll<AnyNode, Element>("*", block.children).filter(
-            (node) => !is<AnyNode, Element>(node, "span.del, span.add, span.hi"),
-          ),
+    run({ document, html }) {
+      const blocks = selectAll<AnyNode, Element>("pre, code", document);
+      const stray = blocks.flatMap((block) =>
+        selectAll<AnyNode, Element>("*", block.children).filter(
+          (node) => !is<AnyNode, Element>(node, "span.del, span.add, span.hi"),
         ),
       );
-      return stray.size === 0
-        ? { isFailed: false, message: "every code block holds only text and .del, .add, .hi spans" }
+      const comments = blocks.flatMap((block) => filter(isComment, block.children, true));
+      const matchedEndTags = new Set<number>();
+      const ignoredRanges: { start: number; end: number }[] = [];
+      const elements = filter(isTag, document.children, true) as Element[];
+      for (const element of elements) {
+        const location = element.sourceCodeLocation;
+        if (location && "startTag" in location && location.startTag) {
+          ignoredRanges.push({
+            start: location.startTag.startOffset,
+            end: location.startTag.endOffset,
+          });
+        }
+        if (location && "endTag" in location && location.endTag) {
+          matchedEndTags.add(location.endTag.startOffset);
+        }
+        if (
+          (element.name === "script" || element.name === "style") &&
+          location &&
+          "startTag" in location &&
+          location.startTag
+        ) {
+          const endOffset =
+            "endTag" in location && location.endTag
+              ? location.endTag.startOffset
+              : location.endOffset;
+          ignoredRanges.push({
+            start: location.startTag.endOffset,
+            end: endOffset,
+          });
+        }
+      }
+      for (const comment of filter(isComment, document.children, true)) {
+        const start = comment.startIndex ?? -1;
+        const end = comment.endIndex ?? start;
+        ignoredRanges.push({ start, end: end + 1 });
+      }
+      const rawEndTags = [...html.matchAll(/<\/\s*([a-z][a-z0-9:-]*)\b[^>]*>/gi)]
+        .filter((match) => {
+          const offset = match.index ?? -1;
+          return (
+            !matchedEndTags.has(offset) &&
+            !ignoredRanges.some(({ start, end }) => start <= offset && offset < end)
+          );
+        })
+        .map(([tag]) => tag);
+      const findings = [
+        ...stray.map((node) => {
+          const tag = [node.name, ...(getAttributeValue(node, "class")?.split(" ") ?? [])];
+          return `<${tag.filter(Boolean).join(".")}> in ${getText(node.parent as Element)}`;
+        }),
+        ...comments.map(
+          (node) => `raw HTML comment in code block: <!--${isComment(node) ? node.data : ""}-->`,
+        ),
+        ...rawEndTags.map((tag) => `unmatched raw end tag in page source: ${tag}`),
+      ];
+      return findings.length === 0
+        ? {
+            isFailed: false,
+            message: "code blocks are escaped; no stray elements, comments, or end tags",
+          }
         : {
             isFailed: true,
-            message: "elements inside a code block other than .del, .add, and .hi spans:",
-            findings: [...stray].map((node) => {
-              const tag = [node.name, ...(getAttributeValue(node, "class")?.split(" ") ?? [])];
-              return `<${tag.filter(Boolean).join(".")}> in ${getText(node.parent as Element)}`;
-            }),
+            message: "unexpected code-block elements/comments or unmatched page end tags:",
+            findings,
           };
     },
   },
@@ -313,7 +368,7 @@ export const checks: Check[] = [
 ];
 
 export function parsePage(html: string): Document {
-  return parse(html, { treeAdapter: adapter });
+  return parse(html, { treeAdapter: adapter, sourceCodeLocationInfo: true });
 }
 
 export function validate(page: Page): { id: string; result: Result }[] {
@@ -337,14 +392,15 @@ function main(args: string[]): number {
     return 1;
   }
 
-  const document = parsePage(readFileSync(path, "utf8"));
+  const html = readFileSync(path, "utf8");
+  const document = parsePage(html);
   const references = getReferences(document);
   const linked = selectAll<AnyNode, Element>("a.srcref", document).length;
   const marked = references.filter(isMarkedBare).length;
   console.log(`references=${references.length} linked=${linked} marked-bare=${marked}`);
 
   let status = 0;
-  for (const { result } of validate({ document, sha })) {
+  for (const { result } of validate({ document, html, sha })) {
     if (result.isFailed) {
       console.log(`FAIL: ${result.message}`);
       for (const finding of result.findings) console.log(finding);
