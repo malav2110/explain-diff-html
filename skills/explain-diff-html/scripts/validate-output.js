@@ -10307,17 +10307,54 @@ const checks = [
 	},
 	{
 		id: "code-escaped",
-		run({ document }) {
-			const stray = new Set(selectAll("pre, code", document).flatMap((block) => selectAll("*", block.children).filter((node) => !is(node, "span.del, span.add, span.hi"))));
-			return stray.size === 0 ? {
+		run({ document, html }) {
+			const blocks = selectAll("pre, code", document);
+			const stray = blocks.flatMap((block) => selectAll("*", block.children).filter((node) => !is(node, "span.del, span.add, span.hi")));
+			const comments = blocks.flatMap((block) => filter(isComment, block.children, true));
+			const matchedEndTags = /* @__PURE__ */ new Set();
+			const ignoredRanges = [];
+			const elements = filter(isTag, document.children, true);
+			for (const element of elements) {
+				const location = element.sourceCodeLocation;
+				if (location && "startTag" in location && location.startTag) ignoredRanges.push({
+					start: location.startTag.startOffset,
+					end: location.startTag.endOffset
+				});
+				if (location && "endTag" in location && location.endTag) matchedEndTags.add(location.endTag.startOffset);
+				if ((element.name === "script" || element.name === "style") && location && "startTag" in location && location.startTag) {
+					const endOffset = "endTag" in location && location.endTag ? location.endTag.startOffset : location.endOffset;
+					ignoredRanges.push({
+						start: location.startTag.endOffset,
+						end: endOffset
+					});
+				}
+			}
+			for (const comment of filter(isComment, document.children, true)) {
+				const start = comment.startIndex ?? -1;
+				const end = comment.endIndex ?? start;
+				ignoredRanges.push({
+					start,
+					end
+				});
+			}
+			const rawEndTags = [...html.matchAll(/<\/\s*([a-z][a-z0-9:-]*)\b[^>]*>/gi)].filter((match) => {
+				const offset = match.index ?? -1;
+				return !matchedEndTags.has(offset) && !ignoredRanges.some(({ start, end }) => start <= offset && offset < end);
+			}).map(([tag]) => tag);
+			const findings = [
+				...stray.map((node) => {
+					return `<${[node.name, ...getAttributeValue(node, "class")?.split(" ") ?? []].filter(Boolean).join(".")}> in ${getText(node.parent)}`;
+				}),
+				...comments.map((node) => `raw HTML comment in code block: <!--${isComment(node) ? node.data : ""}-->`),
+				...rawEndTags.map((tag) => `unmatched raw end tag in page source: ${tag}`)
+			];
+			return findings.length === 0 ? {
 				isFailed: false,
-				message: "every code block holds only text and .del, .add, .hi spans"
+				message: "code blocks are escaped; no stray elements, comments, or end tags"
 			} : {
 				isFailed: true,
-				message: "elements inside a code block other than .del, .add, and .hi spans:",
-				findings: [...stray].map((node) => {
-					return `<${[node.name, ...getAttributeValue(node, "class")?.split(" ") ?? []].filter(Boolean).join(".")}> in ${getText(node.parent)}`;
-				})
+				message: "unexpected code-block elements/comments or unmatched page end tags:",
+				findings
 			};
 		}
 	},
@@ -10347,7 +10384,10 @@ const checks = [
 	}
 ];
 function parsePage(html) {
-	return parse(html, { treeAdapter: adapter });
+	return parse(html, {
+		treeAdapter: adapter,
+		sourceCodeLocationInfo: true
+	});
 }
 function validate(page) {
 	return checks.map((check) => ({
@@ -10370,7 +10410,8 @@ function main(args) {
 		console.error(`FAIL: ${path} is not a non-empty file`);
 		return 1;
 	}
-	const document = parsePage(readFileSync(path, "utf8"));
+	const html = readFileSync(path, "utf8");
+	const document = parsePage(html);
 	const references = getReferences(document);
 	const linked = selectAll("a.srcref", document).length;
 	const marked = references.filter(isMarkedBare).length;
@@ -10378,6 +10419,7 @@ function main(args) {
 	let status = 0;
 	for (const { result } of validate({
 		document,
+		html,
 		sha
 	})) if (result.isFailed) {
 		console.log(`FAIL: ${result.message}`);
