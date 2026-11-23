@@ -12,9 +12,11 @@ choice to the underlying reasoning.
 
 The walkthrough sets the count, so fix its `h3.core-step` headings before you
 draft a question. The quiz has three questions when the page has at most two of
-those headings, and five otherwise. A change can carry fewer testable decisions
-than that. Then ask only as many questions as it carries, and declare the lower
-count and its reason on the quiz section:
+those headings, and five otherwise. A themed page on a large change counts its
+`h4.core-edit` headings instead, because each theme holds several core edits. A
+change can carry fewer testable decisions than that. Then ask only as many
+questions as it carries, and declare the lower count and its reason on the quiz
+section:
 
 ```html
 <section id="quiz" data-quiz-count="2" data-quiz-reason="FILL: why two">

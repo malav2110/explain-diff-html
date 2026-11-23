@@ -129,13 +129,16 @@ names no check, and a banner left on a page whose checks pass.
   names a folder covers nothing.
 
 - The quiz has the count `references/quiz-design.md` sets: three questions for
-  at most two `h3.core-step` headings, five otherwise. A lower count passes
+  at most two `h3.core-step` headings, five otherwise. When the page has
+  `h4.core-edit` headings, the script counts those instead. A lower count passes
   only when the quiz section declares it in `data-quiz-count`, with a reason in
   `data-quiz-reason`.
 
 - The `p.lead` paragraph is one sentence, and so is each table reason. The
-  script masks `<code>` spans, then treats a period, `!`, or `?` followed by a
-  capital letter as the start of a second sentence.
+  script masks `<code>` spans. Then a period, `!`, or `?`, followed by any
+  closing quotes or parenthesis, a space, and a capital letter, starts a second
+  sentence. A period after `e.g`, `i.e`, `vs`, or `etc` does not, unless the
+  abbreviation ends a longer word, as in "devs.".
 
 - Every table-of-contents link resolves to a section anchor on the page, and
   every section on the page appears in the table of contents.

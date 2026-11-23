@@ -135,15 +135,28 @@ function getBlobHrefs(document: Document): string[] {
   );
 }
 
+// Elements whose text a reader never reads.
+const hiddenTags = new Set(["script", "style", "template"]);
+
 // Text a reader sees: a <script> in the quiz holds option words a reader never reads.
 function getVisibleText(node: AnyNode): string {
   if (isText(node)) return node.data;
-  if (!isTag(node) || ["script", "style", "template"].includes(node.name)) return "";
+  if (!isTag(node) || hiddenTags.has(node.name)) return "";
   return node.children.map(getVisibleText).join(" ");
 }
 
+// A missing quiz is quiz-present's failure, so quiz-count and
+// quiz-longest-option pass silently without one.
+function getQuiz(document: Document): Element | null {
+  return selectOne<AnyNode, Element>("main #quiz", document);
+}
+
+function getQuizQuestions(quiz: Element): Element[] {
+  return selectAll<AnyNode, Element>(".quiz-question", quiz);
+}
+
 function getQuizText(document: Document): string {
-  const quiz = selectOne<AnyNode, Element>("main #quiz", document);
+  const quiz = getQuiz(document);
   return quiz ? getVisibleText(quiz).replace(/\s+/g, " ").trim() : "";
 }
 
@@ -230,7 +243,12 @@ function hasSecondSentence(text: string): boolean {
     const character = text[index] ?? "";
     if (!".!?".includes(character)) continue;
     const before = text.slice(0, index);
-    if (character === "." && abbreviations.some((word) => before.endsWith(word))) continue;
+    const isAbbreviation = abbreviations.some((word) => {
+      if (!before.endsWith(word)) return false;
+      const preceding = before.at(-word.length - 1);
+      return preceding === undefined || !wordCharacters.includes(preceding);
+    });
+    if (character === "." && isAbbreviation) continue;
     let next = index + 1;
     while (isMadeOf(text[next] ?? "", `"')`)) next += 1;
     if (text[next] === " " && isMadeOf(text[next + 1] ?? "", letters.toUpperCase())) return true;
@@ -269,8 +287,11 @@ function getTableReasons(document: Document): string[] {
 
 const escapes: Record<string, number> = { t: 9, n: 10, '"': 34, "\\": 92 };
 
-// Git quotes a path that holds a non-ASCII or control character, and writes
-// each such byte as an octal escape, so café.py arrives as caf\303\251.py.
+// Git quotes a path that holds a non-ASCII or control character. It names
+// \a \b \t \n \v \f \r, \", and \\, and writes other bytes in octal, so café.py
+// arrives as caf\303\251.py. Only the escapes in the table decode, and the rest
+// read as letters. A path holding \v, \f, or \r fails coverage either way,
+// because the page text collapses whitespace.
 function unquotePath(quoted: string): string {
   const encoder = new TextEncoder();
   const bytes: number[] = [];
@@ -297,6 +318,13 @@ function getChangedPaths(diff: string): string[] {
     if (!line.startsWith("diff --git ")) return [];
     const isQuoted = line.endsWith('"');
     const marker = isQuoted ? ' "b/' : " b/";
+    // A file that is not renamed fills both halves of the header, so the first
+    // half is its path even when the path holds " b/".
+    const rest = line.slice("diff --git a/".length);
+    const half = (rest.length - marker.length) / 2;
+    if (!isQuoted && rest.slice(half) === `${marker}${rest.slice(0, half)}`) {
+      return [rest.slice(0, half)];
+    }
     const start = line.lastIndexOf(marker);
     if (start === -1) return [];
     const path = line.slice(start + marker.length, isQuoted ? -1 : undefined);
@@ -308,14 +336,14 @@ function getChangedPaths(diff: string): string[] {
 // names does not count as covered.
 function getPageText(node: AnyNode): string {
   if (isTag(node) && is<AnyNode, Element>(node, ".check-banner")) return "";
-  if (!isTag(node) || ["script", "style", "template"].includes(node.name)) {
+  if (!isTag(node) || hiddenTags.has(node.name)) {
     return getVisibleText(node);
   }
   return node.children.map(getPageText).join(" ");
 }
 
-// A token without a trailing :line or punctuation, so a path compares whole,
-// even one such as (auth)/a.tsx.
+// A token without its :line suffix, trailing punctuation, or leading
+// parentheses, so prose such as "(src/a.py:9)," names src/a.py.
 function getBarePath(token: string): string {
   let end = token.length;
   for (let index = 0; index < token.length; index += 1) {
@@ -330,6 +358,8 @@ function getBarePath(token: string): string {
   return bare;
 }
 
+// Each token as written and as a bare path. The written copy keeps a path that
+// starts with a parenthesis, such as (auth)/a.tsx, which getBarePath would strip.
 function getTokens(text: string): Set<string> {
   const tokens = text.split(/\s+/).filter((token) => token !== "");
   return new Set(tokens.flatMap((token) => [token, getBarePath(token)]));
@@ -345,7 +375,7 @@ function isTableRow(path: string, tableTokens: Set<string>): boolean {
 }
 
 interface Coverage {
-  inTable: number;
+  tableCount: number;
   missing: string[];
 }
 
@@ -361,36 +391,54 @@ function getCoverage(document: Document, paths: string[]): Coverage {
     .map(getText)
     .join(" ");
   const tableTokens = getTokens(firstColumn);
-  let inTable = 0;
+  let tableCount = 0;
   const missing: string[] = [];
   for (const path of paths) {
     const hasSpace = path.includes(" ");
     const isNamedAsText = hasSpace && pageText.includes(path);
-    if (hasSpace && firstColumn.includes(path)) inTable += 1;
-    else if (!isNamedAsText && isTableRow(path, tableTokens)) inTable += 1;
+    if (hasSpace && firstColumn.includes(path)) tableCount += 1;
+    else if (!isNamedAsText && isTableRow(path, tableTokens)) tableCount += 1;
     else if (!isNamedAsText && !pageTokens.has(path)) missing.push(path);
   }
-  return { inTable, missing };
+  return { tableCount, missing };
 }
 
 // Prose a reader reads: a <pre> is code, not words.
 function getProseText(node: AnyNode): string {
   if (isTag(node) && node.name === "pre") return "";
-  if (!isTag(node) || ["script", "style", "template"].includes(node.name)) {
+  if (!isTag(node) || hiddenTags.has(node.name)) {
     return getVisibleText(node);
   }
   return node.children.map(getProseText).join(" ");
 }
 
-// Words per section, the count the release tests compare.
-function getSectionWords(document: Document): string {
-  const counts = selectAll<AnyNode, Element>("section[id]", document).map((section) => ({
+interface SectionWords {
+  id: string;
+  words: number;
+}
+
+// Words per section, for the step 8 report and the SKILL.md rule that
+// Background runs no longer than the Code walkthrough.
+function getSectionWords(document: Document): SectionWords[] {
+  return selectAll<AnyNode, Element>("section[id]", document).map((section) => ({
     id: getAttributeValue(section, "id") ?? "",
     words: countWords(getProseText(section)),
   }));
+}
+
+function getWordsLine(counts: SectionWords[]): string {
   const total = counts.reduce((sum, { words }) => sum + words, 0);
   const sections = counts.map(({ id, words }) => `${id} ${words}`);
   return `words: ${[...sections, `total ${total}`].join("  ")}`;
+}
+
+// 0 when Background is no longer than Code, or when either section is absent.
+function getBackgroundExcess(counts: SectionWords[]): number {
+  const getWords = (id: string) => counts.find((count) => count.id === id)?.words;
+  const background = getWords("background");
+  const code = getWords("code");
+  if (background === undefined || code === undefined) return 0;
+  return Math.max(0, background - code);
 }
 
 // The "N of M" inside "Every other changed file (N of M)".
@@ -488,7 +536,7 @@ export const checks: Check[] = [
       const table = selectOne<AnyNode, Element>("table.also-changed", document);
       if (!diff || diff.text === "" || !table) return { isFailed: false };
       const paths = getChangedPaths(diff.text);
-      const expected = `${getCoverage(document, paths).inTable} of ${paths.length}`;
+      const expected = `${getCoverage(document, paths).tableCount} of ${paths.length}`;
       const count = getCaptionCount(table);
       const caption = count === undefined ? "no caption" : `Every other changed file (${count})`;
       return count === expected
@@ -509,7 +557,7 @@ export const checks: Check[] = [
             message: "no quiz section found, so the quiz checks read nothing",
             findings: [],
           }
-        : { isFailed: false };
+        : { isFailed: false, message: "quiz section found" };
     },
   },
   {
@@ -526,21 +574,31 @@ export const checks: Check[] = [
     },
   },
   {
-    // A missing quiz is quiz-present's failure, so this check and the next pass silently.
     id: "quiz-count",
     run({ document }) {
-      const quiz = selectOne<AnyNode, Element>("main #quiz", document);
+      const quiz = getQuiz(document);
       if (!quiz) return { isFailed: false };
-      const steps = selectAll<AnyNode, Element>("h3.core-step", document).length;
-      const asked = selectAll<AnyNode, Element>(".quiz-question", quiz).length;
-      const expected = steps <= 2 ? 3 : 5;
-      const declared = getAttributeValue(quiz, "data-quiz-count") ?? "";
-      if (!isMadeOf(declared, digits)) {
+      // A large change walks themes, so a theme's core edits set the size.
+      const edits = selectAll<AnyNode, Element>("h4.core-edit", document).length;
+      const coreCount =
+        edits > 0 ? edits : selectAll<AnyNode, Element>("h3.core-step", document).length;
+      const coreLabel = edits > 0 ? "core edits" : "core steps";
+      const asked = getQuizQuestions(quiz).length;
+      const expected = coreCount <= 2 ? 3 : 5;
+      const declared = getAttributeValue(quiz, "data-quiz-count");
+      if (declared !== undefined && !isMadeOf(declared, digits)) {
+        return {
+          isFailed: true,
+          message: `data-quiz-count is '${declared}', not a number of questions`,
+          findings: [],
+        };
+      }
+      if (declared === undefined) {
         return asked === expected
-          ? { isFailed: false, message: `${asked} questions for ${steps} core steps` }
+          ? { isFailed: false, message: `${asked} questions for ${coreCount} ${coreLabel}` }
           : {
               isFailed: true,
-              message: `${asked} questions for ${steps} core steps, expected ${expected}`,
+              message: `${asked} questions for ${coreCount} ${coreLabel}, expected ${expected}`,
               findings: [],
             };
       }
@@ -566,9 +624,9 @@ export const checks: Check[] = [
     // correct one only as often as chance allows.
     id: "quiz-longest-option",
     run({ document }) {
-      const quiz = selectOne<AnyNode, Element>("main #quiz", document);
+      const quiz = getQuiz(document);
       if (!quiz) return { isFailed: false };
-      const questions = selectAll<AnyNode, Element>(".quiz-question", quiz);
+      const questions = getQuizQuestions(quiz);
       const longest = questions.filter(isCorrectLongest).length;
       const allowed = questions.length >= 5 ? 2 : 1;
       const counts = `${longest} of ${questions.length} questions`;
@@ -667,7 +725,8 @@ function main(args: string[]): number {
   }
 
   const document = parsePage(readFileSync(path, "utf8"));
-  console.log(getSectionWords(document));
+  const sectionWords = getSectionWords(document);
+  console.log(getWordsLine(sectionWords));
   const references = getReferences(document);
   const linked = selectAll<AnyNode, Element>("a.srcref", document).length;
   const marked = references.filter(isMarkedBare).length;
@@ -688,6 +747,12 @@ function main(args: string[]): number {
   console.log("advisory: ordinals in the quiz, read each one:");
   const ordinals = getOrdinalPhrases(getQuizText(document));
   console.log(ordinals.length === 0 ? "  none" : ordinals.join("\n"));
+
+  const excess = getBackgroundExcess(sectionWords);
+  if (excess > 0) {
+    const words = excess === 1 ? "word" : "words";
+    console.log(`advisory: Background runs ${excess} ${words} past Code; report how many and why`);
+  }
 
   return status;
 }

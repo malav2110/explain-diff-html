@@ -54,7 +54,8 @@ actually fails at. Ask for these too:
   happened. The page carries the result.
 - A fact with no consequence. A count or a diffstat that closes a section
   without telling the reader what it changes for them. Say what it means or cut
-  it.
+  it. The `(N of M)` caption on the Also changed table is the exception: the
+  step 7 script checks it, so it stays.
 - Uniform sentence length. A long run of sentences at the same length reads as
   generated even when every one is correct. Vary them.
 

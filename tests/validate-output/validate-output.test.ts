@@ -98,6 +98,11 @@ test("the words line counts the prose in each section", () => {
   expect(stdout.split("\n")).toContain("words: background 8  quiz 32  total 40");
 });
 
+test("a page with a quiz prints a pass line for it", () => {
+  const { stdout } = runScript(join(passFolder, "baseline.html"), sha);
+  expect(stdout).toMatch(/^pass: quiz section found$/m);
+});
+
 test("a run without a work directory skips the coverage check", () => {
   const { status, stdout } = runScript(join(passFolder, "baseline.html"), sha);
   expect(status).toBe(0);
@@ -147,6 +152,19 @@ test("a short commit over 40 characters prints a usage line and exits 2", () => 
 
 test("a run prints the advisory block", () => {
   expect(runScript(join(passFolder, "baseline.html"), sha).stdout).toMatch(/^advisory: /m);
+});
+
+// Background is 8 words and Code 7.
+test("Background longer than Code prints an advisory with the excess", () => {
+  const { stdout } = runScript(join(passFolder, "background-past-code.html"), sha);
+  expect(stdout).toMatch(/^advisory: Background runs 1 word past Code; /m);
+});
+
+// Background and Code are 8 words each.
+test("Background as long as Code prints no length advisory", () => {
+  const { stdout } = runScript(join(passFolder, "background-as-long-as-code.html"), sha);
+  expect(stdout).toMatch(/^words: background 8  code 8  /m);
+  expect(stdout).not.toMatch(/^advisory: Background/m);
 });
 
 test("the advisory lists each ordinal with the rest of its sentence", () => {

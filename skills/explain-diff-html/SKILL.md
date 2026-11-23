@@ -239,10 +239,14 @@ fi
 if [ -z "$pr_base" ]; then
   echo "STOP: no base commit; ask the user which commit the pull request is based on"
 else
-  git diff "$pr_base" refs/explain/pr-<n> > "$work/diff.txt"    # base first, then head
+  git diff --src-prefix=a/ --dst-prefix=b/ "$pr_base" refs/explain/pr-<n> > "$work/diff.txt"    # base first, then head
   [ -s "$work/diff.txt" ] || echo "STOP: the diff is empty; resolve the base before drafting"
 fi
 ```
+
+Every `git diff` that writes `diff.txt` passes `--src-prefix=a/ --dst-prefix=b/`.
+The validator reads each changed path from the `a/` and `b/` headers, and a user
+whose git sets `diff.noprefix` would otherwise get headers without them.
 
 Each tool call starts a new shell, so `$work` is empty in every later command.
 Print the path once, as above. From then on, write that path wherever `<work>`
@@ -288,7 +292,7 @@ For a branch or the current checkout there is no recorded base, so use the
 three-dot form against the default branch:
 
 ```bash
-git diff "$base"...<ref> > "<work>/diff.txt"
+git diff --src-prefix=a/ --dst-prefix=b/ "$base"...<ref> > "<work>/diff.txt"
 ```
 
 Three dots diffs against the merge base, so unrelated commits that landed on the
@@ -297,7 +301,7 @@ base branch since the work started stay out of the page.
 A commit range takes two dots, not three:
 
 ```bash
-git diff "<from>".."<to>" > "<work>/diff.txt"   # two dots, endpoint to endpoint
+git diff --src-prefix=a/ --dst-prefix=b/ "<from>".."<to>" > "<work>/diff.txt"   # two dots, endpoint to endpoint
 ```
 
 The two forms agree whenever the older endpoint is an ancestor of the newer one,
@@ -311,7 +315,7 @@ first when either is a tag.
 A single commit is the one target that does not diff against the base at all:
 
 ```bash
-git diff "<sha>^" "<sha>" > "<work>/diff.txt"     # two dots, against its parent
+git diff --src-prefix=a/ --dst-prefix=b/ "<sha>^" "<sha>" > "<work>/diff.txt"     # two dots, against its parent
 ```
 
 Three dots would compare against the merge base and drag in every other commit
@@ -437,10 +441,11 @@ motive they stop trusting the rest.
 
 Introduce every name before the walkthrough uses it. List the identifiers the
 Code section will name, then check each one appears in Background or Intuition
-with a one-line definition. A class the reader meets first in a quiz question, or
-a framework type used as though obvious, breaks a page that is otherwise correct.
-Naming the chain a value travels through, in order, before walking it, is usually
-enough.
+with a one-line definition. A name the diff creates, or one only a brief edit
+uses, is the exception: define it where the walkthrough first meets it. A class
+the reader meets first in a quiz question, or a framework type used as though
+obvious, breaks a page that is otherwise correct. Naming the chain a value
+travels through, in order, before walking it, is usually enough.
 
 State the value a mechanism turns on. When the change hinges on a specific
 number, flag, threshold, or timeout, put the value on the page. Explaining that
@@ -460,12 +465,14 @@ its names and data shapes, and the entry point the Code flow map starts from.
 It describes the code before the change at that level. What each changed line
 does belongs to the Code section. The narrow background walks an unchanged
 helper only when a core edit changes how the code calls it. Any other name the
-walkthrough uses gets a one-line definition in Background or Intuition. The deep
-background covers only the concepts the narrow background, Intuition, and the
-walkthrough use. Background, counting the collapsed part, runs no longer than
-the Code walkthrough. The `words:` line of the step 7 script counts both. When
-Background must run longer, the step 8 report says by how much and why. Report
-the excess, and never cut explanation to meet the limit.
+walkthrough uses gets a one-line definition in Background or Intuition, except
+a name the diff creates or only a brief edit uses. The deep background covers
+only the concepts the narrow background, Intuition, and the walkthrough use.
+Background, counting the collapsed part, runs no longer than the Code
+walkthrough. The `words:` line of the step 7 script counts both and skips
+`<pre>` blocks, and an advisory line names the excess when Background runs
+longer. When Background must run longer, the step 8 report says by how much and
+why. Report the excess, and never cut explanation to meet the limit.
 
 Intuition: explain the core idea of the change. Focus on the essence, not the
 full detail. Use concrete examples with toy data.
@@ -484,14 +491,18 @@ The triage list from the start of this step decides how much each path gets:
   touches several files, present them together as one step rather than
   scattering them alphabetically.
 - Brief: an edit the reader needs that carries none of the purpose. Give it a
-  sentence or two inside the core step it belongs to.
+  sentence or two inside the core step it belongs to. When a quiz question
+  depends on the edit, give it a short paragraph and a snippet instead. A brief
+  edit that belongs to no core step goes under a plain `h3`, without the
+  `core-step` class, after the last core step.
 - Table: every other path. The "Also changed" table lists it.
 
 An edit that changes behavior never goes to the table. It may be walked briefly,
 but the reader has to meet it in the walkthrough.
 
 Say each thing once. When Intuition has already shown a mechanism, the
-walkthrough points back to it rather than explaining it again.
+walkthrough points back to it rather than explaining it again. The flow map and
+a one-line name definition do not count as a second telling.
 
 End the walkthrough with the "Also changed" table, a `table.vals` with the extra
 class `also-changed`. Caption it `Every other changed file (N of M)`. N counts
@@ -501,8 +512,8 @@ numbers.
 
 - Give each file a row with its path and a one-sentence reason it changed.
 - Leave the table out when no path is left for it.
-- One row may cover a directory of generated or binary asset files, such as
-  converted images. The row gives the file count.
+- One row may cover a directory whose files share one reason, such as
+  converted images or new test fixtures. The row gives the file count.
 - Name a deleted file by its path, with no link, because it does not exist at
   the target ref.
 
@@ -512,7 +523,7 @@ deletions:
 ```bash
 git apply --numstat < "<work>/diff.txt" | {
   total=0
-  while read -r added removed path; do
+  while read -r added removed file; do
     [ "$added" = - ] || total=$((total + added + removed))
   done
   echo "$total"
@@ -520,7 +531,7 @@ git apply --numstat < "<work>/diff.txt" | {
 ```
 
 The command counts every file, and counts a binary file's row as 0. When the
-diff carries a generated directory, subtract that directory's rows, which
+diff carries a generated file or directory, subtract its rows, which
 `git apply --numstat` lists by path.
 
 The loop uses named variables on purpose. When Claude Code loads this file, it
@@ -528,13 +539,18 @@ replaces a dollar sign followed by a digit with a word from the user's request.
 So this file never writes one.
 
 Above 2,000, walk themes instead of single edits. Each theme is an
-`h3.core-step` that lists the paths it covers. The core edits inside a theme
-are `h4` headings, and each one still gets the in-depth walk. Say in the flow
+`h3.core-step` that lists the paths it covers in a collapsed `details.skippable`
+block under its heading. The core edits inside a theme
+are `h4.core-edit` headings, and each one still gets the in-depth walk. The
+quiz is sized by those core edits, not by the themes. Say in the flow
 map, or in the first theme heading, that the walkthrough is summarized at theme
 level. A separate sentence that says so reads as signposting.
 
 Name each file with a `path/to/file.ext:line` reference so a reader can find
-it, but let the flow, not the path, set the order.
+it, but let the flow, not the path, set the order. Each changed file's full path
+from the repository root must also appear as page text, for example in a code
+block's `.filename` label. The step 7 coverage check looks for it, and a linked
+basename does not count.
 
 Anchor to the first line of what you quote, and use a range when you quote
 several lines: `errorBoundaryUtils.ts:70-77` for a quoted block,
@@ -677,8 +693,9 @@ Use callouts for key concepts, definitions, and important edge cases.
 
 Build the questions from the question shapes in `references/quiz-design.md`, in
 this skill's folder. Read it before you write a question. The file sets the
-count from the walkthrough's `h3.core-step` headings. Its rules stop a reader
-from answering by recall, by option length, or by position.
+count from the walkthrough's `h3.core-step` headings, or its `h4.core-edit`
+headings on a themed page. Its rules stop a reader from answering by recall, by
+option length, or by position.
 
 Keep the quiz as the last section in `<main>`, where the template puts it, and
 add no section after it. The validation script reads only the element whose `id`
@@ -721,10 +738,11 @@ node "<this skill's folder>/scripts/validate-output.js" \
 
 The script carries its dependencies, so it needs no install and no network. It
 prints the words per section, the reference and link counts, and the advisory
-ordinal hits for you to read. Every other check prints `pass:` or `FAIL:`, and
-the script exits 1 when one fails. A failure you cannot fix goes in the page's
-banner, as `references/validation.md` explains. The coverage check prints
-`skip:` when it gets no work directory, so always pass `<work>`.
+lines for you to read: the ordinal hits, and how far Background runs past Code
+when it does. Every other check that applies prints `pass:` or
+`FAIL:`, and the script exits 1 when one fails. A failure you cannot fix goes in
+the page's banner, as `references/validation.md` explains. The coverage check
+prints `skip:` when it gets no work directory, so always pass `<work>`.
 
 A `usage:` line means the arguments are wrong. Fix the page path or the short
 commit and run the command again. If the output has no `pass:`, `FAIL:`, or

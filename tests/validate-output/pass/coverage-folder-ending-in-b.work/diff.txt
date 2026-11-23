@@ -1,0 +1,7 @@
+diff --git a/plan b/notes.md b/plan b/notes.md
+index c665d2a..2b1ba5c 100644
+--- a/plan b/notes.md	
++++ b/plan b/notes.md	
+@@ -1 +1 @@
+-Use the old backup.
++Use the new backup.
