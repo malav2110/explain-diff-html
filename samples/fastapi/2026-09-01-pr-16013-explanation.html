@@ -159,6 +159,7 @@
       li {
         margin: 0.3rem 0;
       }
+      /* Code blocks: white-space set here so a filled-in block cannot collapse. */
       pre,
       .code-block {
         white-space: pre-wrap;
@@ -191,6 +192,7 @@
         background: var(--surface);
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
+        overflow-wrap: anywhere;
       }
       /* A file:line reference linked to the code it names. Wraps a <code> span
          in prose, or the bare text of a .filename label. */
@@ -205,12 +207,15 @@
       a.srcref:hover code {
         background: var(--accent-soft);
       }
+      /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
         font-family: ui-monospace, monospace;
         margin: 1.5rem 0 0.3rem;
+        overflow-wrap: anywhere;
       }
+      /* Comparison table: one row per case, .yes / .no / .warn on outcome cells. */
       table.vals {
         border-collapse: collapse;
         margin: 1.5rem 0;
@@ -240,6 +245,26 @@
       table.vals td.warn {
         background: var(--edge-soft);
       }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
+      /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
         border-left: 3px solid var(--accent);
@@ -264,6 +289,7 @@
       .callout.edge .label {
         color: var(--edge);
       }
+      /* Skippable deep-background block. */
       details.skippable {
         border: 1px solid var(--border-strong);
         border-radius: 8px;
@@ -279,6 +305,7 @@
       details.skippable[open] > summary {
         margin-bottom: 0.75rem;
       }
+      /* Diagram family 1: simplified app UI mockup. */
       .ui-mockup {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -307,6 +334,7 @@
         margin: 0.3rem 0 0;
         max-width: var(--measure);
       }
+      /* Diagram family 2: data flow between components, example data on the arrows. */
       .dataflow {
         display: flex;
         flex-wrap: wrap;
@@ -379,6 +407,9 @@
         font-weight: 600;
         margin: 1.25rem 0 0.25rem;
       }
+      /* A numbered sequence with one marked position: call stacks, retry
+         counts, any ranked list. Not one of the numbered families; reach for
+         it when a step in an ordered list is the point. */
       .frames {
         list-style: none;
         padding: 0;
@@ -403,6 +434,66 @@
         min-width: 2.2em;
         color: var(--muted);
       }
+      /* Diagram family 3: node/recursion tree (ASTs, nesting, recursion) */
+      .tree {
+        margin: 1.5rem 0;
+        font:
+          0.82rem/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .tnode {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        margin: 0.3rem 0;
+        background: var(--surface);
+        display: inline-block;
+      }
+      .tnode.leaf {
+        background: var(--bg);
+      }
+      .tnode.kept {
+        border-color: var(--ok);
+        background: var(--ok-soft);
+      }
+      .tnode.skipped {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      .tchildren {
+        margin-left: 1.4rem;
+        border-left: 2px dotted var(--border);
+        padding-left: 0.9rem;
+      }
+      .tnote {
+        color: var(--muted);
+        font-size: 0.75rem;
+        margin-left: 0.4rem;
+      }
+
+      /* Optional tabular body for .ui-mockup, when the mocked UI is a table. */
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .mock-table th,
+      .mock-table td {
+        border: 1px solid var(--border);
+        padding: 0.35rem 0.5rem;
+        text-align: left;
+      }
+      .mock-table th {
+        background: var(--surface);
+        font-weight: 600;
+      }
+      .mock-table .col-highlight {
+        background: var(--accent-soft);
+      }
+
       .mermaid {
         margin: 1.75rem 0;
         background: var(--surface);
@@ -422,6 +513,7 @@
         background: var(--surface) !important;
         color: var(--text) !important;
       }
+      /* Quiz */
       .quiz-question {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -522,6 +614,11 @@
         main > header h1 {
           font-size: 1.6rem;
         }
+        table.vals {
+          display: block;
+          overflow-x: auto;
+          max-width: 100%;
+        }
       }
     </style>
   </head>
@@ -539,753 +636,729 @@
 
       <main>
         <header>
-          <h1>Published before it was finished</h1>
+          <h1>Thread-safe route building in included routers</h1>
           <p class="lead">
-            FastAPI
-            <a href="https://github.com/fastapi/fastapi/pull/16013"
-              >pull request 16013</a
-            >
-            adds a lock to a route cache. The change that fixes the bug is
-            smaller than the lock: the rebuilt list is assigned before the
-            version is stamped, and that order is what the fast path depends on.
+            Each included router now rebuilds its cached route lists under its
+            own lock and publishes each list only when it is complete, so
+            threads that share one app can no longer read a half-built list or
+            append into the same one.
           </p>
           <p class="provenance">
-            fastapi/fastapi PR 16013 at 9f919ff, explained 2026-09-01. References link to this commit.
+            fastapi/fastapi PR 16013 at 9f919ff, explained 2026-11-16.
+            References link to this commit.
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
-
           <details class="skippable">
             <summary>
-              New to FastAPI routers, or to data races? Expand for the deeper
-              background.
+              New to this area? Expand for the deeper background.
             </summary>
             <p>
-              A FastAPI application is a tree of routers. You group endpoints
-              into an <code>APIRouter</code>, then attach it:
-            </p>
-            <pre>
-router = APIRouter()
-
-@router.get("/items/{id}")
-def read_item(id: int):
-    return {"id": id}
-
-app = FastAPI()
-app.include_router(router, prefix="/api")</pre>
-            <p>
-              Routers nest, and each level can add a prefix, dependencies, tags,
-              and response settings. So the path a request matches, and the
-              settings that apply to it, depend on the whole chain from the root
-              down to the endpoint.
+              CPython, the standard Python interpreter, runs one thread at a time
+              under its global interpreter lock (GIL), and it can switch threads
+              between any two bytecode steps. So a single assignment
+              such as <code>self.items = new_list</code> lands as one step that
+              another thread sees whole. A loop that appends ten items is ten
+              steps, and another thread can run, and read the half-filled list,
+              between any two of them. Free-threaded CPython removes the GIL,
+              so its threads really do run at the same moment.
             </p>
             <p>
-              Walking that tree on every request would be wasteful, so FastAPI
-              flattens it once and caches the result. The cache is invalidated
-              by a version number: add a route anywhere in the tree and the
-              version changes, and the next request rebuilds.
+              A check-then-act race happens when a thread checks a condition,
+              acts on it, and another thread changes the condition in between.
+              A <code>threading.Lock</code> prevents that by admitting one
+              thread at a time: code inside <code>with lock:</code> runs only
+              while the thread holds the lock, and any other thread reaching
+              that line waits for the release. The lock is not reentrant. A
+              thread that already holds it and asks again waits forever, on
+              itself.
             </p>
             <p>
-              That leaves a lazy cache, which is a small piece of shared mutable
-              state. If two threads reach it at the same time while it is cold,
-              both decide to rebuild. What each one sees of the other's work is
-              the subject of this change.
+              A dataclass declares its attributes as fields.
+              <code>field(default_factory=threading.Lock)</code> calls
+              <code>threading.Lock()</code> once per new instance, so no two
+              instances share the object. <code>repr=False</code> and
+              <code>compare=False</code> leave a field out of the
+              <code>__repr__</code> and <code>__eq__</code> methods the
+              dataclass writes.
             </p>
             <p>
-              One term for the rest of the page. A <em>data race</em> is two
-              threads touching the same state with no agreement about order, so
-              what each one observes depends on timing. That timing dependence
-              is what makes the symptoms hard to trace back to one cause.
+              The tests use three helpers. <code>threading.Barrier(n)</code>
+              holds threads until <code>n</code> of them arrive, then releases
+              them together. <code>threading.Event</code> lets one thread wait
+              until another calls <code>set()</code>. pytest's
+              <code>monkeypatch.setattr</code> replaces an attribute for one
+              test.
             </p>
           </details>
 
           <p>
-            The cached object lives on a small internal class called
-            <code>_IncludedRouter</code>: a dataclass, one instance per included
-            router, holding the flattened list plus the version that list was
-            built for. It has two methods that build and cache such a list,
-            <code>effective_candidates</code> for ordinary routes and
-            <code>effective_low_priority_routes</code> for routes that are tried
-            last. Both changed in the same way, and both share one lock.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1571">fastapi/routing.py:1571</a></p>
-          <pre>
-@dataclass
-class _IncludedRouter(BaseRoute):
-    original_router: "APIRouter"
-    include_context: _RouterIncludeContext</pre>
-
-          <p>
-            The version is not a plain counter on one router. It is a sum over
-            the subtree, so a change to any nested router changes the version
-            every ancestor sees.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2530">fastapi/routing.py:2530</a></p>
-          <pre>
-    def _get_routes_version(self, seen: set[int] | None = None) -&gt; int:
-        if seen is None:
-            seen = set()
-        router_id = id(self)
-        if router_id in seen:
-            return self._routes_version
-        seen.add(router_id)
-        version = self._routes_version
-        for route in self.routes:
-            if isinstance(route, _IncludedRouter):
-                version += route.original_router._get_routes_version(seen)
-        return version</pre>
-
-          <p>
-            Six methods bump a router's own counter:
-            <code>add_route</code>, <code>add_websocket_route</code>,
-            <code>add_api_route</code>, <code>add_api_websocket_route</code>,
-            <code>include_router</code>, and <code>frontend</code>, which mounts
-            a static frontend build as low-priority routes. All six are
-            construction-time APIs. Nothing on the request path bumps the
-            counter, which is why a retained cache is built once, on the first
-            request, and then left alone.
+            <a href="https://github.com/fastapi/fastapi/discussions/15914"
+              >Discussion 15914</a
+            >
+            reported that an app's first requests could go wrong when several
+            threads sent them at once. The setup was a test suite in which each
+            thread creates its own <code>TestClient</code>, Starlette's test
+            client, against one shared app. Each client runs the app on its own
+            event loop in its own thread. A valid route could answer 404. The
+            route list FastAPI caches for an included router could keep
+            duplicate entries for the life of the app: 283 entries for 120 routes in one of the reporter's runs. The
+            global <code>warnings.filters</code> list could gain stray entries.
+            The reporter noted that a server running one event loop matches
+            every request on one thread, so it is not exposed. The reply
+            that links this pull request calls the issue "mostly harmless",
+            since it would mainly apply to parallel test runs that use threads,
+            and says the fix shipped in FastAPI 0.139.2.
           </p>
 
           <p>
-            Here is the rebuild before the change. Three steps, and every one of
-            them writes to shared state.
+            The race lives in <code>_IncludedRouter</code>, a dataclass this
+            page calls the wrapper. <code>include_router(router)</code> appends one
+            wrapper to the parent's routes (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L3260-L3262"
+              ><code>fastapi/routing.py:3260-3262</code></a
+            >). The wrapper holds <code>original_router</code>, the router that
+            was included, and <code>include_context</code>, a
+            <code>_RouterIncludeContext</code> with the prefix, tags,
+            dependencies, and other settings the include adds. According to the
+            discussion, the wrapper arrived in FastAPI 0.137.0 with
+            <a href="https://github.com/fastapi/fastapi/pull/15745"
+              >pull request 15745</a
+            >, a refactor of the router internals.
           </p>
 
-          <p class="filename">fastapi/routing.py, before the change</p>
-          <pre>
-        self._effective_candidates = []
-        candidates = self.original_router.routes
-        for route in candidates:
-            ...
-            self._effective_candidates.append(route_context)
-        self._effective_candidates_version = routes_version
-        return self._effective_candidates</pre>
+          <p>
+            The wrapper builds the routes it serves on demand, in two lists.
+            <code>effective_candidates()</code> returns one entry for each route
+            of <code>original_router</code> that it knows how to serve. Each route that is not itself an included router becomes an
+            <code>_EffectiveRouteContext</code>, the route with the include
+            context applied, built by <code>_build_effective_context()</code>
+            (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1639"
+              ><code>fastapi/routing.py:1639</code></a
+            >). For an API route, that means compiling the prefixed path into a
+            regex, creating the response model fields, and building the
+            dependency tree in <code>_populate_api_route_state()</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L947"
+              ><code>fastapi/routing.py:947</code></a
+            >). A router included inside the included router becomes a child
+            wrapper, <code>child_branch</code> in the code, whose context is the
+            two include contexts joined by <code>combine()</code>. The second
+            list, from <code>effective_low_priority_routes()</code>, holds
+            routes tried only after every regular route has failed to match.
+            Those are the routes that <code>APIRouter.frontend()</code> registers
+            to serve a built frontend from a directory, kept in
+            <code>_low_priority_routes</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2661"
+              ><code>fastapi/routing.py:2661</code></a
+            >).
+          </p>
 
-          <div class="callout">
-            <span class="label">Key concept</span>
-            The first line installs an empty list where other threads can see
-            it. Everything after it fills that list in place. So for the whole
-            duration of the rebuild, the cache attribute holds a list that is
-            real, reachable, and wrong.
-          </div>
+          <p>
+            Each list is cached on the wrapper beside a version stamp:
+            <code>_effective_candidates</code> with
+            <code>_effective_candidates_version</code>, and
+            <code>_effective_low_priority_routes</code> with
+            <code>_effective_low_priority_routes_version</code>. Both stamps
+            start as <code>None</code>. Every <code>APIRouter</code> keeps an
+            integer, <code>_routes_version</code>, and
+            <code>_mark_routes_changed()</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2527-L2528"
+              ><code>fastapi/routing.py:2527-2528</code></a
+            >) adds one to it each time a route or a router is added.
+            <code>_get_routes_version()</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2530"
+              ><code>fastapi/routing.py:2530</code></a
+            >) returns that integer plus the integers of every router included
+            below. Each method compares the version that call returns with its
+            stamp, returns the
+            cached list on a match, and rebuilds on a mismatch. A stamp of
+            <code>None</code> never matches, so the first request through a
+            wrapper does the build.
+          </p>
+
+          <p>
+            The app's top-level <code>APIRouter</code> asks each route whether it matches,
+            in its <code>app</code> method (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2670"
+              ><code>fastapi/routing.py:2670</code></a
+            >). For a wrapper, that question ends in the wrapper's
+            <code>_match()</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1714"
+              ><code>fastapi/routing.py:1714</code></a
+            >), which loops over <code>effective_candidates()</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1718"
+              ><code>fastapi/routing.py:1718</code></a
+            >) and returns the first full match. When no route matches and no
+            slash-toggled redirect does either (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2697"
+              ><code>fastapi/routing.py:2697</code></a
+            >),
+            <code>app</code> calls <code>_match_low_priority()</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2717"
+              ><code>fastapi/routing.py:2717</code></a
+            >),
+            which reaches <code>effective_low_priority_routes()</code> through
+            <code>_iter_low_priority_routes()</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2760"
+              ><code>fastapi/routing.py:2760</code></a
+            >). When that fails too, <code>self.default</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L2732"
+              ><code>fastapi/routing.py:2732</code></a
+            >) answers 404.
+          </p>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
-
           <p>
-            The pull request body is two sentences and a link. The reasoning is
-            in the linked discussion, and the reported symptoms go past "two
-            threads corrupted a list".
+            A version stamp makes a promise: when it matches, the list beside it
+            is complete and current. The old rebuild broke that promise for a
+            moment. These lines, from the diff, did it:
           </p>
-
+          <p class="filename">fastapi/routing.py before the change, from the diff</p>
+          <pre><span class="del">self._effective_candidates = []
+candidates = self.original_router.routes
+for route in candidates:</span>
+    # elided: the loop body, which appends one entry per route
+    # to self._effective_candidates
+<span class="del">self._effective_candidates_version = routes_version
+return self._effective_candidates</span></pre>
           <p>
-            The discussion is titled "Router-tree lazy rebuild (0.137.0+) is not
-            thread-safe: valid routes can 404 under concurrent first requests".
-            Its author reports three effects. The first is the one that reaches
-            a user. The third column is my reading of how long each lasts, not
-            something the report states.
+            Take a router with three routes, <code>/a</code>, <code>/b</code>,
+            and <code>/c</code>, included once, and three threads sending the
+            app's first requests. Thread A reads the stamp, sees
+            <code>None</code>, and the interpreter pauses it just before the
+            reset line, <code>self._effective_candidates = []</code>. Thread B reads <code>None</code> too, builds the full
+            list, and stamps it <code>3</code>, the router's version after its
+            three routes were added. Then A wakes up and runs its
+            next line.
           </p>
-
-          <table class="vals">
-            <tr>
-              <th>Effect</th>
-              <th>How it appears</th>
-              <th>How long it lasts</th>
-            </tr>
-            <tr>
-              <td class="no">A valid route returns 404</td>
-              <td>
-                A reader iterates a half-built list, matches nothing, and falls
-                through to the default handler
-              </td>
-              <td>One request</td>
-            </tr>
-            <tr>
-              <td class="warn">The cache holds too many entries</td>
-              <td>
-                Concurrent rebuilds append into whichever list was assigned
-                last, so entries accumulate
-              </td>
-              <td>The life of the process</td>
-            </tr>
-            <tr>
-              <td class="warn">Global warning filters leak</td>
-              <td>
-                Building model fields saves and restores a process-global list,
-                and overlapping builds restore each other's copies
-              </td>
-              <td>The life of the process</td>
-            </tr>
-          </table>
-
-          <p>
-            For the second effect the reporter counted 283, 166, 226, 247, and
-            375 cached entries across five runs of an application with 120
-            routes. The list never shrinks back, because nothing rebuilds it
-            once the version has been stamped.
-          </p>
-
-          <h3>How two threads get there</h3>
-
-          <pre class="mermaid">
+          <pre class="mermaid">---
+config:
+  sequence:
+    useMaxWidth: false
+    mirrorActors: false
+    actorMargin: 16
+    width: 100
+    messageFontSize: 14
+    noteFontSize: 14
+    actorFontSize: 14
+---
 sequenceDiagram
-    autonumber
     participant A as Thread A
-    participant C as the cache. shared state
+    participant R as Shared cache
     participant B as Thread B
-
-    Note over A,B: before the fix. no lock. list published empty
-    A-&gt;&gt;C: version differs. start rebuilding
-    A-&gt;&gt;C: self._effective_candidates = []
-    B-&gt;&gt;C: version still differs. start rebuilding too
-    A-&gt;&gt;C: append route 1 of 120
-    B-&gt;&gt;C: self._effective_candidates = []
-    Note over C: Thread A's work is discarded mid flight
-    B-&gt;&gt;C: append route 1 of 120
-    A-&gt;&gt;C: append into the list B just replaced
-    A-&gt;&gt;C: set version to current
-    B-&gt;&gt;C: reads a list that is neither complete nor its own
-    B--)B: a valid route 404s</pre>
-
+    participant C as Thread C
+    A-&gt;&gt;R: stamp None, rebuild
+    Note over A: paused before the reset
+    B-&gt;&gt;R: stamp None, rebuild
+    B-&gt;&gt;R: list = [a, b, c]
+    B-&gt;&gt;R: stamp = 3
+    A-&gt;&gt;R: list = []
+    Note over R: stamp 3, list []
+    C-&gt;&gt;R: stamp 3, use the list
+    R--&gt;&gt;C: [], so /c is a 404</pre>
           <p>
-            Step 8 is the one to look at. Thread A stamps the version while
-            thread B is still appending. From then on the version says current,
-            so every later reader takes the fast path and trusts a list that two
-            threads are still writing to. Step 10 is what a user sees.
+            A's reset puts an empty list on the wrapper while B's stamp still
+            says <code>3</code>. Thread C asks for <code>/c</code>, finds the
+            stamp current, loops over the empty list, matches nothing, and gets
+            a 404 for a route that exists. This is a check-then-act race: A
+            acted on a check that B had made stale. Once A finishes its loop the list is
+            whole again, so this failure is brief and depends on timing. A
+            different overlap leaves extra entries in the list, and because the
+            stamp then matches, they stay until a route is added. That is the
+            duplication the discussion measured.
           </p>
-
-          <h3>Two changes, and which one is the fix</h3>
-
           <p>
-            The diff does two separable things, and they are easy to conflate.
+            The fix changes who builds and where. Only one thread builds at a
+            time, and it builds where nobody else can look: in a local list,
+            which other threads see only when one assignment puts the finished
+            list on the wrapper. This page calls that assignment publishing. That assignment comes before the stamp, so a thread that
+            sees the new stamp also sees the new list. A thread that had to wait
+            for the builder checks the stamp again once it holds the lock, finds
+            it current, and takes the list the builder made.
           </p>
-
-          <p>
-            The first is a lock, with the version re-checked after acquiring it.
-            That is the standard double-checked pattern: the check outside the
-            lock keeps a warm cache from paying for synchronization at all. It
-            is not free, since computing the version walks the subtree, but it
-            costs no lock.
-          </p>
-
-          <p>
-            The second is that the list is built into a local variable and
-            assigned to the attribute in one statement, once complete. This is
-            the change that fixes the bug, and the reason is that a reader on
-            the fast path never takes the lock. A lock alone would still leave
-            that reader looking at a partially filled list. Building locally
-            means the attribute only ever holds a finished list.
-          </p>
-
-          <p class="flow-label">
-            Before: the container is shared while filling
-          </p>
-          <div class="dataflow">
-            <div class="node terminal">rebuild starts</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">[]</span><span class="line"></span>
-              </div>
-              <div class="node fail">visible to readers</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">append x120</span><span class="line"></span>
-              </div>
-              <div class="node fail">still visible</div>
-            </div>
-          </div>
-
-          <p class="flow-label">
-            After: the container is private while filling
-          </p>
-          <div class="dataflow">
-            <div class="node terminal">rebuild starts</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">local list</span><span class="line"></span>
-              </div>
-              <div class="node">nobody can see it</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">one assignment</span
-                ><span class="line"></span>
-              </div>
-              <div class="node pass">visible, complete</div>
-            </div>
-          </div>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            The two publishing lines are ordered, and the order carries the
-            invariant. In <a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1608-L1609"><code>fastapi/routing.py:1608-1609</code></a> the list is
-            assigned first and the version second. A reader who lands between
-            them sees the new complete list with the old version, fails the
-            check, takes the lock, and gets the published list from the
-            re-check. Swap the two lines and that same reader sees the new
-            version with the old list, passes the check, and returns stale data
-            that nothing will ever correct.
+          <pre class="mermaid">---
+config:
+  sequence:
+    useMaxWidth: false
+    mirrorActors: false
+    actorMargin: 16
+    width: 100
+    messageFontSize: 14
+    noteFontSize: 14
+    actorFontSize: 14
+---
+sequenceDiagram
+    participant A as Thread A
+    participant R as Shared cache
+    participant B as Thread B
+    participant C as Thread C
+    A-&gt;&gt;R: stamp None, take lock
+    B-&gt;&gt;R: stamp None, wait for lock
+    Note over A: build a local [a, b, c]
+    A-&gt;&gt;R: list = [a, b, c]
+    A-&gt;&gt;R: stamp = 3, unlock
+    Note over B: gets the lock
+    B-&gt;&gt;R: stamp 3, skip rebuild
+    R--&gt;&gt;B: the list A built
+    C-&gt;&gt;R: stamp 3, no lock
+    R--&gt;&gt;C: [a, b, c], /c matches</pre>
+          <div class="callout">
+            <span class="label">Key concept</span>
+            This pattern is double-checked locking: check without the lock, take
+            the lock, then check again. The rest of this page
+            calls the two checks the check before the lock and the check inside
+            the lock.
           </div>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
-
           <p>
-            The flow, end to end. A request needs the flattened routes. The
-            method compares the subtree version against the cached one. On a
-            match it returns the cached list and stops. On a mismatch it takes
-            the lock, checks again in case another thread just did the work,
-            builds a fresh list locally, publishes it, stamps the version, and
-            returns what it built.
+            Flow: <code>include_router</code> creates a wrapper with its own
+            lock → a request reaches <code>_match()</code> →
+            <code>effective_candidates()</code> checks, locks, checks again,
+            builds, and publishes → an unmatched request reaches
+            <code>effective_low_priority_routes()</code>, which repeats the
+            pattern under the same lock.
           </p>
 
-          <p>Two files: the fix, and a test file that gains two tests.</p>
+          <h3 class="core-step">Each wrapper gets its own lock</h3>
+          <p>
+            <code>fastapi/routing.py</code> now imports <code>threading</code>
+            (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L10"
+              ><code>fastapi/routing.py:10</code></a
+            >) and gives the wrapper dataclass one new field:
+          </p>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1572-L1577"
+              >fastapi/routing.py:1572-1577</a
+            >
+          </p>
+          <pre>class _IncludedRouter(BaseRoute):
+    original_router: "APIRouter"
+    include_context: _RouterIncludeContext
+<span class="add">    _effective_routes_lock: Any = field(
+        default_factory=threading.Lock, repr=False, compare=False
+    )</span></pre>
+          <p>
+            Because the field uses <code>default_factory</code>, every wrapper
+            gets a fresh lock. That covers the wrapper
+            <code>include_router</code> creates and every
+            <code>child_branch</code> the two methods create.
+            <code>repr=False</code> and <code>compare=False</code> leave the
+            lock out of the wrapper's <code>__repr__</code> and
+            <code>__eq__</code>.
+          </p>
 
-          <h3>1. The whole method</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1587">fastapi/routing.py:1587</a></p>
-          <pre>
-    def effective_candidates(self) -&gt; list["_EffectiveRouteContext | _IncludedRouter"]:
+          <h3 class="core-step">
+            <code>effective_candidates()</code> checks, locks, checks again,
+            then publishes
+          </h3>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1587-L1610"
+              >fastapi/routing.py:1587-1610</a
+            >
+          </p>
+          <pre>def effective_candidates(self) -&gt; list["_EffectiveRouteContext | _IncludedRouter"]:
+    routes_version = self.original_router._get_routes_version()
+    if routes_version == self._effective_candidates_version:
+        return self._effective_candidates
+<span class="add">    with self._effective_routes_lock:
         routes_version = self.original_router._get_routes_version()
         if routes_version == self._effective_candidates_version:
             return self._effective_candidates
-        with self._effective_routes_lock:
-            routes_version = self.original_router._get_routes_version()
-            if routes_version == self._effective_candidates_version:
-                return self._effective_candidates
-            effective_candidates: list[_EffectiveRouteContext | _IncludedRouter] = []
-            for route in self.original_router.routes:
-                # elided: builds a child branch for a nested router, or an
-                # effective route context for a plain route
-                ...
-            self._effective_candidates = effective_candidates
-            self._effective_candidates_version = routes_version
-            return effective_candidates</pre>
-
+        effective_candidates: list[_EffectiveRouteContext | _IncludedRouter] = []
+        for route in self.original_router.routes:
+            if isinstance(route, _IncludedRouter):
+                child_context = self.include_context.combine(route.include_context)
+                child_branch = _IncludedRouter(
+                    original_router=route.original_router,
+                    include_context=child_context,
+                )
+                effective_candidates.append(child_branch)
+                continue
+            route_context = self._build_effective_context(route)
+            if route_context is not None:
+                effective_candidates.append(route_context)
+        self._effective_candidates = effective_candidates
+        self._effective_candidates_version = routes_version
+        return effective_candidates</span></pre>
           <p>
-            Four things to name: the duplicated check, the local list, the
-            publish-then-stamp order, and the fact that the method returns the
-            local rather than reading the attribute back.
+            The first four lines are unchanged. When the stamp matches, the
+            method returns the cached list before it reaches the lock, so a
+            wrapper whose list is built serves requests the way it did before.
+          </p>
+          <p>
+            On a mismatch, the thread enters
+            <code>with self._effective_routes_lock:</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1591"
+              ><code>fastapi/routing.py:1591</code></a
+            >), and only one thread per wrapper gets past that line at a time.
+            The check inside the lock (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1592-L1594"
+              ><code>fastapi/routing.py:1592-1594</code></a
+            >) calls <code>_get_routes_version()</code> afresh and compares
+            again. A thread that waited while another built finds the stamp
+            current here and returns the list the other thread published.
+          </p>
+          <p>
+            The build appends to a local variable, also named
+            <code>effective_candidates</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1595"
+              ><code>fastapi/routing.py:1595</code></a
+            >), instead of to <code>self._effective_candidates</code>. The loop body is the old one,
+            indented under the <code>with</code>, and it walks
+            <code>self.original_router.routes</code> directly instead of through
+            the old <code>candidates</code> name. No other thread can reach the
+            local list while it fills.
+          </p>
+          <p>
+            The last three lines publish it (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1608-L1610"
+              ><code>fastapi/routing.py:1608-1610</code></a
+            >). The list goes onto the wrapper first and the stamp second. The
+            order matters because the check before the lock reads both
+            attributes with no lock held, so a thread that sees the new stamp
+            also sees the new list.
+          </p>
+          <p>
+            The first new test,
+            <code>test_included_router_candidate_cache_is_thread_safe</code>
+            (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L903"
+              ><code>tests/test_router_include_context.py:903</code></a
+            >), uses the sizes from the discussion's reproduction: 120 routes and
+            six threads. A
+            <code>threading.Barrier</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L916"
+              ><code>tests/test_router_include_context.py:916</code></a
+            >) releases the six threads together, and each calls
+            <code>effective_candidates()</code> on the unbuilt wrapper. The test
+            asserts that all six got the same list object (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L930"
+              ><code>tests/test_router_include_context.py:930</code></a
+            >), that it holds 120 entries (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L931"
+              ><code>tests/test_router_include_context.py:931</code></a
+            >), and that a request for <code>/items/0</code> still answers.
           </p>
 
-          <h3>2. The lock field</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1575">fastapi/routing.py:1575</a></p>
-          <pre><span class="add">+    _effective_routes_lock: Any = field(</span>
-<span class="add">+        default_factory=threading.Lock, repr=False, compare=False</span>
-<span class="add">+    )</span></pre>
-
+          <h3 class="core-step">
+            <code>effective_low_priority_routes()</code> repeats the pattern
+            under the same lock
+          </h3>
           <p>
-            <code>default_factory</code> gives each instance its own lock, so
-            two routers never contend. The two keyword arguments matter because
-            the bare <code>@dataclass</code> generates both a
-            <code>__repr__</code> and an <code>__eq__</code>.
+            The second method gets the same moves: the unchanged check before
+            the lock (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1613-L1615"
+              ><code>fastapi/routing.py:1613-1615</code></a
+            >), the lock (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1616"
+              ><code>fastapi/routing.py:1616</code></a
+            >), the check inside it (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1617-L1619"
+              ><code>fastapi/routing.py:1617-1619</code></a
+            >), and a local list (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1620"
+              ><code>fastapi/routing.py:1620</code></a
+            >). It takes the same <code>_effective_routes_lock</code> as
+            <code>effective_candidates()</code>, so one wrapper never builds
+            both of its lists at the same moment. Its ending differs, because it
+            folds nested routers in as it goes:
           </p>
-
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/routing.py#L1625-L1637"
+              >fastapi/routing.py:1625-1637</a
+            >
+          </p>
+          <pre><span class="add">for route in self.original_router.routes:
+    if isinstance(route, _IncludedRouter):
+        child_context = self.include_context.combine(route.include_context)
+        child_branch = _IncludedRouter(
+            original_router=route.original_router,
+            include_context=child_context,
+        )
+        effective_low_priority_routes.extend(
+            child_branch.effective_low_priority_routes()
+        )
+self._effective_low_priority_routes = effective_low_priority_routes
+self._effective_low_priority_routes_version = routes_version
+return effective_low_priority_routes</span></pre>
           <p>
-            <code>repr=False</code> keeps the lock out of the string form, which
-            would otherwise print a memory address that changes every run.
-            <code>compare=False</code> matters more: the generated
-            <code>__eq__</code> compares the tuple of fields, and a
-            <code>threading.Lock</code> only ever equals itself. Left in, two
-            <code>_IncludedRouter</code> instances with identical routers and
-            contexts would always compare unequal, because their locks are
-            different objects.
+            For each router included inside <code>original_router</code>, the
+            method makes a <code>child_branch</code> and calls the child's
+            <code>effective_low_priority_routes()</code> while it still holds
+            its own lock. The child is a new wrapper with a new lock of its own,
+            from the dataclass field, so that inner call checks and takes the
+            child's lock, not the parent's. The parent copies the child's
+            entries into its local list with <code>extend</code> and then drops
+            the child. Publishing keeps the same order: list, then stamp.
           </p>
-
-          <h3>3. Checking the version twice</h3>
-
-          <p>
-            The check at the top runs without the lock, and the same check runs
-            again immediately after acquiring it. The two do different jobs. The
-            first is the fast path: a warm cache computes the subtree version,
-            compares it, and returns, without touching the lock. The second
-            covers the window between failing the first check and getting the
-            lock, during which another thread may have finished the whole
-            rebuild.
-          </p>
-
-          <p>
-            Without the second check, every thread that queued on the lock would
-            rebuild the list again in turn, each one throwing away the work of
-            the thread before it.
-          </p>
-
-          <h3>4. Publish, then stamp</h3>
-
-          <p>
-            This is the ordering from the edge case above, and it is the reason
-            the unlocked fast path is safe. The invariant the code maintains is:
-            if the version says current, the list is complete.
-          </p>
-
-          <p>
-            The first three rows are states this code produces. The fourth is
-            the counterfactual, and the only one where the reader has no way
-            back.
-          </p>
-
-          <table class="vals">
-            <tr>
-              <th>A reader arrives</th>
-              <th>Sees version</th>
-              <th>Sees list</th>
-              <th>Outcome</th>
-            </tr>
-            <tr>
-              <td>before the publish</td>
-              <td>old</td>
-              <td>the previous list, or the empty default</td>
-              <td class="yes">fails the check, takes the lock</td>
-            </tr>
-            <tr>
-              <td>between publish and stamp</td>
-              <td>old</td>
-              <td>new, complete</td>
-              <td class="yes">fails the check, takes the lock</td>
-            </tr>
-            <tr>
-              <td>after the stamp</td>
-              <td>new</td>
-              <td>new, complete</td>
-              <td class="yes">passes the check, returns it</td>
-            </tr>
-            <tr>
-              <td class="no">
-                the counterfactual: after a stamp, had the lines been swapped
-              </td>
-              <td>new</td>
-              <td class="no">the previous list, or the empty default</td>
-              <td class="no">passes the check, never corrected</td>
-            </tr>
-          </table>
-
-          <h3>5. Returning the local</h3>
-
-          <p>
-            Both methods end with <code>return effective_candidates</code>, the
-            local variable, rather than
-            <code>return self._effective_candidates</code>.
-          </p>
-
-          <p>
-            At this commit that makes no observable difference. The return value
-            is evaluated while the thread still holds the lock, and both writes
-            to those attributes happen under that same lock, so no other thread
-            can have replaced either one in between. Returning the local would
-            still hold if something later wrote the attribute without the lock.
-            Whether that was the reason, the record does not say.
-          </p>
-
-          <h3>6. The nested-router asymmetry</h3>
-
-          <p>
-            Inside the rebuild, a nested router becomes a fresh
-            <code>_IncludedRouter</code> object, constructed on the spot. The
-            two methods then do opposite things with it, so read this before
-            either one.
-          </p>
-
-          <p>
-            <code>effective_candidates</code> appends the child into the list it
-            publishes, so the child survives. Callers reach it through the
-            parent's cached list and call its own
-            <code>effective_candidates</code>, which fills the child's own
-            cache. So a nested router's cache is reused across requests. It is
-            discarded whenever the parent rebuilds, because the parent then
-            constructs a new child object, and the old one becomes garbage along
-            with its warm cache and its lock.
-          </p>
-
-          <p>
-            <code>effective_low_priority_routes</code> does not keep the child
-            at all. It builds one, calls the child's method once, extends the
-            flattened result into its own list, and drops the child. So that
-            recursion always runs against a cold cache.
-          </p>
-
-          <p>
-            So one nested router is represented by more than one
-            <code>_IncludedRouter</code>. Two persist:
-            <code>include_router</code> appends one into the parent's
-            <code>routes</code>, which is the object the
-            <code>isinstance</code> check reads during a rebuild, and the
-            rebuild then constructs a second and stores it in the parent's
-            candidate cache. A third exists only while a low-priority rebuild is
-            in flight, and is dropped when it ends. None of them share a cache
-            or a lock.
-          </p>
-
-          <p>
-            That is also why the recursion cannot deadlock.
-            <code>threading.Lock</code> is not reentrant, so a thread that holds
-            one and tries to acquire the same one again blocks forever. Here the
-            parent holds its own lock while the child acquires the child's, and
-            those are different objects. The throwaway child's lock is one no
-            other thread can reach at all.
-          </p>
-
-          <h3>7. The two tests</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L903">tests/test_router_include_context.py:903</a></p>
-          <pre>
-def test_included_router_candidate_cache_is_thread_safe():
-    router = APIRouter()
-    route_count = 120
-    thread_count = 6</pre>
-
-          <p>
-            The test uses the same shape as the discussion's example code, 120
-            routes and six threads, driven through the internal API instead of
-            test clients. It releases the six threads simultaneously through a
-            <code>threading.Barrier</code>, and each calls
-            <code>effective_candidates()</code> on a cold cache. Then four
-            assertions, at lines 929 to 932:
-          </p>
-
-          <pre>
-    assert len(results) == thread_count
-    assert all(result is results[0] for result in results)
-    assert len(results[0]) == route_count
-    assert TestClient(app).get("/items/0").json() == {"index": 0}</pre>
-
-          <p>
-            The second is the interesting one. It uses
-            <code>is</code>, not <code>==</code>, so it demands that all six
-            threads received the same list object. The third pins the count at
-            exactly 120, which is the assertion the duplication would break. The
-            fourth checks that routing still works afterwards.
-          </p>
-
-          <p>
-            On the pre-fix code this test can pass. It is a real race and
-            nothing in it forces a schedule, so a run where the threads do not
-            interleave would report green. The discussion's author ran the
-            equivalent script and recorded corruption in five runs out of five,
-            with the counts listed above, which is the only frequency evidence
-            either the report or this page has.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L935">tests/test_router_include_context.py:935</a></p>
-          <pre>
-def test_included_router_low_priority_cache_rechecks_version_after_lock(monkeypatch):</pre>
-
-          <p>
-            The second test targets the branch that only exists because of this
-            change: the early return inside the lock. It holds the lock on the
-            main thread, starts a worker, waits on an
-            <code>Event</code> to prove the worker has already failed the
-            outside check, then sets the version to current and releases the
-            lock. The worker acquires it, re-checks, finds the version now
-            matches, and returns early.
-          </p>
-
-          <p>
-            That test fails deterministically on the pre-fix code, and not
-            because of timing: the lock attribute does not exist there, so
-            reaching for it raises <code>AttributeError</code> on every run.
-          </p>
-
-          <p>
-            The file holds 40 tests in total, counted with
-            <code>grep -c "^def test_\|^async def test_"</code>.
-          </p>
-
-          <h3>8. What the change does not do</h3>
-
-          <p>
-            The discussion's third symptom, leaking global warning filters, is
-            not fixed here. Building a model field opens
-            <code>warnings.catch_warnings()</code>, which saves the
-            process-global filter list and restores it on exit. Overlapping
-            builds save and restore each other's copies, so the last restore
-            wins and entries leak.
-          </p>
-
-          <p>
-            Serializing one router's rebuild removes those overlapping builds.
-            It does not make <code>catch_warnings</code> thread-safe, and model
-            fields are built on other paths too. The maintainer wrote in the
-            discussion: "For the warnings, it's also pretty much harmless and
-            that will be refactored either way so it should be fine."
-          </p>
-
           <div class="callout edge">
-            <span class="label">The assumption underneath</span>
-            Any unlocked fast path over a published value rests on a memory
-            model: the reader that sees the new flag has to see the new value
-            too. On a build with the global interpreter lock, that follows from
-            how attribute stores work, and this code takes that route. On a
-            free-threaded build the question is a different one, and this
-            repository runs its tests against both, including
-            <code>3.14t</code> in its CI matrix. So when you read a pattern like
-            this one, the interpreter it runs under is part of the pattern.
+            <span class="label">Out of scope</span>
+            The lock keeps two threads from building one wrapper's lists at
+            once. Two different wrappers can still build at the same moment. A
+            build creates model fields for each API route, and each
+            <code>ModelField</code> enters <code>warnings.catch_warnings()</code>
+            (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/fastapi/_compat/v2.py#L142"
+              ><code>fastapi/_compat/v2.py:142</code></a
+            >), which saves and restores the process-wide
+            <code>warnings.filters</code>. The discussion traces its third
+            symptom, the stray filter entries, to those calls overlapping, and
+            this change does not touch that code. The reply says that code "will
+            be refactored either way".
           </div>
-
-          <div class="callout">
-            <span class="label">The transferable part</span>
-            When you cache something built in steps, build it somewhere private
-            and publish it once. The lock is about who does the work; the local
-            variable is about what everyone else can see while it happens, and
-            those are different problems. Then order the publishing writes so
-            that the flag saying "this is ready" is written last. Anything else
-            leaves a window in which the flag says ready and the state is not,
-            and a reader that trusts the flag has no way to find out otherwise.
-          </div>
+          <p>
+            The second new test,
+            <code>test_included_router_low_priority_cache_rechecks_version_after_lock</code>
+            (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L935"
+              ><code>tests/test_router_include_context.py:935</code></a
+            >), aims at the check inside the lock. It includes an empty router
+            and uses <code>monkeypatch.setattr</code> to replace that router's
+            <code>_get_routes_version()</code> with a stub, <code>get_routes_version</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L943-L945"
+              ><code>tests/test_router_include_context.py:943-945</code></a
+            >), which sets a <code>threading.Event</code> named
+            <code>version_checked</code> and returns a fixed version. Then it
+            runs this:
+          </p>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L953-L958"
+              >tests/test_router_include_context.py:953-958</a
+            >
+          </p>
+          <pre><span class="add">with included_router._effective_routes_lock:
+    thread = threading.Thread(target=build_low_priority_routes)
+    thread.start()
+    assert version_checked.wait(timeout=1)
+    included_router._effective_low_priority_routes_version = routes_version
+thread.join()</span></pre>
+          <p>
+            The main thread holds the wrapper's lock, starts a thread that calls
+            <code>effective_low_priority_routes()</code>, waits for <code>version_checked</code>,
+            stamps the wrapper with the current version, and only then releases
+            the lock. In that schedule the thread, once it holds the lock, finds
+            the stamp current and returns from inside the <code>with</code>
+            block. The final assertion, <code>result == [[]]</code> (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/tests/test_router_include_context.py#L960"
+              ><code>tests/test_router_include_context.py:960</code></a
+            >), holds on either path. <code>result</code> collects the thread's
+            return value, so <code>[[]]</code> means one empty list, and an empty
+            router rebuilds to an empty list too. So what the test adds is a run through that return.
+            That looks aimed at test coverage, which CI holds at 100% (<a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/9f919ffac33a0601d4ec5b510111eddd2291dd64/.github/workflows/test.yml#L242"
+              ><code>.github/workflows/test.yml:242</code></a
+            >),
+            though nothing in the record says so.
+          </p>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
-
-          <p>
-            Five questions about why the change is shaped the way it is. Click
-            an option to see the answer.
-          </p>
-
           <div class="quiz-question">
             <p class="q">
-              1. The fix assigns the list, then stamps the version. If those two
-              lines were swapped, what would a reader on the unlocked fast path
-              see?
+              Before this change, a router has three routes. Threads A and B
+              both read the stamp as <code>None</code>. A resets the list, then
+              B resets it, then both run their loops to the end. How many
+              entries does <code>_effective_candidates</code> hold afterward?
             </p>
             <button class="quiz-option">
-              Nothing different. Both writes happen under the lock, so no reader
-              can land between them.
+              Three, because each loop appends to the list it assigned
             </button>
             <button class="quiz-option" data-correct>
-              A current version stamp beside the old list, and nothing would ever
-              correct the mismatch.
+              Six, because both loops append to the list B assigned
             </button>
             <button class="quiz-option">
-              A stale version with the new list, so it would rebuild
-              unnecessarily and waste work.
+              Zero, because A's later stamp marks the empty list current
+            </button>
+            <button class="quiz-option">
+              It depends on which thread writes the stamp last
             </button>
             <div class="quiz-feedback" role="status">
-              Holding the lock does not stop a fast-path reader, because that
-              reader never acquires it. The invariant is that the version means
-              "the list is complete", and stamping first breaks it in the
-              direction that cannot recover: the reader passes the check, so it
-              never looks again. The current order fails in the harmless
-              direction instead, costing one unnecessary lock acquisition.
+              The old loop called <code>self._effective_candidates.append()</code>,
+              which looks the attribute up again on every call. After B's reset,
+              that attribute names B's list, so both loops append there and the
+              list A assigned is dropped empty. Which thread stamps last does not
+              matter, because both write the same version. This is how the
+              reporter's run ended with 283 entries for 120 routes, and why the
+              merged code appends to a local variable.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              2. Suppose the change had added the lock and the double check, but
-              kept building the list in place on <code>self</code>. Would that
-              have fixed the reported 404s?
+              Suppose <code>_effective_routes_lock</code> were one lock shared by
+              every wrapper instead of one per instance. The app includes a
+              router that itself includes another router. What happens to the
+              first request that matches no regular route and falls through to
+              the low-priority routes?
             </p>
             <button class="quiz-option">
-              Yes. Only one thread can be inside the rebuild at a time, so no
-              reader can see a partial list.
-            </button>
-            <button class="quiz-option" data-correct>
-              No. A reader on the fast path never takes the lock, so it could
-              still find the emptied list mid-rebuild.
+              It works, but nested routers then build their lists one at a time
             </button>
             <button class="quiz-option">
-              Yes for the 404s, no for the duplicated entries, since appends
-              from two threads would still interleave.
+              It gets a 404, because the nested router's low-priority list is still empty
+            </button>
+            <button class="quiz-option">
+              It works, because only the regular-route path ever builds a nested router's list
+            </button>
+            <button class="quiz-option" data-correct>
+              It hangs, since the nested call waits for a lock its own thread holds
             </button>
             <div class="quiz-feedback" role="status">
-              That is the difference between what the lock fixes and what the
-              local list fixes. A commenter on the discussion put it directly:
-              "The second point is important even with a lock: publishing a
-              mutable empty list before it is complete creates an observable
-              invalid state." The lock does fix the duplication, since only one
-              thread appends at a time. It does nothing for the reader that
-              trusts a stamped version.
+              <code>effective_low_priority_routes()</code> creates each
+              <code>child_branch</code> and calls the child's method while it
+              still holds the parent's lock. With one lock per instance, that
+              call takes the child's own lock. With one shared lock, the thread
+              asks for a lock it already holds, and a
+              <code>threading.Lock</code> is not reentrant, so the thread waits
+              forever. The regular path escapes this, because
+              <code>effective_candidates()</code> only creates the children; they
+              build their own lists later, from <code>_match()</code>, after the
+              parent has released the lock.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              3. Why does the version get checked a second time, immediately
-              after the lock is acquired?
+              The discussion proposed building into a local list and publishing
+              it, with no lock. Compared with that proposal, what does the merged
+              version add?
             </p>
-            <button class="quiz-option">
-              Because the subtree sum can change while a thread waits, and the
-              first value read is stale by then.
-            </button>
-            <button class="quiz-option">
-              Because <code>threading.Lock</code> is not reentrant, so the
-              second check prevents a recursive call from rebuilding twice.
-            </button>
             <button class="quiz-option" data-correct>
-              Because another thread may have finished the rebuild while this one
-              waited for the lock.
+              Threads arriving at an unbuilt list build it once, instead of once each
+            </button>
+            <button class="quiz-option">
+              A reader can no longer see an empty list that is stamped as current
+            </button>
+            <button class="quiz-option">
+              Two overlapping rebuilds can no longer append their entries into one shared list
+            </button>
+            <button class="quiz-option">
+              Later requests read the already built list without taking any lock at all
             </button>
             <div class="quiz-feedback" role="status">
-              Without it, six threads arriving at a cold cache would rebuild the
-              list six times in sequence, each discarding the previous result.
-              The version can also change during the wait, and the re-read
-              handles that too, but the reason the check earns its place is the
-              queued-threads case. Reentrancy is a separate matter, and the
-              recursion in this class always crosses to a different lock object.
+              Both versions publish only a finished list, so both close the
+              empty-list window and the shared-append duplication, and in both a
+              request on a built wrapper skips the lock. The lock and the check
+              inside it add one thing: threads that arrive while the list is
+              unbuilt wait, then take the builder's list, so the build runs once
+              per wrapper instead of once per thread. The six-thread test checks
+              that with <code>result is results[0]</code>. The reporter
+              also noted that free-threaded Python builds may want the lock
+              anyway.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              4. The lock field is declared with
-              <code>compare=False</code>. What breaks without it?
+              In
+              <code>test_included_router_low_priority_cache_rechecks_version_after_lock</code>,
+              delete the line <code>assert version_checked.wait(timeout=1)</code>
+              and keep everything else. What can now happen?
             </p>
             <button class="quiz-option">
-              The dataclass would try to copy the lock when the instance is
-              copied, which raises at runtime.
-            </button>
-            <button class="quiz-option" data-correct>
-              Two otherwise identical instances would never compare equal, since
-              a lock only equals itself.
+              The thread can never acquire the lock, so the final
+              <code>thread.join()</code> waits forever
             </button>
             <button class="quiz-option">
-              Every instance would share one lock, since dataclasses reuse a
-              single default object across instances.
+              The thread may rebuild the list and return one with a duplicate entry
+            </button>
+            <button class="quiz-option" data-correct>
+              The thread may return at the check before the lock and never wait
+            </button>
+            <button class="quiz-option">
+              The final assertion fails, because <code>result</code> is still
+              empty when it is checked
             </button>
             <div class="quiz-feedback" role="status">
-              A bare <code>@dataclass</code> generates <code>__eq__</code> from
-              the tuple of fields that opt in, so a field with identity-only
-              equality poisons the comparison. Per-instance locks come from
-              <code>default_factory</code>, which is a different keyword and the
-              reason the shared-default answer is wrong.
+              Without the wait, the main thread can stamp the wrapper before the
+              new thread has read the version at all. The thread's check before
+              the lock then matches, it returns at once, and the return inside
+              the <code>with</code> block never runs. The test still passes,
+              because the result is <code>[[]]</code> either way, so nothing
+              reports the lost path. The stub sets <code>version_checked</code>
+              from inside that check, so the wait holds the stamp back until the
+              thread has started reading the version. The thread then nearly
+              always reaches the lock first, though nothing strictly forces it.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              5. <code>effective_low_priority_routes</code> holds its own lock,
-              then recurses into a child <code>_IncludedRouter</code> that
-              acquires a lock too. <code>threading.Lock</code> is not reentrant.
-              Why is that not a deadlock?
+              The app runs under a server with one event loop, so every request
+              is a coroutine on the same thread. Two requests arrive together at
+              an app whose lists are unbuilt. What does the second request do
+              when it reaches <code>effective_candidates()</code>?
             </p>
             <button class="quiz-option">
-              The recursion happens before the lock is acquired, so the two
-              never overlap at all.
-            </button>
-            <button class="quiz-option">
-              The child inherits the parent's lock, and Python allows a thread
-              to re-acquire a lock it already owns.
+              It waits on the lock until the first request's coroutine releases it
             </button>
             <button class="quiz-option" data-correct>
-              The child is a separate object with its own lock, freshly
-              constructed and reachable by no other thread.
+              It finds the stamp current and uses the list the first request built
+            </button>
+            <button class="quiz-option">
+              It blocks the event loop, since a paused coroutine still holds the lock
+            </button>
+            <button class="quiz-option">
+              It rebuilds the list, since each coroutine compares against its own stamp
             </button>
             <div class="quiz-feedback" role="status">
-              Each instance gets its own lock from
-              <code>default_factory</code>, so parent and child never contend.
-              The recursion does happen inside the parent's
-              <code>with</code> block, and if the child shared the parent's lock
-              this would hang on the first nested router. Python has
-              <code>RLock</code> for the case where re-acquiring is wanted, and
-              this code does not need it.
+              Coroutines on one event loop switch only at an <code>await</code>.
+              <code>APIRouter.app</code> reaches
+              <code>effective_candidates()</code> through ordinary function
+              calls, and the rebuild has no <code>await</code> inside, so the
+              first request finishes the build and the stamp before the loop can
+              run the second. The second request returns at the check before the
+              lock and never touches it. That matches the discussion's note that a
+              single-loop server does not contend on the rebuild.
             </div>
           </div>
         </section>

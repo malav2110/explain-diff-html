@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TanStack Query PR 11242 explanation</title>
+    <title>PR 11242 explanation</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -159,6 +159,7 @@
       li {
         margin: 0.3rem 0;
       }
+      /* Code blocks: white-space set here so a filled-in block cannot collapse. */
       pre,
       .code-block {
         white-space: pre-wrap;
@@ -191,6 +192,7 @@
         background: var(--surface);
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
+        overflow-wrap: anywhere;
       }
       /* A file:line reference linked to the code it names. Wraps a <code> span
          in prose, or the bare text of a .filename label. */
@@ -205,12 +207,15 @@
       a.srcref:hover code {
         background: var(--accent-soft);
       }
+      /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
         font-family: ui-monospace, monospace;
         margin: 1.5rem 0 0.3rem;
+        overflow-wrap: anywhere;
       }
+      /* Comparison table: one row per case, .yes / .no / .warn on outcome cells. */
       table.vals {
         border-collapse: collapse;
         margin: 1.5rem 0;
@@ -240,6 +245,26 @@
       table.vals td.warn {
         background: var(--edge-soft);
       }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
+      /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
         border-left: 3px solid var(--accent);
@@ -264,6 +289,7 @@
       .callout.edge .label {
         color: var(--edge);
       }
+      /* Skippable deep-background block. */
       details.skippable {
         border: 1px solid var(--border-strong);
         border-radius: 8px;
@@ -279,6 +305,7 @@
       details.skippable[open] > summary {
         margin-bottom: 0.75rem;
       }
+      /* Diagram family 1: simplified app UI mockup. */
       .ui-mockup {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -307,6 +334,7 @@
         margin: 0.3rem 0 0;
         max-width: var(--measure);
       }
+      /* Diagram family 2: data flow between components, example data on the arrows. */
       .dataflow {
         display: flex;
         flex-wrap: wrap;
@@ -379,6 +407,9 @@
         font-weight: 600;
         margin: 1.25rem 0 0.25rem;
       }
+      /* A numbered sequence with one marked position: call stacks, retry
+         counts, any ranked list. Not one of the numbered families; reach for
+         it when a step in an ordered list is the point. */
       .frames {
         list-style: none;
         padding: 0;
@@ -403,6 +434,66 @@
         min-width: 2.2em;
         color: var(--muted);
       }
+      /* Diagram family 3: node/recursion tree (ASTs, nesting, recursion) */
+      .tree {
+        margin: 1.5rem 0;
+        font:
+          0.82rem/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .tnode {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        margin: 0.3rem 0;
+        background: var(--surface);
+        display: inline-block;
+      }
+      .tnode.leaf {
+        background: var(--bg);
+      }
+      .tnode.kept {
+        border-color: var(--ok);
+        background: var(--ok-soft);
+      }
+      .tnode.skipped {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      .tchildren {
+        margin-left: 1.4rem;
+        border-left: 2px dotted var(--border);
+        padding-left: 0.9rem;
+      }
+      .tnote {
+        color: var(--muted);
+        font-size: 0.75rem;
+        margin-left: 0.4rem;
+      }
+
+      /* Optional tabular body for .ui-mockup, when the mocked UI is a table. */
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .mock-table th,
+      .mock-table td {
+        border: 1px solid var(--border);
+        padding: 0.35rem 0.5rem;
+        text-align: left;
+      }
+      .mock-table th {
+        background: var(--surface);
+        font-weight: 600;
+      }
+      .mock-table .col-highlight {
+        background: var(--accent-soft);
+      }
+
       .mermaid {
         margin: 1.75rem 0;
         background: var(--surface);
@@ -422,6 +513,7 @@
         background: var(--surface) !important;
         color: var(--text) !important;
       }
+      /* Quiz */
       .quiz-question {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -522,10 +614,15 @@
         main > header h1 {
           font-size: 1.6rem;
         }
+        table.vals {
+          display: block;
+          overflow-x: auto;
+          max-width: 100%;
+        }
       }
     </style>
   </head>
-    <body>
+  <body>
     <div class="layout">
       <nav class="toc">
         <strong>Contents</strong>
@@ -539,205 +636,350 @@
 
       <main>
         <header>
-          <h1>A guard that only reset when nothing went wrong</h1>
+          <h1>The broadcast client keeps sending after an incoming message throws</h1>
           <p class="lead">
-            TanStack Query
-            <a href="https://github.com/TanStack/query/pull/11242"
-              >pull request 11242</a
-            >
-            adds <code>try</code> and <code>finally</code> around one callback.
-            Without them, a single throw from unrelated code could stop a browser
-            tab from broadcasting anything again.
+            When applying a message from another tab throws,
+            <code>broadcastQueryClient</code> now clears its
+            <code>transaction</code> flag anyway, so the tab keeps broadcasting
+            its own query changes.
           </p>
           <p class="provenance">
-            TanStack/query PR 11242 at a631add, explained 2026-09-01. References link to this commit.
+            TanStack/query
+            <a href="https://github.com/TanStack/query/pull/11242">PR 11242</a>
+            at a631add, explained 2026-11-16. References link to this commit.
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
-
           <details class="skippable">
             <summary>
-              New to cross-tab cache sync? Expand for the deeper background.
+              New to this area? Expand for the deeper background.
             </summary>
             <p>
-              Open your app in two browser tabs. Each tab is a separate
-              JavaScript program with its own memory, so each has its own copy of
-              the query cache. Update your profile in one tab, and the other tab
-              still shows the old name until something tells it otherwise.
+              TanStack Query keeps server data in a <code>QueryClient</code>.
+              The client stores each piece of data as a query in its
+              <code>QueryCache</code>. A query key, an array such as
+              <code>['todos']</code>, names each query, and the
+              <code>queryHash</code> is that key written as a string,
+              <code>'["todos"]'</code>. An observer, such as the one a
+              <code>useQuery</code> call creates, watches one query. The core
+              library's files, cited below, live in
+              <code>packages/query-core/src/</code>.
             </p>
             <p>
-              The browser offers a way to talk between them.
-              <code>BroadcastChannel</code> is a named channel: any tab that
-              opens the same name receives what the others post to it. The
-              experimental package
-              <code>@tanstack/query-broadcast-client-experimental</code> uses it
-              to keep query caches in step. Roughly:
-            </p>
-            <pre>broadcastQueryClient({ queryClient, broadcastChannel: 'my-app' })</pre>
-            <p>
-              After that call, two things are wired up. The tab subscribes to its
-              own cache, and posts a message whenever a query changes. And it
-              listens on the channel, applying messages other tabs post.
-            </p>
-            <p>
-              Put those two together and a problem appears. Tab A posts a change.
-              Tab B receives it and writes it into its own cache. Tab B's cache
-              subscriber notices the write and posts it, because posting on
-              change is exactly its job. Tab A receives that, writes it, posts
-              it. The two tabs now talk forever about one change.
+              Three of the cache's event types matter here:
+              <code>added</code> when a query enters,
+              <code>updated</code> when its state changes, and
+              <code>removed</code> when it leaves. Code
+              listens with <code>queryCache.subscribe(listener)</code>, which
+              returns a function that removes the listener again.
+              <code>queryCache.notify</code>
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/queryCache.ts#L200-L206"
+                ><code>queryCache.ts:200-206</code></a
+              >) calls the listeners one after another, in the order they
+              subscribed. The calls are synchronous. A listener that throws ends
+              the loop, so later listeners miss that event, and the error travels
+              up to whatever code caused the event.
             </p>
             <p>
-              The usual fix is a flag: while applying somebody else's message, do
-              not broadcast. That is the flag this change is about, and it is
-              named <code>transaction</code>.
+              <code>notify</code> runs that loop inside
+              <code>notifyManager.batch</code>
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/notifyManager.ts#L52-L64"
+                ><code>notifyManager.ts:52-64</code></a
+              >). A batch counts the batches that are open in a counter named
+              <code>transactions</code>, separate from the plugin's
+              <code>transaction</code> flag below, and holds back scheduled
+              notifications until that count returns to zero.
+            </p>
+            <p>
+              Three calls produce the events on this page.
+              <code>queryCache.build</code> returns the query for a hash,
+              creating it and emitting <code>added</code> if it is new
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/queryCache.ts#L116-L127"
+                ><code>queryCache.ts:116-127</code></a
+              >). <code>query.setState(state)</code>
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/query.ts#L249-L251"
+                ><code>query.ts:249-251</code></a
+              >) merges <code>state</code> into the query's state and emits
+              <code>updated</code>
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/query.ts#L704-L714"
+                ><code>query.ts:704-714</code></a
+              >). <code>queryClient.setQueryData(key, data)</code>, the public
+              call for writing data by hand, builds the query and then sets its
+              data, which emits an <code>updated</code> event whose action is
+              <code>success</code>
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/queryClient.ts#L209-L211"
+                ><code>queryClient.ts:209-211</code></a
+              >).
+            </p>
+            <p>
+              A <code>BroadcastChannel</code> lets browser tabs on the same
+              origin message each other. Each tab opens a channel with the same
+              name. When one tab calls <code>postMessage(value)</code>, the
+              <code>onmessage</code> handler in every other tab receives a copy
+              of <code>value</code>. <code>broadcastQueryClient</code> takes its
+              <code>BroadcastChannel</code> from the
+              <code>broadcast-channel</code> npm package.
             </p>
           </details>
 
           <p>
-            The flag and the helper that manages it are six lines of closure
-            state inside <code>broadcastQueryClient</code>. This is the code
-            before the change:
+            <code>broadcastQueryClient</code>, the plugin this page covers, is
+            in
+            <code>packages/query-broadcast-client-experimental/src/index.ts</code>.
+            It keeps the query caches of several tabs in step by connecting
+            each tab's cache to the channel in two directions:
           </p>
-
-          <p class="filename">packages/query-broadcast-client-experimental/src/index.ts, before the change</p>
-          <pre>  let transaction = false
-  const tx = (cb: () =&gt; void) =&gt; {
-    transaction = true
-    cb()
-    transaction = false
-  }</pre>
-
+          <ul>
+            <li>
+              Outgoing: a cache listener
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L112-L146"
+                ><code>index.ts:112-146</code></a
+              >) turns each <code>added</code> event, each <code>updated</code>
+              event with a <code>success</code> action, and each
+              <code>removed</code> event for a query that still has observers
+              into a message. It hands each one to
+              <code>safePost</code>
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L77-L78"
+                ><code>index.ts:77-78</code></a
+              >), which calls <code>channel.postMessage</code>.
+            </li>
+            <li>
+              Incoming: <code>channel.onmessage</code>
+              (<a
+                class="srcref"
+                href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L148-L191"
+                ><code>index.ts:148-191</code></a
+              >) applies another tab's message to this cache. For an
+              <code>added</code> or <code>updated</code> message it calls
+              <code>query.setState</code> when the hash is already cached, and
+              <code>queryCache.build</code> when it is not. A
+              <code>removed</code> message removes the cached query.
+            </li>
+          </ul>
           <p>
-            Set the flag, do the work, clear the flag. Two things about the
-            surrounding code matter here.
+            When <code>onmessage</code> applies a message, the cache changes and
+            emits events like any other. Without a guard, the outgoing listener
+            would send them straight back out. A boolean,
+            <code>transaction</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L55"
+              ><code>index.ts:55</code></a
+            >), is that guard. <code>onmessage</code> runs its work through a
+            helper, <code>tx(cb)</code>, which sets <code>transaction</code> to
+            <code>true</code>, calls <code>cb</code>, and sets it back to
+            <code>false</code>. While the flag is <code>true</code>, the
+            outgoing listener returns at its first statement
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L113-L115"
+              ><code>index.ts:113-115</code></a
+            >). <code>tx</code> is the only code that writes the flag.
           </p>
 
-          <p>
-            Grepping the package for <code>transaction</code> returns four
-            lines: the declaration, two writes, and one read. The read is at the
-            top of the cache subscriber.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L112">packages/query-broadcast-client-experimental/src/index.ts:112</a></p>
-          <pre>  const unsubscribe = queryCache.subscribe((queryEvent) =&gt; {
-    if (transaction) {
-      return
-    }</pre>
-
-          <p>
-            Below that early return are the three calls that post to other tabs,
-            and nothing else. So the flag suppresses outbound messages only. It
-            does not touch the local cache write, which happens either way.
-          </p>
-
-          <p>
-            The same search shows <code>tx(</code> appears once, in the handler
-            for incoming messages. So both writes live inside
-            <code>tx</code>, and nothing else in the package can set or clear the
-            flag.
-          </p>
-
-          <div class="callout">
-            <span class="label">Key concept</span>
-            A flag that means "we are inside something" has to become false on
-            every path out of that something, including the paths you did not
-            plan. Set-do-clear reads as three steps, and it is really two
-            branches: one where the work returns, and one where it throws.
+          <p class="flow-label">Outgoing: a write in this tab</p>
+          <div class="dataflow">
+            <div class="node terminal">this tab writes <code>['todos']</code></div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">build, setData</span
+                ><span class="line"></span>
+              </div>
+              <div class="node">QueryCache</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">added, updated</span
+                ><span class="line"></span>
+              </div>
+              <div class="node">outgoing listener</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">{ type: 'added' }, { type: 'updated' }</span
+                ><span class="line"></span>
+              </div>
+              <div class="node terminal">other tabs</div>
+            </div>
           </div>
+
+          <p class="flow-label">Incoming: a write in another tab</p>
+          <div class="dataflow">
+            <div class="node terminal">another tab</div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">{ type: 'updated', queryHash: '["todos"]' }</span
+                ><span class="line"></span>
+              </div>
+              <div class="node"><code>onmessage</code>, inside <code>tx</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">setState(state)</span
+                ><span class="line"></span>
+              </div>
+              <div class="node">QueryCache</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">updated</span><span class="line"></span>
+              </div>
+              <div class="node terminal">
+                outgoing listener: returns, flag is <code>true</code>
+              </div>
+            </div>
+          </div>
+
+          <p>
+            The package's tests replace the real channel with a class,
+            <code>MockBroadcastChannel</code>, whose <code>postMessage</code> is
+            a Vitest spy named <code>mockPostMessage</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L8"
+              ><code>index.test.ts:8</code></a
+            >). A spy records each call made to it.
+            <code>expect(spy).toHaveBeenCalled()</code> passes when that record
+            holds at least one call, and <code>spy.mockClear()</code> empties
+            the record.
+          </p>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
-
           <p>
-            The bug is that a throw skips the last line. Nothing catches it,
-            nothing resets the flag, and there is no other writer to fix it
-            later.
+            The flag has to be <code>false</code> whenever <code>tx</code> is
+            not running. The old <code>tx</code> cleared it with the statement
+            after <code>cb()</code>, and a statement after a call runs only when
+            the call returns. When <code>cb</code> throws, control leaves
+            <code>tx</code> at the call, and the flag stays <code>true</code>.
+            Until something clears it, the outgoing listener treats every local
+            change as if it came from another tab, and sends nothing.
           </p>
-
           <p>
-            The flag's effect while stuck is what makes it hard to notice.
-            Nothing crashes, and the screen stays correct. Every local change
-            still works in this tab. The tab stops telling anyone else, and keeps
-            doing so for as long as the page stays open, because the flag lives in
-            a closure that only a reload discards.
+            The fix wraps <code>cb()</code> in <code>try</code> and moves the
+            reset into a <code>finally</code> block.
           </p>
-
-          <pre class="mermaid">stateDiagram-v2
-    state "Idle. transaction false. local changes broadcast" as Idle
-    state "Applying. transaction true. local changes suppressed" as Applying
-    state "Stuck. transaction true. nothing broadcasts again" as Stuck
-
-    [*] --&gt; Idle: tab opens
-    Idle --&gt; Applying: a message arrives from another tab
-    Applying --&gt; Idle: the callback returns
-    Applying --&gt; Stuck: the callback throws. before the fix
-    Applying --&gt; Idle: the callback throws. after the fix
-    Stuck --&gt; Stuck: every later local change</pre>
-
-          <p>
-            Two arrows leave <code>Applying</code> in the before case, and only
-            one returns to <code>Idle</code>. The fix does not add a state. It
-            makes the throw arrow point back to <code>Idle</code>. One thing the
-            diagram leaves out: the error itself keeps travelling outward on that
-            arrow, which the next section covers.
-          </p>
-
-          <h3>What follows from that</h3>
-
-          <p>
-            Follow one change through two tabs after the flag has stuck. The
-            arrows carry what is actually posted.
-          </p>
-
-          <p class="flow-label">Tab B, healthy</p>
-          <div class="dataflow">
-            <div class="node terminal">local edit</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">cache write</span><span class="line"></span>
-              </div>
-              <div class="node">subscriber</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">flag false</span><span class="line"></span>
-              </div>
-              <div class="node pass">posts to Tab A</div>
-            </div>
+          <div class="callout">
+            <span class="label">Key concept</span>
+            <code>try { … } finally { … }</code> runs the
+            <code>finally</code> block on both ways out of the
+            <code>try</code> block: when it completes and when it throws. The
+            <code>finally</code> block catches nothing. When it finishes
+            normally, the error carries on up the stack as if the block were not
+            there. The <code>finally</code> block in <code>tx</code> only
+            assigns the flag, so it always finishes normally.
           </div>
-
-          <p class="flow-label">Tab B, after the flag stuck</p>
-          <div class="dataflow">
-            <div class="node terminal">local edit</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">cache write</span><span class="line"></span>
-              </div>
-              <div class="node">subscriber</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">flag true</span><span class="line"></span>
-              </div>
-              <div class="node fail">returns. nothing posted</div>
-            </div>
-          </div>
-
           <p>
-            Because the guard sits in the subscriber and everything below it is
-            posting, Tab B's own reads and writes are untouched. Tab A stops
-            receiving updates, and nothing in either tab reports it. A reload of
-            Tab B clears the flag, since it is closure state.
+            Here is one tab under each version, given the same four events. The
+            app has one extra cache listener with a bug: it throws during the
+            first incoming message, and the app removes it afterward.
+          </p>
+          <table class="vals">
+            <thead>
+              <tr>
+                <th>Event in this tab</th>
+                <th>Old <code>tx</code></th>
+                <th>New <code>tx</code></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  1. Message <code>added</code> for <code>'["remote"]'</code>;
+                  the buggy listener throws
+                </td>
+                <td class="warn">flag left <code>true</code></td>
+                <td>flag back to <code>false</code></td>
+              </tr>
+              <tr>
+                <td>2. Local <code>setQueryData</code> on <code>['local']</code></td>
+                <td class="no">nothing sent</td>
+                <td class="yes">sent</td>
+              </tr>
+              <tr>
+                <td>
+                  3. Message <code>updated</code> for <code>'["remote"]'</code>;
+                  applies cleanly
+                </td>
+                <td>flag back to <code>false</code></td>
+                <td>flag back to <code>false</code></td>
+              </tr>
+              <tr>
+                <td>4. Another local <code>setQueryData</code> on <code>['local']</code></td>
+                <td class="yes">sent</td>
+                <td class="yes">sent</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            In row 1 the new <code>tx</code> clears the flag, and the listener's
+            error still comes out of <code>onmessage</code>.
           </p>
 
-          <h3>The fix</h3>
+          <div class="callout edge">
+            <span class="label">Edge case</span>
+            How long the old flag stayed stuck. The comment the fix adds says
+            that without it <code>transaction</code> "would stay
+            <code>true</code> forever". Row 3 shows a narrower limit, read from
+            the code; no test in the pull request covers it. Because
+            <code>tx</code> is the only writer, the next incoming message that
+            applies without throwing clears the flag. The tab stays silent for
+            the rest of the session only when every later incoming message also
+            throws, or when no other tab sends one.
+          </div>
+        </section>
 
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L56">packages/query-broadcast-client-experimental/src/index.ts:56</a></p>
-          <pre>  const tx = (cb: () =&gt; void) =&gt; {
-    transaction = true
+        <section id="code">
+          <h2>Code walkthrough</h2>
+          <p>
+            Incoming: a message from another tab → <code>channel.onmessage</code>
+            → <code>tx</code> → <code>queryCache.build</code> or
+            <code>query.setState</code> → <code>queryCache.notify</code> → each
+            cache listener. Then outgoing: a local <code>setQueryData</code> →
+            the outgoing listener → <code>safePost</code>.
+          </p>
+
+          <h3 class="core-step">
+            <code>tx</code> clears the flag on both ways out of the callback
+          </h3>
+          <p>
+            <code>channel.onmessage</code> drops a message with no
+            <code>type</code>, then passes the rest of its work to
+            <code>tx</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L148-L153"
+              ><code>index.ts:148-153</code></a
+            >). The change sits entirely inside <code>tx</code>:
+          </p>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L56-L68"
+              >packages/query-broadcast-client-experimental/src/index.ts:56-68</a
+            >
+          </p>
+          <pre>   const tx = (cb: () =&gt; void) =&gt; {
+     transaction = true
 <span class="del">-    cb()</span>
 <span class="del">-    transaction = false</span>
 <span class="add">+    try {</span>
@@ -750,418 +992,301 @@
 <span class="add">+      // for the rest of the session.</span>
 <span class="add">+      transaction = false</span>
 <span class="add">+    }</span>
-  }</pre>
-
+   }</pre>
           <p>
-            Note what is absent. There is no <code>catch</code>. A
-            <code>finally</code> block runs on the way out whether the work
-            returned or threw, and with no <code>catch</code> to stop it, the
-            original error keeps going. So the fix restores the flag without
-            hiding the failure that broke it.
+            The callback is the body of <code>onmessage</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L153-L190"
+              ><code>index.ts:153-190</code></a
+            >). For a cached hash it calls <code>query.setState</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L160"
+              ><code>index.ts:160</code></a
+            >), and for a new hash it calls <code>queryCache.build</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L164-L171"
+              ><code>index.ts:164-171</code></a
+            >). Both end in <code>queryCache.notify</code>. When a listener
+            throws there, the error passes up through these frames. The list
+            shows the <code>build</code> path, outermost frame at the top:
+          </p>
+          <ol class="frames">
+            <li><span class="n">1</span><code>channel.onmessage</code>, called with the message</li>
+            <li class="target">
+              <span class="n">2</span><code>tx</code>, which set
+              <code>transaction</code> and called <code>cb</code>
+            </li>
+            <li><span class="n">3</span><code>cb</code>, the body of <code>onmessage</code></li>
+            <li><span class="n">4</span><code>queryCache.build</code>, for a hash not yet cached</li>
+            <li><span class="n">5</span><code>queryCache.add</code>, which stores the query, then notifies</li>
+            <li><span class="n">6</span><code>queryCache.notify</code></li>
+            <li><span class="n">7</span><code>notifyManager.batch</code>, around the listener loop</li>
+            <li><span class="n">8</span>the app's listener, which throws</li>
+          </ol>
+          <p>
+            Of these frames, <code>notifyManager.batch</code> already decrements
+            its <code>transactions</code> counter in a <code>finally</code>
+            block
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/notifyManager.ts#L57-L58"
+              ><code>notifyManager.ts:57-58</code></a
+            >), so the counter is back in step by the time the error reaches
+            <code>tx</code>. <code>tx</code> now does the same for its flag, by
+            the rule in the Intuition callout. Once the flag is clear, the same
+            error continues out of <code>onmessage</code>, and the outgoing
+            listener's guard
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L113-L115"
+              ><code>index.ts:113-115</code></a
+            >) lets the next local event through.
           </p>
 
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            The flag is broader than the echo it needs to stop. Of the three
-            outbound posts the guard suppresses, the <code>added</code> one fires
-            unconditionally and the <code>removed</code> one fires when the query
-            has observers, so both are real echoes. The <code>updated</code> post
-            is conditional on the cache action being <code>success</code>, and
-            <code>query.setState</code> dispatches an action of type
-            <code>setState</code>, so that path would not have echoed even with
-            no flag at all. The flag covers it anyway, which is the simpler rule to hold.
-          </div>
-        </section>
-
-        <section id="code">
-          <h2>Code walkthrough</h2>
-
+          <h3 class="core-step">
+            Two tests throw from a listener mid-message, then check that a local
+            write still goes out
+          </h3>
           <p>
-            The flow, end to end. A message arrives from another tab.
-            <code>onmessage</code> passes the whole apply-locally body to
-            <code>tx</code>, which raises the flag. The body writes to the cache.
-            The cache notifies its listeners synchronously, in the same call
-            stack. One of those listeners throws. What happens to the flag from
-            there is the change.
+            To deliver a message the way another tab would, a test has to call
+            <code>onmessage</code> on the channel that
+            <code>broadcastQueryClient</code> created. The mock class now
+            stores each new instance in a module-level variable,
+            <code>lastCreatedChannel</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L10"
+              ><code>index.test.ts:10</code></a
+            >), so the newest channel is always within reach:
           </p>
-
-          <p>
-            Three files: the fix, its tests, and a changeset.
-          </p>
-
-          <h3>1. The only caller</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/index.ts#L148">packages/query-broadcast-client-experimental/src/index.ts:148</a></p>
-          <pre>  channel.onmessage = (action) =&gt; {
-    if (!action?.type) {
-      return
-    }
-
-    tx(() =&gt; {
-      const { type, queryHash, queryKey, state } = action
-      const query = queryCache.get(queryHash)</pre>
-
-          <p>
-            Everything after that opening, through to line 190, runs inside the
-            callback. The handler branches on the message type and reaches one of
-            five cache mutations: <code>query.setState</code> at lines 160 and
-            178, and <code>queryCache.build</code> at lines 164 and 181, with
-            <code>queryCache.remove</code> at line 174. All of them are inside
-            <code>tx</code>. The only code outside it is the early return for a message with no type.
-          </p>
-
-          <h3>2. Why the callback can throw</h3>
-
-          <p>
-            The callback can throw because a cache write notifies subscribers
-            immediately, in the same stack, not on a later tick.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/queryCache.ts#L200">packages/query-core/src/queryCache.ts:200</a></p>
-          <pre>  notify(event: QueryCacheNotifyEvent): void {
-    notifyManager.batch(() =&gt; {
-      this.listeners.forEach((listener) =&gt; {
-        listener(event)
-      })
-    })
-  }</pre>
-
-          <p>
-            <code>queryCache.build</code> reaches that notify, and
-            <code>query.setState</code> reaches an equivalent one after
-            synchronously calling every observer.
-          </p>
-
-          <p>
-            <code>notifyManager.batch</code> is the same shape as the fix, one
-            layer down. It counts nested transactions, and it restores the count
-            in a <code>finally</code> with no <code>catch</code>:
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-core/src/notifyManager.ts#L54">packages/query-core/src/notifyManager.ts:54</a></p>
-          <pre>      let result
-      transactions++
-      try {
-        result = callback()
-      } finally {
-        transactions--
-        if (!transactions) {
-          flush()
-        }
-      }</pre>
-
-          <p>
-            So query-core already protects its own counter this way, and lets the
-            error continue outward. The broadcast package's flag was the one link
-            in the chain that did not.
-          </p>
-
-          <p>
-            So any listener throwing lands in the <code>tx</code> callback. That
-            includes an application's own <code>queryCache.subscribe</code>
-            handler, a devtools listener, or an observer callback. None of those
-            know they are running inside somebody else's transaction.
-          </p>
-
-          <h3>3. The tests, and which one tests the bug</h3>
-
-          <p>
-            Two tests are added, and they drive the two different mutation paths.
-            The first posts an <code>added</code> message for a query hash the
-            cache does not have, so the handler falls to
-            <code>queryCache.build</code>. The second seeds a query first and
-            posts <code>updated</code> for that exact hash, so the handler takes
-            <code>query.setState</code> and returns before <code>build</code>.
-          </p>
-
-          <p>
-            Each test then asserts twice. Both snippets below come from the
-            first test, and the two assertions do different jobs.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L69">packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:69</a></p>
-          <pre>      expect(() =&gt; {
-        lastCreatedChannel.onmessage?.({
-          type: 'added',
-          queryHash: '["remote"]',
-          queryKey: ['remote'],
-          state: { data: 1 },
-        })
-      }).toThrow('boom')</pre>
-
-          <p>
-            That one passes before the fix and after it. The old code threw out
-            of <code>onmessage</code> too, so it cannot tell the two versions
-            apart. It pins something else: that the fix did not turn the stuck
-            flag into a swallowed error. A <code>catch</code> would have reset the
-            flag too, and this assertion rules that out.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L78">packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:78</a></p>
-          <pre>      explodingUnsubscribe()
-      mockPostMessage.mockClear()
-
-      // A later local change must still be broadcast to other tabs, instead
-      // of being silently swallowed because the transaction flag got stuck.
-      queryClient.setQueryData(['local'], { value: 1 })
-
-      expect(mockPostMessage).toHaveBeenCalled()</pre>
-
-          <p>
-            This is the one that fails before the fix. It removes the exploding
-            listener, clears the spy, makes an ordinary local change, and checks
-            that the tab still posts. Under the old code the flag was still true,
-            the subscriber returned at its first line, and
-            <code>postMessage</code> was never reached again for that client.
-          </p>
-
-          <p>
-            One more detail. The local
-            <code>setQueryData</code> creates a new query, which produces an
-            <code>added</code> event, and that post is unconditional. So the test
-            does not depend on the conditional <code>updated</code> path from the
-            edge case above.
-          </p>
-
-          <h3>4. The seam the test needed</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L16">packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:16</a></p>
-          <pre>    BroadcastChannel: class MockBroadcastChannel {
-      onmessage = null
-      postMessage = mockPostMessage
-      close = mockClose
-      constructor() {
-        lastCreatedChannel = this
-      }</pre>
-
-          <p>
-            <code>broadcastQueryClient</code> constructs its channel internally
-            and never hands it back; the return value is a teardown function. So
-            the existing tests could only watch what went out, through the shared
-            <code>postMessage</code> spy. Capturing <code>this</code> in the mock
-            constructor gives the test the actual instance whose
-            <code>onmessage</code> the production code assigned, which is how
-            this test simulates a message arriving.
-          </p>
-
-          <h3>5. Why the exploding listener does not break the test setup</h3>
-
-          <p>
-            The test registers a subscriber that always throws. The broadcast
-            client has a subscriber too, and it needs to keep working. Both are
-            on the same cache.
-          </p>
-
-          <p>
-            The ordering is what saves it.
-            <code>broadcastQueryClient</code> subscribes when it is called, which
-            the tests do first, and the cache stores listeners in a
-            <code>Set</code>, which iterates in insertion order. So the broadcast
-            subscriber runs first, hits the <code>transaction</code> guard,
-            returns, and only then does the exploding one throw.
-          </p>
-
-          <h3>6. The changeset</h3>
-
           <p class="filename">
-            .changeset/broadcast-client-transaction-stuck.md
+            <a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L16-L23"
+              >packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:16-23</a
+            >
           </p>
-          <pre>---
-'@tanstack/query-broadcast-client-experimental': patch
----
-
-fix(broadcast-client): recover from errors thrown while applying an incoming cross-tab message instead of permanently disabling this tab's own broadcasts</pre>
-
+          <pre>     BroadcastChannel: class MockBroadcastChannel {
+       onmessage = null
+       postMessage = mockPostMessage
+       close = mockClose
+<span class="add">+      constructor() {</span>
+<span class="add">+        lastCreatedChannel = this</span>
+<span class="add">+      }</span>
+     },</pre>
           <p>
-            A patch, for the one experimental package. The changeset names recovery from the error, not prevention of it.
+            The test added first
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L56-L86"
+              ><code>index.test.ts:56-86</code></a
+            >) sends an <code>added</code> message for a hash the cache has
+            never held, <code>'["remote"]'</code>, so the callback takes the
+            <code>queryCache.build</code> path. Every line of it is new; this is
+            the part after its setup, at commit a631add:
           </p>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L65-L85"
+              >packages/query-broadcast-client-experimental/src/__tests__/index.test.ts:65-85</a
+            >
+          </p>
+          <pre>const explodingUnsubscribe = queryCache.subscribe(() =&gt; {
+  throw new Error('boom from an unrelated cache listener')
+})
 
-          <h3>7. The same shape elsewhere</h3>
+expect(() =&gt; {
+  lastCreatedChannel.onmessage?.({
+    type: 'added',
+    queryHash: '["remote"]',
+    queryKey: ['remote'],
+    state: { data: 1 },
+  })
+}).toThrow('boom')
 
+explodingUnsubscribe()
+mockPostMessage.mockClear()
+
+// A later local change must still be broadcast to other tabs, instead
+// of being silently swallowed because the transaction flag got stuck.
+queryClient.setQueryData(['local'], { value: 1 })
+
+expect(mockPostMessage).toHaveBeenCalled()</pre>
           <p>
-            The pull request describes this as the same class of bug as a guard
-            that resets only on the happy path, and says similar issues were
-            fixed in the persister packages. That history is not checkable from a
-            shallow single-commit checkout, so treat it as the author's account
-            rather than something this page verified.
+            <code>broadcastQueryClient</code> subscribed before the test's
+            listener did, so the outgoing listener sees the <code>added</code>
+            event earlier and returns at the guard. The test's listener runs
+            next and throws. <code>toThrow('boom')</code> is a Vitest matcher
+            that passes only when the wrapped call throws an error whose message
+            contains <code>boom</code>, so it asserts that the error still comes
+            out of <code>onmessage</code>. The test then removes the throwing
+            listener, empties the spy's record, writes <code>['local']</code>,
+            and expects at least one <code>postMessage</code> call. The pull
+            request body says this test was confirmed to fail against the old
+            code.
           </p>
-
           <p>
-            The pattern itself is visible in the repository, and it is what makes
-            the shape worth naming. Five persist-client packages hold a
-            restore flag while a promise runs, and each resets it in a
-            <code>.finally</code>: the angular, react, preact, solid, and svelte
-            persist-client packages. That matters because the restore they wrap
-            rethrows on failure, so a <code>.then</code> alone would not run. It
-            is the promise-shaped equivalent of what this change does
-            synchronously.
+            A second commit,
+            <a
+              href="https://github.com/TanStack/query/commit/a631add76dcc4341320c86f0d7a7e25ff01cc748"
+              >a631add</a
+            >, added the other path; its message says it addresses review
+            feedback. That test
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L88-L118"
+              ><code>index.test.ts:88-118</code></a
+            >) first writes <code>['existing']</code> with
+            <code>setQueryData</code>
+            (<a
+              class="srcref"
+              href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/query-broadcast-client-experimental/src/__tests__/index.test.ts#L96"
+              ><code>index.test.ts:96</code></a
+            >), so the incoming <code>updated</code> message for that hash
+            reaches <code>query.setState</code> instead. The rest repeats the
+            same steps, with <code>['local2']</code> as the local write.
           </p>
 
-          <p>
-            One place has the same shape without it.
-            <a class="srcref" href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/packages/vue-query/src/vueQueryPlugin.ts#L51"><code>packages/vue-query/src/vueQueryPlugin.ts:51</code></a> sets a
-            restore flag and clears it inside the promise's
-            <code>.then</code>, with no <code>.catch</code> or
-            <code>.finally</code>. What that means for that package is a
-            question for its maintainers. It is here because it shows how easy
-            the shape is to write without noticing.
-          </p>
-
-          <div class="callout">
-            <span class="label">The transferable part</span>
-            Any time you write "set a flag, do work, clear the flag", the flag is
-            an obligation to code you cannot see. Put the reset where
-            the language guarantees it runs: <code>finally</code> for synchronous
-            work, <code>.finally</code> for a promise. And prefer
-            <code>finally</code> without <code>catch</code>, so the error that
-            broke the invariant still reaches whoever should hear about it. A
-            stuck guard is worse than a crash, because a crash tells you when and
-            where.
-          </div>
+          <table class="vals also-changed">
+            <caption>
+              Every other changed file (1 of 3)
+            </caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <a
+                    class="srcref"
+                    href="https://github.com/TanStack/query/blob/a631add76dcc4341320c86f0d7a7e25ff01cc748/.changeset/broadcast-client-transaction-stuck.md"
+                    ><code>.changeset/broadcast-client-transaction-stuck.md</code></a
+                  >
+                </td>
+                <td>
+                  It asks for a patch release of
+                  <code>@tanstack/query-broadcast-client-experimental</code>,
+                  with a one-line release note that describes the fix.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
-
-          <p>
-            Five questions about why the change is shaped the way it is. Click an
-            option to see the answer.
-          </p>
-
           <div class="quiz-question">
             <p class="q">
-              1. While <code>transaction</code> is stuck at <code>true</code>,
-              what stops working in that tab?
+              <code>notifyManager.batch</code> guards its
+              <code>transactions</code> counter with the same
+              <code>try</code>/<code>finally</code> shape that <code>tx</code>
+              now uses for a boolean. Under what condition would
+              <code>tx</code> need a counter too?
             </p>
             <button class="quiz-option">
-              Incoming messages from other tabs, since the flag makes the handler
-              treat them as already applied.
+              If two tabs could send messages at the same moment.
             </button>
             <button class="quiz-option">
-              All cache writes, since the subscriber returns before the cache is
-              ever updated.
+              If more than one listener could throw per message.
             </button>
             <button class="quiz-option" data-correct>
-              Only outbound posts. Local cache writes still happen, but other
-              tabs stop hearing about them.
+              If a callback could start another <code>tx</code> before
+              finishing.
+            </button>
+            <button class="quiz-option">
+              If the callback could start asynchronous work and return early.
             </button>
             <div class="quiz-feedback" role="status">
-              The guard is the first statement of the cache
-              <em>subscriber</em>, which runs after a write, and everything below
-              it is posting. So the tab keeps working normally for the person
-              using it, which is what makes this hard to notice. Incoming
-              messages keep being applied too, since the flag is only read in the
-              subscriber.
+              A counter matters only when the guarded code can re-enter itself.
+              With a boolean, an inner <code>tx</code> would set the flag to
+              <code>false</code> in its <code>finally</code> while the outer
+              callback was still applying its message, and the outer call's
+              remaining cache events would be sent to other tabs.
+              <code>notifyManager.batch</code> does re-enter itself:
+              <code>query.setState</code> opens a batch, and
+              <code>queryCache.notify</code> opens another inside it, so a
+              counter is what lets the outer batch know it is still open. Two
+              tabs sending at once does not nest, because each message arrives as
+              its own event, and JavaScript runs one handler to completion
+              before it starts the next. Several throwing listeners still mean one exit
+              from <code>tx</code>. Asynchronous work that runs after
+              <code>tx</code> returns is outside the flag whichever type the
+              flag has.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              2. Both new tests begin with
-              <code>expect(() =&gt; onmessage(...)).toThrow('boom')</code>. What
-              does that assertion prove about the bug?
+              In the test that writes <code>['existing']</code> before the bad
+              message, delete the line <code>mockPostMessage.mockClear()</code>.
+              Then run the edited test against the old <code>tx</code>. What
+              happens?
             </p>
+            <button class="quiz-option">
+              It fails, because the local write throws boom again.
+            </button>
             <button class="quiz-option" data-correct>
-              Nothing about the fix. It passes before and after, pinning that
-              the error still escapes.
+              It passes, so it no longer detects the bug.
             </button>
             <button class="quiz-option">
-              That the flag is reset, since an error can only escape
-              <code>tx</code> once <code>finally</code> has run.
+              It fails, because no postMessage call is ever recorded.
             </button>
             <button class="quiz-option">
-              That the exploding listener was registered successfully, without
-              which the rest of the test would pass trivially.
+              It fails earlier, because onmessage stops throwing boom.
             </button>
             <div class="quiz-feedback" role="status">
-              The old code also threw out of <code>onmessage</code>, so this
-              assertion cannot distinguish the two versions. What it rules out
-              is a <code>catch</code> that swallows the error, which would also
-              have reset the flag. Only the second assertion, that a later local
-              change still posts, fails before the change.
+              The test writes <code>['existing']</code> while the flag is still
+              clear, and that write calls <code>mockPostMessage</code> for its
+              <code>added</code> and <code>updated</code> events. Without
+              <code>mockClear()</code>, those calls are still on record when the
+              last assertion runs, so <code>toHaveBeenCalled()</code> passes
+              whether or not <code>['local2']</code> was ever sent. An assertion
+              that a setup step already satisfied cannot fail. The throwing
+              listener is removed before the local write, so nothing throws
+              there, and <code>onmessage</code> throws exactly as before, since
+              the deleted line runs after it.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              3. Why can the callback passed to <code>tx</code> throw at all?
-              Nothing in the broadcast package raises an error there.
+              Under the new code, an app subscribes a cache listener after
+              calling <code>broadcastQueryClient</code>. The listener throws on
+              every <code>updated</code> event and is never removed. This tab
+              then calls <code>setQueryData</code> on a key that is not cached
+              yet. What happens?
             </p>
             <button class="quiz-option">
-              The <code>BroadcastChannel</code> library rethrows structured-clone
-              failures into the handler when a message cannot be deserialized.
+              Nothing goes out, because the flag gets stuck again.
+            </button>
+            <button class="quiz-option">
+              Only the added message goes out before setQueryData throws.
+            </button>
+            <button class="quiz-option">
+              The added and updated messages go out, and nothing throws.
             </button>
             <button class="quiz-option" data-correct>
-              Cache writes notify subscribers synchronously, so any listener in
-              the app throws straight back into the callback.
-            </button>
-            <button class="quiz-option">
-              <code>query.setState</code> validates incoming state and throws
-              when a message from an older app version does not match.
+              The added and updated messages go out, then setQueryData throws.
             </button>
             <div class="quiz-feedback" role="status">
-              The listeners belong to the application, to devtools, or to
-              observers, and none of them know they are running inside a
-              transaction. The notify path uses
-              <code>try</code>/<code>finally</code> with no
-              <code>catch</code> of its own, so it restores its own state and
-              passes the error along.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              4. The test adds a cache subscriber that always throws, on the same
-              cache the broadcast client subscribes to. Why does the broadcast
-              client's own subscriber still run?
-            </p>
-            <button class="quiz-option">
-              The cache calls each listener in its own <code>try</code>, so one
-              throwing listener cannot prevent the others.
-            </button>
-            <button class="quiz-option">
-              The broadcast client's subscriber is registered with a priority
-              flag that puts it ahead of application listeners.
-            </button>
-            <button class="quiz-option" data-correct>
-              Listeners run in insertion order and the broadcast client
-              subscribed first, so it returns before the throwing one runs.
-            </button>
-            <div class="quiz-feedback" role="status">
-              Insertion order is doing real work here, and it comes from
-              <code>Set</code> semantics rather than from anything the test
-              declares. The cache does not isolate listeners from each other,
-              which is also why one throwing listener could reach the flag at
-              all.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              5. Suppose the fix had been
-              <code>try { cb() } catch {} finally { transaction = false }</code>.
-              The flag would reset. What breaks?
-            </p>
-            <button class="quiz-option">
-              Nothing functional. The flag resets either way, and swallowing the
-              error keeps one bad listener from breaking cross-tab sync.
-            </button>
-            <button class="quiz-option">
-              The <code>finally</code> block would no longer run, because a
-              <code>catch</code> that completes normally skips it.
-            </button>
-            <button class="quiz-option" data-correct>
-              The error stops surfacing, so the listener bug becomes invisible
-              and both new tests fail.
-            </button>
-            <div class="quiz-feedback" role="status">
-              This is why the tests assert the throw. A stuck flag and a
-              swallowed exception are both silent, so one replaces the other.
-              Swallowing the error is worth taking seriously, since a listener
-              that throws really can disrupt sync; what the chosen shape does is
-              leave that listener's failure visible to whoever owns it.
-              <code>finally</code> runs after a <code>catch</code> completes
-              normally, so skipping it is not how the construct behaves.
+              Only <code>tx</code> sets the flag, and only incoming messages run
+              <code>tx</code>, so a local write made outside an incoming message
+              never meets a set flag.
+              <code>setQueryData</code> builds the query, which emits
+              <code>added</code>, and then sets its data, which emits
+              <code>updated</code> with a <code>success</code> action. In each
+              notification the outgoing listener runs before the app's, because
+              it subscribed earlier, so it posts both messages. On the
+              <code>updated</code> event the app's listener then throws. Nothing
+              on the local path catches the error, so it reaches the code that
+              called <code>setQueryData</code>.
             </div>
           </div>
         </section>

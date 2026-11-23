@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FastAPI PR 16102 explanation</title>
+    <title>PR 16102 explanation</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -159,6 +159,7 @@
       li {
         margin: 0.3rem 0;
       }
+      /* Code blocks: white-space set here so a filled-in block cannot collapse. */
       pre,
       .code-block {
         white-space: pre-wrap;
@@ -191,6 +192,7 @@
         background: var(--surface);
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
+        overflow-wrap: anywhere;
       }
       /* A file:line reference linked to the code it names. Wraps a <code> span
          in prose, or the bare text of a .filename label. */
@@ -205,12 +207,15 @@
       a.srcref:hover code {
         background: var(--accent-soft);
       }
+      /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
         font-family: ui-monospace, monospace;
         margin: 1.5rem 0 0.3rem;
+        overflow-wrap: anywhere;
       }
+      /* Comparison table: one row per case, .yes / .no / .warn on outcome cells. */
       table.vals {
         border-collapse: collapse;
         margin: 1.5rem 0;
@@ -240,6 +245,26 @@
       table.vals td.warn {
         background: var(--edge-soft);
       }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
+      /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
         border-left: 3px solid var(--accent);
@@ -264,6 +289,7 @@
       .callout.edge .label {
         color: var(--edge);
       }
+      /* Skippable deep-background block. */
       details.skippable {
         border: 1px solid var(--border-strong);
         border-radius: 8px;
@@ -279,6 +305,7 @@
       details.skippable[open] > summary {
         margin-bottom: 0.75rem;
       }
+      /* Diagram family 1: simplified app UI mockup. */
       .ui-mockup {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -307,6 +334,7 @@
         margin: 0.3rem 0 0;
         max-width: var(--measure);
       }
+      /* Diagram family 2: data flow between components, example data on the arrows. */
       .dataflow {
         display: flex;
         flex-wrap: wrap;
@@ -379,6 +407,9 @@
         font-weight: 600;
         margin: 1.25rem 0 0.25rem;
       }
+      /* A numbered sequence with one marked position: call stacks, retry
+         counts, any ranked list. Not one of the numbered families; reach for
+         it when a step in an ordered list is the point. */
       .frames {
         list-style: none;
         padding: 0;
@@ -403,6 +434,66 @@
         min-width: 2.2em;
         color: var(--muted);
       }
+      /* Diagram family 3: node/recursion tree (ASTs, nesting, recursion) */
+      .tree {
+        margin: 1.5rem 0;
+        font:
+          0.82rem/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .tnode {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        margin: 0.3rem 0;
+        background: var(--surface);
+        display: inline-block;
+      }
+      .tnode.leaf {
+        background: var(--bg);
+      }
+      .tnode.kept {
+        border-color: var(--ok);
+        background: var(--ok-soft);
+      }
+      .tnode.skipped {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      .tchildren {
+        margin-left: 1.4rem;
+        border-left: 2px dotted var(--border);
+        padding-left: 0.9rem;
+      }
+      .tnote {
+        color: var(--muted);
+        font-size: 0.75rem;
+        margin-left: 0.4rem;
+      }
+
+      /* Optional tabular body for .ui-mockup, when the mocked UI is a table. */
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .mock-table th,
+      .mock-table td {
+        border: 1px solid var(--border);
+        padding: 0.35rem 0.5rem;
+        text-align: left;
+      }
+      .mock-table th {
+        background: var(--surface);
+        font-weight: 600;
+      }
+      .mock-table .col-highlight {
+        background: var(--accent-soft);
+      }
+
       .mermaid {
         margin: 1.75rem 0;
         background: var(--surface);
@@ -422,6 +513,7 @@
         background: var(--surface) !important;
         color: var(--text) !important;
       }
+      /* Quiz */
       .quiz-question {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -522,6 +614,11 @@
         main > header h1 {
           font-size: 1.6rem;
         }
+        table.vals {
+          display: block;
+          overflow-x: auto;
+          max-width: 100%;
+        }
       }
     </style>
   </head>
@@ -539,889 +636,682 @@
 
       <main>
         <header>
-          <h1>A default that asks where it is running</h1>
+          <h1>FastAPI PR 16102: <code>check_dir="auto"</code> for <code>app.frontend()</code></h1>
           <p class="lead">
-            FastAPI
-            <a href="https://github.com/fastapi/fastapi/pull/16102"
-              >pull request 16102</a
-            >
-            changes one default from <code>True</code> to
-            <code>"auto"</code>. Getting that to work needed a function that
-            collapses the third value immediately, and a fixed stack depth so the
-            warning blames the right line.
+            The <code>check_dir</code> argument of <code>app.frontend()</code> and
+            <code>router.frontend()</code> now defaults to <code>"auto"</code>, which turns a
+            missing frontend folder into a warning when <code>FASTAPI_ENV</code> is
+            <code>"development"</code>, the value <code>fastapi dev</code> sets, and keeps the
+            error at app creation for any other <code>FASTAPI_ENV</code> value, or none.
           </p>
           <p class="provenance">
-            fastapi/fastapi PR 16102 at 7abcdfb, explained 2026-09-01. References link to this commit, except one naming a file that is not in the repository.
+            fastapi/fastapi
+            <a href="https://github.com/fastapi/fastapi/pull/16102">PR 16102</a> at 7abcdfb,
+            explained 2026-11-16. References link to this commit.
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
-
           <details class="skippable">
             <summary>
-              New to serving a frontend from FastAPI? Expand for the deeper
-              background.
+              New to this area? Expand for the deeper background.
             </summary>
             <p>
-              A single-page application is, once built, a folder of files. A
-              build tool reads your source and writes HTML, JavaScript, and CSS
-              into an output directory, conventionally named
-              <code>dist</code> or <code>build</code>.
+              FastAPI added <code>app.frontend()</code> in
+              <a href="https://github.com/fastapi/fastapi/pull/15800">PR 15800</a>. It serves the
+              static files a frontend build tool writes into a folder, usually <code>dist</code>,
+              from inside the FastAPI app. The files sit on low-priority routes: FastAPI path
+              operations match first, and a request reaches the files only when no path operation
+              matched. <code>router.frontend()</code> does the same on an <code>APIRouter</code>.
             </p>
             <p>
-              You can serve that folder from the same FastAPI application that
-              serves your API, which means one deployment instead of two.
-              <code>app.frontend()</code> does it:
-            </p>
-            <pre>app = FastAPI()
-
-@app.get("/api/users")
-def read_users():
-    return [{"name": "Ada"}]
-
-app.frontend("/", directory="dist")</pre>
-            <p>
-              The frontend is added as low-priority routes, meaning FastAPI
-              tries them last. So <code>/api/users</code> still reaches your
-              endpoint, and everything else falls through to the files in
-              <code>dist</code>. The class that serves those files is called
-              <code>_FrontendStaticFiles</code>, and it sits at the bottom of
-              this story.
+              <code>fastapi dev</code> and <code>fastapi run</code> are commands from the separate
+              <code>fastapi-cli</code> package, which the <code>fastapi[standard]</code> extra
+              installs. <code>fastapi dev</code> starts a reloading server for local work, and
+              <code>fastapi run</code> starts one for production. Both import your module, so a
+              module-level call such as <code>app.frontend("/", directory="dist")</code> runs once
+              while the app is created, before any request arrives. An extra is a named group of
+              optional dependencies, such as <code>standard</code>.
             </p>
             <p>
-              One more piece of vocabulary. An <code>APIRouter</code> is a group
-              of routes you can build separately and attach to an application,
-              the way a Django or Flask developer would think of a blueprint.
-              <code>FastAPI</code> holds one internally, so
-              <code>app.frontend()</code> does its work by calling
-              <code>router.frontend()</code> on it. Both are public, and both
-              matter later.
+              An environment variable is a named string a process receives when it starts. Python
+              reads them through <code>os.environ</code>, and child processes inherit them.
+              <code>os.environ.setdefault(name, value)</code> writes the value only when the name
+              is absent.
             </p>
             <p>
-              One detail matters for what follows. That last line runs when the
-              module is imported, at application startup, long before any
-              request arrives. So FastAPI has a choice: check that
-              <code>dist</code> exists now, or wait and fail when someone asks
-              for a file.
-            </p>
-            <p>
-              Checking now is usually right. A missing directory is a deployment
-              mistake, and a crash at startup is far easier to diagnose than a
-              broken page in production. Programmers call this failing fast.
+              <code>warnings.warn(message)</code> reports a problem without stopping the program.
+              With no category it emits a <code>UserWarning</code>, which Python's default filters
+              print to standard error with a file name and line number. Each function call still
+              running is a frame on the call stack, and the <code>stacklevel</code> argument
+              picks whose file and line the warning reports: <code>1</code> is the line that calls
+              <code>warnings.warn</code>, <code>2</code> is the line that called the function
+              holding it, and <code>3</code> goes one caller further up.
             </p>
           </details>
 
           <p>
-            Before this change, <code>app.frontend()</code> took a boolean, and
-            it defaulted to checking:
+            Before this change, <code>check_dir</code> was a <code>bool</code> that defaulted to
+            <code>True</code> on both public methods: <code>FastAPI.frontend</code>, the method
+            <code>app.frontend()</code> calls, and <code>APIRouter.frontend</code>, the method
+            <code>router.frontend()</code> calls. Each parameter is declared as
+            <code>Annotated[type, Doc(...)]</code>, which attaches its documentation to its type.
+            The value travels this chain, in order:
           </p>
-
-          <p class="filename">fastapi/applications.py, before the change</p>
-          <pre>check_dir: Annotated[
-    bool,
-    Doc(
-        """
-        Check that the frontend directory exists when the app is created.
-        """
-    ),
-] = True,</pre>
-
+          <ol>
+            <li><code>FastAPI.frontend</code> passes it to its router's <code>APIRouter.frontend</code>.</li>
+            <li>
+              <code>APIRouter.frontend</code> hands it to
+              <code>_FrontendRouteGroup.add_frontend_route</code>, which collects the router's
+              frontend routes.
+            </li>
+            <li><code>add_frontend_route</code> builds a <code>_FrontendRoute</code>, the route object that matches paths.</li>
+            <li>
+              <code>_FrontendRoute</code> builds a <code>_FrontendStaticFiles</code>, FastAPI's
+              subclass of Starlette's <code>StaticFiles</code>, which serves the files.
+            </li>
+          </ol>
           <p>
-            The check lives at the bottom of the stack, in
-            <code>_FrontendStaticFiles</code>, the class that serves the files.
-            It is five lines, and it raises before the application object
-            finishes being built.
+            <code>_FrontendStaticFiles.__init__</code> is where the value is used. When
+            <code>check_dir</code> is true and the folder is missing, it raises
+            <code>RuntimeError</code> with the folder name and its absolute path, which
+            <code>_get_resolved_absolute_path</code> computes. The <code>fallback</code> argument
+            names the file served for a path with no matching file. When <code>check_dir</code>
+            is true and <code>fallback</code> is <code>"index.html"</code> or
+            <code>"404.html"</code>, <code>_check_fallback_file</code> also confirms that file
+            exists. Starlette's <code>StaticFiles</code> constructor runs its own folder check
+            when it gets a true <code>check_dir</code>. With <code>check_dir=False</code>, all
+            three checks are skipped, and Starlette's <code>check_config</code> runs on the first
+            request instead, raising if the folder is still missing.
           </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1907">fastapi/routing.py:1907</a></p>
-          <pre>if check_dir and not os.path.isdir(directory):
-    raise RuntimeError(
-        f"Frontend directory '{directory}' does not exist. "
-        f"Resolved absolute path: '{_get_resolved_absolute_path(directory)}'"
-    )</pre>
-
           <p>
-            Now consider running that on your laptop. You clone the repository,
-            create a virtual environment, start the API to work on an endpoint,
-            and the process refuses to boot, because you have not run the
-            frontend build and <code>dist</code> does not exist. You did not
-            want the frontend. You wanted the endpoint.
+            So the old default made a missing <code>dist</code> fatal at app creation.
+            The pull request body names the case: "Frontend build output might not exist yet when
+            starting the backend during development." <code>check_dir=False</code> avoided the
+            crash, but it also dropped the error at app creation in production, where the body
+            says missing files should keep "failing early".
+          </p>
+          <p>
+            The change adds one input, the <code>FASTAPI_ENV</code> environment variable. No code
+            in the <code>fastapi</code> package reads it at the pull request's base commit,
+            628663f. <code>fastapi-cli</code> 0.0.32 sets it inside <code>fastapi dev</code> with
+            <code>os.environ.setdefault("FASTAPI_ENV", "development")</code>, at
+            <code data-bare="outside-repo">src/fastapi_cli/cli.py:402</code> in that release.
+            <a href="https://github.com/fastapi/fastapi-cli/pull/477">fastapi-cli PR 477</a> added
+            that line, and it is the only place the CLI sets the variable, so
+            <code>fastapi run</code> leaves it unset. <code>fastapi dev</code> is where the flow
+            map at the top of the Code section starts: it sets the variable, then imports the
+            module that calls <code>app.frontend()</code>.
           </p>
 
           <div class="callout">
             <span class="label">Key concept</span>
-            The same check is right in one place and wrong in another. In
-            production a missing build directory is a deployment failure and
-            should stop the process. On a developer's machine it is Tuesday.
+            A frontend folder can be checked at two moments: at app creation, when
+            <code>app.frontend()</code> runs during import, or at the first request, when
+            Starlette's <code>check_config</code> runs. <code>check_dir=True</code> picks app
+            creation and <code>check_dir=False</code> picks the first request. The new
+            <code>"auto"</code> value picks one of those two moments when
+            <code>app.frontend()</code> runs.
           </div>
-
-          <p>
-            One workaround is <code>check_dir=False</code>. It also silences the
-            check in production, where you wanted it, so quieting a local
-            annoyance costs the safeguard everywhere.
-          </p>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
-
           <p>
-            The change gives the option a third value. Instead of yes or no, the
-            default is now <code>"auto"</code>, meaning: decide for me, based on
-            where I am running.
+            <code>"auto"</code> is a question FastAPI answers when <code>app.frontend()</code>
+            runs: is this a development process? A helper named
+            <code>_resolve_frontend_check_dir</code> asks it. If <code>FASTAPI_ENV</code> is
+            exactly <code>"development"</code>, the answer becomes <code>check_dir=False</code>,
+            with a warning when the folder is missing. Any other value, or no value, becomes
+            <code>check_dir=True</code>, which this page calls the strict branch. From there on,
+            only code that already existed runs.
           </p>
-
           <p>
-            The signal is an environment variable. When
-            <code>FASTAPI_ENV</code> is <code>"development"</code>, a missing
-            directory produces a warning and the application starts. Anywhere
-            else, it raises as before.
+            Take a <code>main.py</code> that calls <code>app.frontend("/", directory="dist")</code>,
+            in a project where no <code>dist</code> folder exists yet:
           </p>
-
-          <p>
-            You do not set that variable yourself. The
-            <code>fastapi dev</code> command sets it for you, which is what makes
-            the default useful: run your project the way you already run it
-            locally, and the friendlier behavior follows. That command ships in a
-            separate package, and section 6 of the walkthrough returns to what
-            this repository can and cannot prove about it.
-          </p>
-
           <table class="vals">
-            <tr>
-              <th>check_dir</th>
-              <th>FASTAPI_ENV</th>
-              <th>Directory</th>
-              <th>What happens at startup</th>
-            </tr>
-            <tr>
-              <td><code>"auto"</code></td>
-              <td><code>development</code></td>
-              <td>missing</td>
-              <td class="warn">Warning. The application starts</td>
-            </tr>
-            <tr>
-              <td><code>"auto"</code></td>
-              <td><code>development</code></td>
-              <td>present</td>
-              <td class="yes">Nothing. The application starts</td>
-            </tr>
-            <tr>
-              <td><code>"auto"</code></td>
-              <td>anything else, or unset</td>
-              <td>missing</td>
-              <td class="no"><code>RuntimeError</code></td>
-            </tr>
-            <tr>
-              <td><code>True</code></td>
-              <td><code>development</code></td>
-              <td>missing</td>
-              <td class="no"><code>RuntimeError</code></td>
-            </tr>
-            <tr>
-              <td><code>False</code></td>
-              <td>any</td>
-              <td>missing</td>
-              <td class="no">
-                Nothing at startup. <code>RuntimeError</code> per request
-              </td>
-            </tr>
+            <caption>What happens when the app is created, with no <code>dist</code> folder and
+              nothing exported unless the row says so</caption>
+            <thead>
+              <tr>
+                <th>Started with</th>
+                <th><code>FASTAPI_ENV</code></th>
+                <th>At app creation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>fastapi dev</code></td>
+                <td><code>"development"</code>, set by the command</td>
+                <td class="yes">Warning, and the server starts</td>
+              </tr>
+              <tr>
+                <td><code>fastapi run</code></td>
+                <td>unset</td>
+                <td class="no"><code>RuntimeError</code></td>
+              </tr>
+              <tr>
+                <td><code>uvicorn main:app</code></td>
+                <td><code>"staging"</code>, exported by hand</td>
+                <td class="no"><code>RuntimeError</code></td>
+              </tr>
+              <tr>
+                <td><code>fastapi dev</code>, with <code>check_dir=True</code></td>
+                <td><code>"development"</code>, set by the command</td>
+                <td class="no"><code>RuntimeError</code></td>
+              </tr>
+            </tbody>
           </table>
-
           <p>
-            Row four matters most. Passing <code>check_dir=True</code> still
-            means check, even in development. The convenience is in the default,
-            and an explicit value always wins.
+            In development the folder check moves to request time. Starlette sets its
+            <code>config_checked</code> flag only after <code>check_config</code> passes, at
+            <code data-bare="outside-repo">starlette/staticfiles.py:93-95</code> in Starlette 1.3.1,
+            the version the repository's lock file, <code>uv.lock</code>, pins. So within one
+            process, a request that fails before the frontend build runs does not block requests
+            made after the build writes <code>dist</code>:
           </p>
-
-          <p>
-            Row five is worth a second look, because <code>False</code> does not
-            mean safe. It moves the failure rather than removing it: the
-            application starts, and then the first request for a file raises
-            <code>RuntimeError</code> from inside the static-file layer, which
-            reaches the client as a 500. The test for that behavior is named
-            <code>test_check_dir_false_allows_missing_directory_and_fails_on_request</code>,
-            which says it plainly.
-          </p>
-
-          <h3>What the developer sees</h3>
-
-          <div class="ui-mockup">
-            <div class="bar">Before: fastapi dev, with no frontend built</div>
-            <div class="body">RuntimeError: Frontend directory 'dist' does not exist.
-Resolved absolute path: '/home/ada/project/dist'</div>
-          </div>
-          <p class="mock-caption">
-            The process exits. To work on an API endpoint you must either build
-            the frontend or edit the source to pass
-            <code>check_dir=False</code>.
-          </p>
-
-          <div class="ui-mockup">
-            <div class="bar">After: fastapi dev, with no frontend built</div>
-            <div class="body">main.py:8: UserWarning: Frontend directory 'dist' does not exist.
-Resolved absolute path: '/home/ada/project/dist'
-
-INFO:     Uvicorn running on http://127.0.0.1:8000</div>
-          </div>
-          <p class="mock-caption">
-            The server starts. Note the first token: the warning is attributed to
-            <code data-bare="outside-repo">main.py:8</code>, the line in your own file that called
-            <code>app.frontend()</code>. Getting that attribution right is what
-            most of this page is about.
-          </p>
-
-          <h3>Three values in, two values out</h3>
-
-          <p>
-            A three-valued option is a hazard if the third value is allowed to
-            travel. Every layer downstream would have to know what
-            <code>"auto"</code> means. Concretely: the class that serves the
-            files would read <code>FASTAPI_ENV</code> to decide whether to raise,
-            and the class above it would read it again to decide whether to warn.
-            Two readings, two chances to disagree.
-          </p>
-
-          <p>
-            So the change resolves it once, immediately, at the public surface.
-            One small function turns <code>bool | Literal["auto"]</code> into a
-            plain <code>bool</code>, and everything below it receives a value
-            that carries no ambiguity.
-          </p>
-
-          <p class="flow-label">The one place the third value exists</p>
-          <div class="dataflow">
-            <div class="node terminal">your code</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">"auto"</span><span class="line"></span>
-              </div>
-              <div class="node">app.frontend</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">"auto"</span><span class="line"></span>
-              </div>
-              <div class="node pass">the resolver</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">False</span><span class="line"></span>
-              </div>
-              <div class="node">everything below</div>
-            </div>
-          </div>
-
-          <p>
-            The type says this out loud. The resolver's return annotation is
-            <code>bool</code>, so <code>"auto"</code> cannot leave it, and the
-            three internal layers below now declare
-            <code>check_dir: bool</code> with no default at all. A caller that
-            forgets to pass it gets a <code>TypeError</code> rather than a
-            silent <code>True</code>.
-          </p>
-
-          <p>
-            The whole decision, in one picture. Read the top half as the
-            resolver and the bottom half as the layer that mounts the files.
-          </p>
-
-          <pre class="mermaid">flowchart TD
-    A["app.frontend(directory='dist')"] --&gt; B{"check_dir is 'auto'?"}
-    B --&gt;|no. True or False| C["return it unchanged"]
-    B --&gt;|yes| D{"FASTAPI_ENV is 'development'?"}
-    D --&gt;|no| E["return True. check the directory"]
-    D --&gt;|yes| F{"directory exists?"}
-    F --&gt;|yes| G["return False. nothing to warn about"]
-    F --&gt;|no| H["warn at stacklevel 3&lt;br/&gt;then return False"]
-    C --&gt; I["_FrontendStaticFiles"]
-    E --&gt; I
-    G --&gt; I
-    H --&gt; I
-    I --&gt; J{"check_dir and directory missing?"}
-    J --&gt;|yes| K["raise RuntimeError"]
-    J --&gt;|no| L["mount the static files"]</pre>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            Follow the <code>yes</code> branch out of "directory exists?". It
-            returns <code>False</code>, which switches off the downstream check
-            even though that check would have passed. The resolver has already
-            looked at the filesystem itself, so re-checking would be redundant
-            work with the same answer. Harmless here, and worth noticing: the
-            return value means "has this been settled", not "does the directory
-            exist".
-          </div>
+          <ol class="frames">
+            <li>
+              <span class="n">1</span><code>fastapi dev</code> sets
+              <code>FASTAPI_ENV=development</code>, then imports <code>main.py</code>
+            </li>
+            <li>
+              <span class="n">2</span><code>app.frontend("/", directory="dist")</code> warns that
+              <code>dist</code> does not exist, and the server starts
+            </li>
+            <li>
+              <span class="n">3</span><code>GET /</code> gets a 500: <code>check_config</code> finds
+              no <code>dist</code>, so <code>config_checked</code> stays false
+            </li>
+            <li><span class="n">4</span>The frontend build writes <code>dist/index.html</code></li>
+            <li class="target">
+              <span class="n">5</span><code>GET /</code> gets a 200: <code>check_config</code> passes
+              and the file is served
+            </li>
+          </ol>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
-
           <p>
-            The flow, end to end: your code calls
-            <code>app.frontend()</code>, the resolver collapses three values into
-            two, and a plain boolean travels down four functions to the class
-            that serves the files, which either raises or mounts them. The chain
-            is <code>FastAPI.frontend</code>, then
-            <code>APIRouter.frontend</code>, then
-            <code>add_frontend_route</code>, then <code>_FrontendRoute</code>,
-            then <code>_FrontendStaticFiles</code>. Only the last one acts on the
-            value; the rest pass it along.
+            Flow: <code>fastapi dev</code> sets <code>FASTAPI_ENV</code> →
+            <code>app.frontend()</code> or <code>router.frontend()</code> accepts
+            <code>"auto"</code> → <code>_resolve_frontend_check_dir</code> turns it into a bool →
+            <code>_FrontendStaticFiles</code> raises at app creation or leaves the check to the first
+            request.
           </p>
 
+          <h3 class="core-step">Both public methods accept <code>"auto"</code> and default to it</h3>
           <p>
-            Six files changed: two in the library, one the docs, one the tests,
-            and two the dependency pins.
+            <code>FastAPI.frontend</code> and <code>APIRouter.frontend</code> declare
+            <code>check_dir</code> with the same annotation and the same docstring. The type
+            widens from <code>bool</code> to <code>bool | Literal["auto"]</code>, and the default
+            changes from <code>True</code> to <code>"auto"</code>. <code>Literal["auto"]</code>
+            is a typing form that admits exactly the string <code>"auto"</code>, so a type checker
+            still rejects <code>check_dir="yes"</code>.
+          </p>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1249-L1259"
+              >fastapi/applications.py:1249-1259</a
+            >
+          </p>
+          <pre>        check_dir: Annotated[
+<span class="add">            bool | Literal["auto"],</span>
+            Doc(
+                """
+<span class="add">                Check that the frontend directory exists when the app is created. When</span>
+<span class="add">                set to `"auto"`, skip the check with a warning when `FASTAPI_ENV` is</span>
+<span class="add">                `"development"`, and check it otherwise. The `fastapi dev` command</span>
+<span class="add">                sets `FASTAPI_ENV` to `"development"` if it is not already set.</span>
+                """
+            ),
+<span class="add">        ] = "auto",</span></pre>
+          <p>
+            The router's copy at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2645-L2655"
+              ><code>fastapi/routing.py:2645-2655</code></a
+            >
+            matches it line for line. A caller who already passes <code>check_dir=True</code> or
+            <code>check_dir=False</code> keeps the old behavior, because the helper in the next
+            step returns both unchanged. Only callers who relied on the default see a difference,
+            and only when <code>FASTAPI_ENV</code> is <code>"development"</code>.
           </p>
 
-          <h3>1. The public surface, twice</h3>
-
+          <h3 class="core-step"><code>_resolve_frontend_check_dir</code> turns <code>"auto"</code> into a bool</h3>
           <p>
-            <code>frontend()</code> exists on both <code>FastAPI</code> and
-            <code>APIRouter</code>, with the same signature. Both change
-            identically.
+            The new helper sits in <code>fastapi/routing.py</code>, and both public methods call
+            it. It takes the folder and the raw argument, and it always returns a plain
+            <code>bool</code>.
+          </p>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1880-L1895"
+              >fastapi/routing.py:1880-1895</a
+            >
+          </p>
+          <pre><span class="add">def _resolve_frontend_check_dir(</span>
+<span class="add">    *,</span>
+<span class="add">    directory: str | os.PathLike[str],</span>
+<span class="add">    check_dir: bool | Literal["auto"],</span>
+<span class="add">) -&gt; bool:</span>
+<span class="add">    if check_dir != "auto":</span>
+<span class="add">        return check_dir</span>
+<span class="add">    if os.environ.get("FASTAPI_ENV") != "development":</span>
+<span class="add">        return True</span>
+<span class="add">    if not os.path.isdir(directory):</span>
+<span class="add">        warnings.warn(</span>
+<span class="add">            f"Frontend directory '{directory}' does not exist. "</span>
+<span class="add">            f"Resolved absolute path: '{_get_resolved_absolute_path(directory)}'",</span>
+<span class="add">            stacklevel=3,</span>
+<span class="add">        )</span>
+<span class="add">    return False</span></pre>
+          <p>The three <code>if</code> statements run in order:</p>
+          <ul>
+            <li>
+              Any value other than <code>"auto"</code> goes straight back. That is the
+              pass-through for explicit <code>True</code> and <code>False</code>.
+            </li>
+            <li>
+              Outside development the answer is <code>True</code>, the strict branch.
+              <code>os.environ.get</code> returns <code>None</code> for an unset variable, and
+              <code>None</code> is not <code>"development"</code>, so an unset variable lands here
+              too.
+            </li>
+            <li>
+              In development, the helper warns if the folder is missing and then returns
+              <code>False</code>. The <code>return False</code> sits outside the <code>if</code>,
+              so in development the answer is <code>False</code> whether or not the folder exists.
+              The warning is then the only signal at app creation, and it covers only a missing
+              folder.
+            </li>
+          </ul>
+          <p>
+            The warning text repeats the <code>RuntimeError</code> message that
+            <code>_FrontendStaticFiles</code> raises at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1909-L1910"
+              ><code>fastapi/routing.py:1909-1910</code></a
+            >, so the same folder name and absolute path appear whichever branch runs.
+          </p>
+          <div class="callout edge">
+            <span class="label">Edge case</span>
+            The comparison is <code>!=</code> against the exact string
+            <code>"development"</code>. A hand-set <code>Development</code>, <code>dev</code>, or
+            <code>development</code> with a trailing space takes the strict branch, and the app
+            raises at app creation when the folder is missing.
+          </div>
+          <p>
+            <code>pyproject.toml</code> raises the <code>fastapi-cli</code> minimum version in
+            three extras, so installing <code>fastapi[standard]</code> brings a CLI that sets the
+            value. At
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/pyproject.toml#L61"
+              ><code>pyproject.toml:61</code></a
+            >,
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/pyproject.toml#L80"
+              ><code>pyproject.toml:80</code></a
+            >, and
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/pyproject.toml#L98"
+              ><code>pyproject.toml:98</code></a
+            >, the <code>standard</code>, <code>standard-no-fastapi-cloud-cli</code>, and
+            <code>all</code> extras move from <code>&gt;=0.0.8</code> to <code>&gt;=0.0.32</code>.
+            The
+            <a href="https://github.com/fastapi/fastapi-cli/releases/tag/0.0.32">fastapi-cli 0.0.32
+            release</a> is the one that sets <code>FASTAPI_ENV</code>. With an older CLI, the
+            variable stays unset, and <code>"auto"</code> takes the strict branch even under
+            <code>fastapi dev</code>.
           </p>
 
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1249">fastapi/applications.py:1249</a></p>
-          <pre>         check_dir: Annotated[
-<span class="del">-            bool,</span>
-<span class="add">+            bool | Literal["auto"],</span>
-             Doc(
-                 """
-<span class="del">-                Check that the frontend directory exists when the app is created.</span>
-<span class="add">+                Check that the frontend directory exists when the app is created. When</span>
-<span class="add">+                set to `"auto"`, skip the check with a warning when `FASTAPI_ENV` is</span>
-<span class="add">+                `"development"`, and check it otherwise. The `fastapi dev` command</span>
-<span class="add">+                sets `FASTAPI_ENV` to `"development"` if it is not already set.</span>
-                 """
-             ),
-<span class="del">-        ] = True,</span>
-<span class="add">+        ] = "auto",</span></pre>
-
+          <h3 class="core-step">Each public method resolves first, so the warning names the caller's line</h3>
           <p>
-            The same hunk lands on <code>APIRouter.frontend</code> at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2645"><code>fastapi/routing.py:2645</code></a>. Changing a default is a
-            compatibility decision, and this one is safe in the direction that
-            matters: code that passed an explicit
-            <code>True</code> or <code>False</code> behaves exactly as before,
-            and code that passed nothing only becomes more permissive, and only
-            when <code>FASTAPI_ENV</code> says development.
+            <code>FastAPI.frontend</code> calls the helper before it delegates, and hands its
+            router the result rather than the raw argument:
           </p>
-
-          <h3>2. The resolver</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1880">fastapi/routing.py:1880</a></p>
-          <pre>def _resolve_frontend_check_dir(
-    *,
-    directory: str | os.PathLike[str],
-    check_dir: bool | Literal["auto"],
-) -&gt; bool:
-    if check_dir != "auto":
-        return check_dir
-    if os.environ.get("FASTAPI_ENV") != "development":
-        return True
-    if not os.path.isdir(directory):
-        warnings.warn(
-            f"Frontend directory '{directory}' does not exist. "
-            f"Resolved absolute path: '{_get_resolved_absolute_path(directory)}'",
-            stacklevel=3,
-        )
-    return False</pre>
-
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1291-L1299"
+              >fastapi/applications.py:1291-1299</a
+            >
+          </p>
+          <pre><span class="add">        check_dir = routing._resolve_frontend_check_dir(</span>
+<span class="add">            directory=directory, check_dir=check_dir</span>
+<span class="add">        )</span>
+        self.router.frontend(
+            path,
+            directory=directory,
+            fallback=fallback,
+            check_dir=check_dir,
+        )</pre>
           <p>
-            Sixteen lines, and each one is an early exit. Read the signature
-            first: it takes <code>bool | Literal["auto"]</code> and returns
-            <code>bool</code>. That narrowing is the function's whole purpose. It
-            converts a wider type into a narrower one, so nothing downstream has
-            to handle the wider case.
+            <code>APIRouter.frontend</code> makes the same call at the top of its body, so a
+            <code>router.frontend()</code> call from user code resolves there:
           </p>
-
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2689-L2691"
+              >fastapi/routing.py:2689-2691</a
+            >
+          </p>
+          <pre><span class="add">        check_dir = _resolve_frontend_check_dir(</span>
+<span class="add">            directory=directory, check_dir=check_dir</span>
+<span class="add">        )</span></pre>
           <p>
-            Note how it reads the environment: an inequality against one exact
-            string. Any other value takes the strict branch, so
-            <code>FASTAPI_ENV=dev</code> is not development, and neither is
-            <code>Development</code>. That is a reasonable choice given who
-            writes the variable, which is a tool rather than a person, though the
-            code does not say so and I am inferring it.
+            When user code calls <code>app.frontend()</code>, the helper therefore runs twice. The second
+            run gets a bool, the helper's opening <code>if</code> returns it unchanged, and no second warning fires.
           </p>
-
-          <h3>3. Why calling it twice is safe</h3>
-
           <p>
-            <code>FastAPI.frontend</code> resolves, then delegates to
-            <code>APIRouter.frontend</code>, which resolves again. On the
-            <code>app.frontend()</code> path the resolver runs twice for one
-            call.
+            The double call keeps the warning's location in user code. That looks like the reason
+            the helper runs in both methods rather than only in the router, though the code does
+            not say so; the tests below show the location is intended.
+            <code>stacklevel=3</code> counts three frames up from the <code>warnings.warn</code>
+            call. When <code>main.py</code> calls <code>app.frontend()</code>, the frames are:
           </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1291">fastapi/applications.py:1291</a></p>
-          <pre><span class="add">+        check_dir = routing._resolve_frontend_check_dir(</span>
-<span class="add">+            directory=directory, check_dir=check_dir</span>
-<span class="add">+        )</span>
-         self.router.frontend(
-             path,
-             directory=directory,
-             fallback=fallback,
-             check_dir=check_dir,</pre>
-
-          <p>
-            The first line of the resolver is what makes that harmless. It
-            returns <code>bool</code>, so the second call receives
-            <code>True</code> or <code>False</code>, and
-            <code>check_dir != "auto"</code> sends it straight back out. The
-            function is idempotent: applying it twice gives the same answer as
-            applying it once, because every value it can return falls into its
-            own early-exit branch.
-          </p>
-
-          <p>
-            The warning depends on that early return, as the next step shows.
-          </p>
-
-          <h3>4. Counting frames</h3>
-
-          <p>
-            A warning is only useful if it points at the line that caused it.
-            Python's <code>warnings.warn</code> takes a
-            <code>stacklevel</code> argument saying which frame to blame,
-            counting from the frame that contains the
-            <code>warnings.warn</code> call itself as 1. The change passes
-            <code>stacklevel=3</code>.
-          </p>
-
-          <p>
-            So the question is what sits in position 3. Here is the stack when
-            your code calls <code>app.frontend()</code>, counted the way
-            <code>stacklevel</code> counts. The highlighted frame is the one
-            <code>stacklevel=3</code> selects.
-          </p>
-
           <ol class="frames">
             <li>
-              <span class="n">1</span>the warn call, inside
-              _resolve_frontend_check_dir &nbsp; routing.py:1890
+              <span class="n">1</span>
+              <a
+                class="srcref"
+                href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1890"
+                ><code>fastapi/routing.py:1890</code></a
+              >
+              <code>warnings.warn(...)</code> in the helper
             </li>
             <li>
-              <span class="n">2</span>FastAPI.frontend &nbsp;
-              applications.py:1291
+              <span class="n">2</span>
+              <a
+                class="srcref"
+                href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1291"
+                ><code>fastapi/applications.py:1291</code></a
+              >
+              <code>FastAPI.frontend</code> calls the helper
             </li>
             <li class="target">
-              <span class="n">3</span>your code &nbsp; main.py:8
+              <span class="n">3</span>
+              <code>main.py</code>, the line <code>app.frontend("/", directory="dist")</code>,
+              which the warning names
             </li>
           </ol>
-
-          <p>And when your code calls <code>router.frontend()</code> instead:</p>
-
-          <ol class="frames">
-            <li>
-              <span class="n">1</span>the warn call, inside
-              _resolve_frontend_check_dir &nbsp; routing.py:1890
-            </li>
-            <li>
-              <span class="n">2</span>APIRouter.frontend &nbsp; routing.py:2689
-            </li>
-            <li class="target">
-              <span class="n">3</span>your code &nbsp; main.py:8
-            </li>
-          </ol>
-
           <p>
-            Your code lands in position 3 on both paths, so
-            <code>stacklevel=3</code> is correct for both. Called from lower
-            down, in <code>add_frontend_route</code> or below, the distance to
-            user code would differ by entry point and no single number would
-            work. That looks like why the resolver is called at the top of each
-            public method, though the code does not say so.
+            If <code>FastAPI.frontend</code> passed <code>"auto"</code> through, the warning would
+            come from the router's call at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2689"
+              ><code>fastapi/routing.py:2689</code></a
+            >
+            instead. The stack
+            would gain a frame, and level 3 would land on the <code>self.router.frontend(</code>
+            call inside FastAPI, which sits at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/applications.py#L1294"
+              ><code>fastapi/applications.py:1294</code></a
+            >
+            in the merged code. Because each public method resolves
+            at its top, the user's call is frame 3 from either method.
           </p>
-
           <p>
-            Now recall step 3. On the <code>app.frontend()</code> path the
-            resolver is reached a second time, through
-            <code>APIRouter.frontend</code>. Count that stack the same way:
+            The tests pin that location. <code>pytest.warns</code> records the warnings raised
+            inside its block, and
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1194"
+              ><code>tests/test_frontend.py:1194</code></a
+            >
+            asserts <code>warnings[0].filename == __file__</code>, the test file's own path, for
+            <code>app.frontend()</code>.
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1204"
+              ><code>tests/test_frontend.py:1204</code></a
+            >
+            asserts the same for <code>router.frontend()</code>, in a test named
+            <code>test_check_dir_auto_router_warning_points_to_user_code</code>. The Validation
+            section of the pull request body says the author saw the warning "at the user call
+            site".
           </p>
-
-          <ol class="frames">
-            <li>
-              <span class="n">1</span>the warn call, inside
-              _resolve_frontend_check_dir &nbsp; routing.py:1890
-            </li>
-            <li>
-              <span class="n">2</span>APIRouter.frontend &nbsp; routing.py:2689
-            </li>
-            <li class="target">
-              <span class="n">3</span>FastAPI.frontend &nbsp;
-              applications.py:1294
-            </li>
-            <li>
-              <span class="n">4</span>your code &nbsp; main.py:8
-            </li>
-          </ol>
-
           <p>
-            One frame deeper, so position 3 is now FastAPI's own source. A
-            warning from this second call would blame
-            <code>applications.py</code> instead of your file, and the reader
-            would get two warnings for one mistake. The early return at
-            <code>check_dir != "auto"</code> is what stops the second call before
-            it reaches the warn.
+            The other new tests cover the strict branches. Explicit <code>check_dir=True</code> still
+            raises under development at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1207-L1212"
+              ><code>tests/test_frontend.py:1207-1212</code></a
+            >, and <code>"auto"</code> raises under <code>FASTAPI_ENV=production</code> at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1215-L1220"
+              ><code>tests/test_frontend.py:1215-1220</code></a
+            >. The existing strict test now passes <code>check_dir=True</code> at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1179"
+              ><code>tests/test_frontend.py:1179</code></a
+            >, so its result no longer depends on what the test process has in
+            <code>FASTAPI_ENV</code>.
           </p>
-
           <p>
-            Two tests pin exactly this, one per entry point, and both assert on
-            the filename rather than the message.
+            Below the public methods, the resolved bool reaches <code>_FrontendStaticFiles</code>,
+            <code>_FrontendRoute</code>, and <code>add_frontend_route</code>, and each signature
+            drops its default: <code>check_dir: bool = True,</code> becomes
+            <code>check_dir: bool,</code>. Every internal caller already passed the value, at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2056"
+              ><code>fastapi/routing.py:2056</code></a
+            >,
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2128"
+              ><code>fastapi/routing.py:2128</code></a
+            >, and
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2703"
+              ><code>fastapi/routing.py:2703</code></a
+            >, so nothing changes at run time. My reading is that a
+            required argument stops a future internal caller from getting <code>True</code> by
+            leaving it out; the pull request does not give a reason. The value lands in the
+            unchanged checks the Background section describes:
           </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1197">tests/test_frontend.py:1197</a></p>
-          <pre>def test_check_dir_auto_router_warning_points_to_user_code(monkeypatch, tmp_path: Path):
-    monkeypatch.setenv("FASTAPI_ENV", "development")
-    router = APIRouter()
-
-    with pytest.warns(UserWarning, match="does not exist") as warnings:
-        router.frontend("/", directory=tmp_path / "missing")
-
-    assert warnings[0].filename == __file__</pre>
-
-          <p>
-            <code>warnings[0]</code> also quietly asserts there is a first
-            warning to inspect, and the app-path test at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1186"><code>tests/test_frontend.py:1186</code></a> makes the same assertion
-            from the side where a duplicate could appear.
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1904-L1919"
+              >fastapi/routing.py:1904-1919</a
+            >
           </p>
-
-          <h3>5. Removing a default so it cannot be forgotten</h3>
-
-          <p>
-            Three internal signatures lose <code>= True</code>. They keep the
-            type and lose the default.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1904">fastapi/routing.py:1904</a>, :2047, :2121, one line each</p>
-          <pre><span class="del">-        check_dir: bool = True,</span>
-<span class="add">+        check_dir: bool,</span></pre>
-
-          <p>
-            All three parameters are keyword-only, marked by the bare
-            <code>*</code> earlier in each signature, so a call site that omits
-            <code>check_dir</code> now raises <code>TypeError</code> at call time
-            instead of quietly defaulting to <code>True</code>. Before the
-            change, a new internal caller that forgot to thread the resolved
-            value through would have silently reinstated the strict behavior.
-            Deleting the default removes that failure mode.
-          </p>
-
-          <p>Only the lowest of the three acts on the value.</p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L1898">fastapi/routing.py:1898</a></p>
-          <pre>class _FrontendStaticFiles(StaticFiles):
-    def __init__(
-        self,
-        *,
-        directory: str | os.PathLike[str],
-        fallback: Literal["auto", "index.html", "404.html"] | None,
-        check_dir: bool,
+          <pre><span class="add">        check_dir: bool,</span>
     ) -&gt; None:
         self.fallback = fallback
         if check_dir and not os.path.isdir(directory):
             raise RuntimeError(
                 f"Frontend directory '{directory}' does not exist. "
                 f"Resolved absolute path: '{_get_resolved_absolute_path(directory)}'"
-            )</pre>
-
+            )
+        super().__init__(
+            directory=directory,
+            html=True,
+            check_dir=check_dir,
+            follow_symlink=False,
+        )
+        if check_dir and fallback in {"index.html", "404.html"}:
+            self._check_fallback_file(fallback)</pre>
           <p>
-            The warning message and the exception message are identical text.
-            That is what lets the tests match <code>"does not exist"</code>
-            against both a <code>UserWarning</code> and a
-            <code>RuntimeError</code>.
+            The same edit appears at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2047"
+              ><code>fastapi/routing.py:2047</code></a
+            >
+            in <code>_FrontendRoute</code> and at
+            <a
+              class="srcref"
+              href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/fastapi/routing.py#L2121"
+              ><code>fastapi/routing.py:2121</code></a
+            >
+            in <code>add_frontend_route</code>. The bool also reaches Starlette through
+            <code>super().__init__</code>, where <code>False</code> skips the check
+            <code>StaticFiles</code> runs in its constructor and leaves <code>check_config</code>
+            to run on the first request.
           </p>
 
-          <h3>6. The dependency floor</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/pyproject.toml#L61">pyproject.toml:61</a></p>
-          <pre><span class="del">-    "fastapi-cli[standard] &gt;=0.0.8",</span>
-<span class="add">+    "fastapi-cli[standard] &gt;=0.0.32",</span></pre>
-
-          <p>
-            The whole feature rests on something setting
-            <code>FASTAPI_ENV=development</code>, and that something is the
-            <code>fastapi dev</code> command, which lives in the separate
-            <code>fastapi-cli</code> package. The pull request raises that
-            package's floor from <code>0.0.8</code> to <code>0.0.32</code> in all
-            three extras that include it: <code>standard</code> at line 61,
-            <code>standard-no-fastapi-cloud-cli</code> at line 80, and
-            <code>all</code> at line 98. The first two request the matching
-            <code>fastapi-cli</code> extra; <code>all</code> requests
-            <code>fastapi-cli[standard]</code>, the same one line 61 does.
-            <code>uv.lock</code> follows, moving the resolved version from
-            <code>0.0.20</code> to <code>0.0.32</code>.
-          </p>
-
-          <div class="callout edge">
-            <span class="label">What this page cannot show you</span>
-            <code>fastapi-cli</code> is an external dependency, and
-            <code>fastapi/cli.py</code> is thirteen lines that try to import it
-            and raise a helpful error if it is absent. So the claim that
-            <code>fastapi dev</code> sets
-            <code>FASTAPI_ENV</code> appears in this repository only as prose, in
-            two docstrings and one documentation page. Nothing in the library
-            sets the variable, and no test here can prove the CLI does. The
-            version floor is the only enforcement, and it is not testable from
-            this checkout either. Everything else on this page is verifiable
-            against the code; that one link in the chain is not.
-          </div>
-
-          <h3>7. The test that had to change</h3>
-
-          <p>
-            Four tests are new. One was edited, and it is the interesting one.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/tests/test_frontend.py#L1179">tests/test_frontend.py:1179</a></p>
-          <pre><span class="del">-        app.frontend("/", directory="missing")</span>
-<span class="add">+        app.frontend("/", directory="missing", check_dir=True)</span></pre>
-
-          <p>
-            The test asserts that a missing directory raises. It sets no
-            environment variable, so under the new default it takes the
-            non-development branch and still raises. It would still pass.
-          </p>
-
-          <p>
-            What the edit buys is independence from the shell. A developer with
-            <code>FASTAPI_ENV=development</code> exported would get a warning
-            instead of the exception, and
-            <code>pytest.raises(RuntimeError)</code> would fail. FastAPI also
-            sets <code>filterwarnings = ["error"]</code> in its pytest
-            configuration, so that warning becomes a
-            <code>UserWarning</code> exception, which is still not the
-            <code>RuntimeError</code> the test demands. Pinning
-            <code>check_dir=True</code> makes the test check the explicit
-            contract it was always about, whatever the environment says.
-          </p>
-
-          <p>The four new tests map onto the four branches of the resolver.</p>
-
-          <table class="vals">
-            <tr>
-              <th>Test</th>
-              <th>Line</th>
-              <th>Branch it pins</th>
-            </tr>
-            <tr>
-              <td><code>auto_warns_in_development</code></td>
-              <td>1186</td>
-              <td>auto, dev, missing: warns, and blames user code</td>
-            </tr>
-            <tr>
-              <td><code>auto_router_warning_points_to_user_code</code></td>
-              <td>1197</td>
-              <td>the same, through the router entry point</td>
-            </tr>
-            <tr>
-              <td><code>true_fails_in_development</code></td>
-              <td>1207</td>
-              <td>explicit True beats development mode</td>
-            </tr>
-            <tr>
-              <td><code>auto_fails_outside_development</code></td>
-              <td>1215</td>
-              <td>
-                auto with <code>FASTAPI_ENV=production</code>: still raises
-              </td>
-            </tr>
+          <table class="vals also-changed">
+            <caption>
+              Every other changed file (2 of 6)
+            </caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <a
+                    class="srcref"
+                    href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/docs/en/docs/tutorial/frontend.md"
+                    ><code>docs/en/docs/tutorial/frontend.md</code></a
+                  >
+                </td>
+                <td>
+                  The tutorial's Check Directory section now describes the <code>"auto"</code>
+                  default, the <code>FASTAPI_ENV</code> rule, and explicit <code>check_dir=True</code>.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <a
+                    class="srcref"
+                    href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/uv.lock"
+                    ><code>uv.lock</code></a
+                  >
+                </td>
+                <td>
+                  The lock file records the new <code>fastapi-cli</code> minimum and moves the locked
+                  version from 0.0.20 to 0.0.32.
+                </td>
+              </tr>
+            </tbody>
           </table>
-
-          <p>
-            The last one sets <code>production</code> rather than leaving the
-            variable unset. That pins the resolver's treatment of any
-            non-development value, which an unset variable would not reach: unset
-            would pass whether the code compared against one exact string or
-            merely asked whether the variable had a value at all.
-          </p>
-
-          <h3>8. Documentation</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/7abcdfbb09d4d276f06f694dce068d6db3669cbd/docs/en/docs/tutorial/frontend.md?plain=1#L109">docs/en/docs/tutorial/frontend.md:109</a></p>
-          <pre><span class="del">-By default, `app.frontend()` checks that the directory exists when the app is created.</span>
-<span class="add">+By default, `app.frontend()` uses `check_dir="auto"`.</span>
-<span class="add">+</span>
-<span class="add">+When the `FASTAPI_ENV` environment variable is set to `development`, **FastAPI** only</span>
-<span class="add">+shows a warning if the frontend build output directory is missing. ...</span>
-<span class="add">+</span>
-<span class="add">+In any other environment, **FastAPI** raises an error when the app is created. ...</span></pre>
-
-          <p>
-            The surrounding section, unchanged, already explained
-            <code>check_dir=False</code> and why the directory might legitimately
-            be absent when the application object is built: the frontend is
-            produced by a separate build step. This change adds the case that
-            sits between always-check and never-check.
-          </p>
-
-          <div class="callout">
-            <span class="label">The transferable part</span>
-            When one option needs different behavior in different environments,
-            the shape that works is a widened type at the public boundary and a
-            resolver that narrows it immediately. Keep the extra value in exactly
-            one place, return the narrow type so it cannot travel, delete the
-            defaults underneath so nobody can skip the resolver by accident, and
-            let an explicit argument always win over the automatic one. Here the
-            logic took sixteen lines. The stack depth took the care.
-          </div>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
-
-          <p>
-            Five questions about why the change is shaped the way it is. Click an
-            option to see the answer.
-          </p>
-
           <div class="quiz-question">
             <p class="q">
-              1. <code>FASTAPI_ENV=development</code>, <code>check_dir</code> left
-              at its default, and the <code>dist</code> directory
-              <em>does</em> exist. What does the resolver return?
+              A project moves its frontend setup into a helper in <code>ui.py</code>:
+              <code>def mount_ui(app): app.frontend("/", directory="dist")</code>. Then
+              <code>main.py</code> calls <code>mount_ui(app)</code>. Under <code>fastapi dev</code>
+              with no <code>dist</code> folder, which line does the warning name?
             </p>
-            <button class="quiz-option">
-              <code>True</code>, because the directory is present so the
-              downstream check passes anyway.
-            </button>
-            <button class="quiz-option">
-              <code>"auto"</code>, unchanged, because there is nothing to decide
-              when the directory exists.
-            </button>
-            <button class="quiz-option" data-correct>
-              <code>False</code>. It skips the downstream check even though that
-              check would have succeeded.
-            </button>
+            <button class="quiz-option">The line in <code>main.py</code> that calls <code>mount_ui(app)</code></button>
+            <button class="quiz-option">The <code>fastapi/applications.py</code> line that calls the helper</button>
+            <button class="quiz-option" data-correct>The line in <code>ui.py</code> that calls <code>app.frontend()</code></button>
+            <button class="quiz-option">The <code>warnings.warn</code> call in the helper in <code>fastapi/routing.py</code></button>
             <div class="quiz-feedback" role="status">
-              Both development branches return <code>False</code>; the only
-              difference is whether a warning is emitted on the way. The resolver
-              has already asked the filesystem, so the downstream check would
-              repeat that work for the same answer. The return value means "this
-              is settled", not "the directory exists". And
-              <code>"auto"</code> can never be returned: the annotation is
-              <code>bool</code>.
+              <code>stacklevel=3</code> counts frames up from the <code>warnings.warn</code> call,
+              not down from the program's entry point. Level 1 is the warn call, level 2 is
+              <code>FastAPI.frontend</code>, and level 3 is whatever line called
+              <code>app.frontend()</code>, which here sits inside <code>mount_ui</code>. The
+              <code>main.py</code> line is one frame further up. A wrapper around the call moves
+              the warning's location into the wrapper.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              2. Why is the resolver called at the top of both
-              <code>FastAPI.frontend</code> and
-              <code>APIRouter.frontend</code>, rather than once, lower down, in
-              <code>add_frontend_route</code>?
+              A developer's shell profile still exports <code>FASTAPI_ENV=production</code> from
+              an old deploy script. They run <code>fastapi dev</code> before the frontend has ever
+              been built. What happens?
             </p>
-            <button class="quiz-option" data-correct>
-              Because user code lands in position 3 on both paths, one
-              <code>stacklevel=3</code> works for each.
-            </button>
-            <button class="quiz-option">
-              Because <code>add_frontend_route</code> is public API and cannot
-              read environment variables without breaking its contract.
-            </button>
-            <button class="quiz-option">
-              To read <code>FASTAPI_ENV</code> as early as possible, before other
-              startup code can modify the environment.
-            </button>
+            <button class="quiz-option">The server starts and prints the missing-folder warning</button>
+            <button class="quiz-option" data-correct>Importing the app raises <code>RuntimeError</code> for the missing folder</button>
+            <button class="quiz-option">The server starts silently, and every request returns 404</button>
+            <button class="quiz-option">The server starts, and the opening request raises instead</button>
             <div class="quiz-feedback" role="status">
-              From <code>add_frontend_route</code> the distance to user code
-              differs by entry point, so no single <code>stacklevel</code> could
-              be right and the warning would point into FastAPI's own source.
-              <code>add_frontend_route</code> is public, but that is not what
-              constrains this. The environment is read once either way, and the
-              ordering does not matter because the second resolver call never
-              reaches the read.
+              <code>fastapi dev</code> uses <code>os.environ.setdefault</code>, which writes
+              <code>"development"</code> only when <code>FASTAPI_ENV</code> is absent. The exported
+              <code>"production"</code> survives, the helper takes its strict branch and returns
+              <code>True</code>, and <code>_FrontendStaticFiles</code> raises while the module
+              imports. Unsetting the variable restores the warning.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              3. On the <code>app.frontend()</code> path the resolver runs twice
-              for a single call. In development with a missing directory, why is
-              there exactly one warning?
+              Under <code>fastapi dev</code>, a project calls
+              <code>app.frontend("/", directory="dist", fallback="index.html")</code>. The
+              <code>dist</code> folder exists, but the build has not written
+              <code>index.html</code> into it yet. What happens when the app is created?
             </p>
-            <button class="quiz-option">
-              <code>warnings.warn</code> deduplicates identical messages from the
-              same location by default, so the second is suppressed.
-            </button>
-            <button class="quiz-option" data-correct>
-              The first call returned a <code>bool</code>, so the second exits
-              before reaching the warning.
-            </button>
-            <button class="quiz-option">
-              <code>FastAPI.frontend</code> passes <code>check_dir=None</code>
-              downstream once it has warned, which the resolver treats as
-              already-handled.
-            </button>
+            <button class="quiz-option">A <code>RuntimeError</code> naming <code>index.html</code>, as under <code>fastapi run</code></button>
+            <button class="quiz-option">The app starts and warns that <code>index.html</code> is missing</button>
+            <button class="quiz-option">The app starts, then refuses requests until it restarts</button>
+            <button class="quiz-option" data-correct>The app starts with no warning about either file</button>
             <div class="quiz-feedback" role="status">
-              The early return does the work, and this is why idempotence matters
-              here rather than being a tidy property. A second warning would also
-              be attributed to <code>applications.py</code> rather than to the
-              caller, which is what
-              <code>assert warnings[0].filename == __file__</code> would catch.
-              Python's warning registry does dedupe by location, but relying on
-              that would be relying on a default a caller can change.
+              In development the helper returns <code>False</code> whether or not the folder
+              exists, and it warns only about a missing folder, so this run prints nothing. With
+              <code>check_dir</code> false, <code>_FrontendStaticFiles</code> also skips
+              <code>_check_fallback_file</code>, so the missing <code>index.html</code> surfaces
+              later, as a <code>RuntimeError</code> when a browser navigation needs the fallback.
+              Once the build writes the file, the same process serves it. Under
+              <code>fastapi run</code> the same call raises at app creation.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              4. The three internal signatures went from
-              <code>check_dir: bool = True</code> to
-              <code>check_dir: bool</code>. What does deleting the default buy,
-              given that every existing call site already passes a value?
+              The <code>"auto"</code> default covers the situation <code>fastapi dev</code>
+              creates. When is an explicit <code>check_dir=False</code> still the better choice?
             </p>
-            <button class="quiz-option">
-              It lets the parameter accept <code>"auto"</code> later without a
-              second signature change.
-            </button>
-            <button class="quiz-option">
-              It makes the argument positional, so the value cannot go to the
-              wrong parameter.
-            </button>
-            <button class="quiz-option" data-correct>
-              A call site that forgets to pass the resolved value fails with a
-              <code>TypeError</code>.
-            </button>
+            <button class="quiz-option" data-correct>A production process whose build writes <code>dist</code> after the app module imports</button>
+            <button class="quiz-option">A <code>fastapi dev</code> session started before the frontend build has run</button>
+            <button class="quiz-option">A production image that copies a finished <code>dist</code> in before launch</button>
+            <button class="quiz-option">A CI job that should fail at once if <code>dist</code> is missing</button>
             <div class="quiz-feedback" role="status">
-              The payoff is for call sites nobody has written yet. A silent
-              <code>True</code> would switch development mode off for whichever
-              path forgot to pass the value, while the other path kept working,
-              and nothing would point at the omission. The parameters stay
-              keyword-only, and the narrowed type is what keeps
-              <code>"auto"</code> out.
+              Outside development, <code>"auto"</code> means the strict check, so a process that
+              only gets its files after import would crash at app creation. <code>check_dir=False</code>
+              moves that process's check to request time, whatever <code>FASTAPI_ENV</code> says.
+              The <code>fastapi dev</code> session is the case <code>"auto"</code> already handles,
+              and the image and the CI job both want the error at app creation that
+              <code>"auto"</code> keeps.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              5. An alternative design: drop the resolver, and let
-              <code>_FrontendStaticFiles</code> read <code>FASTAPI_ENV</code>
-              itself and decide whether to raise or warn. What does that cost?
+              The change keeps the import-time error everywhere except a process marked as
+              development, where it warns and leaves the check to request time. Which principle is
+              that an instance of?
             </p>
-            <button class="quiz-option">
-              Nothing significant. It puts the decision next to the check that
-              acts on it, where a reader would look.
-            </button>
-            <button class="quiz-option" data-correct>
-              One <code>stacklevel</code> can no longer point the warning at user
-              code, since the class depth varies per entry point.
-            </button>
-            <button class="quiz-option">
-              It would break <code>check_dir=False</code>, since a class that
-              reads the environment cannot honor an explicit argument.
-            </button>
+            <button class="quiz-option">Lazy initialization: defer each filesystem check until a request needs it</button>
+            <button class="quiz-option">Convention over configuration: infer the build folder from the project layout</button>
+            <button class="quiz-option" data-correct>Fail fast where the error means a broken deploy, and warn where expected</button>
+            <button class="quiz-option">Graceful degradation: keep the API serving whenever frontend files are missing</button>
             <div class="quiz-feedback" role="status">
-              Locality is a real argument, which is what makes it worth
-              considering. Locality is a virtue, and the original directory check
-              does live in that class. What defeats it is the stack.
-              Attribution depends on the distance to the caller, and the deeper
-              you push a warning the less it can know about who to blame. An
-              explicit <code>check_dir</code> would still be honored, since the
-              class would receive it either way.
+              The strict branch stays the default for every process not marked as development,
+              because there a missing build means something shipped without its files. Lazy
+              initialization and graceful degradation each describe the development branch alone;
+              under <code>fastapi run</code> the app still fails at creation. Convention over
+              configuration is about inferring the folder, and the change never touches
+              <code>directory</code>.
             </div>
           </div>
         </section>

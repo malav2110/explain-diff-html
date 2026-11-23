@@ -159,6 +159,7 @@
       li {
         margin: 0.3rem 0;
       }
+      /* Code blocks: white-space set here so a filled-in block cannot collapse. */
       pre,
       .code-block {
         white-space: pre-wrap;
@@ -191,6 +192,7 @@
         background: var(--surface);
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
+        overflow-wrap: anywhere;
       }
       /* A file:line reference linked to the code it names. Wraps a <code> span
          in prose, or the bare text of a .filename label. */
@@ -205,12 +207,15 @@
       a.srcref:hover code {
         background: var(--accent-soft);
       }
+      /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
         font-family: ui-monospace, monospace;
         margin: 1.5rem 0 0.3rem;
+        overflow-wrap: anywhere;
       }
+      /* Comparison table: one row per case, .yes / .no / .warn on outcome cells. */
       table.vals {
         border-collapse: collapse;
         margin: 1.5rem 0;
@@ -240,6 +245,26 @@
       table.vals td.warn {
         background: var(--edge-soft);
       }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
+      /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
         border-left: 3px solid var(--accent);
@@ -264,6 +289,7 @@
       .callout.edge .label {
         color: var(--edge);
       }
+      /* Skippable deep-background block. */
       details.skippable {
         border: 1px solid var(--border-strong);
         border-radius: 8px;
@@ -279,6 +305,7 @@
       details.skippable[open] > summary {
         margin-bottom: 0.75rem;
       }
+      /* Diagram family 1: simplified app UI mockup. */
       .ui-mockup {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -307,6 +334,7 @@
         margin: 0.3rem 0 0;
         max-width: var(--measure);
       }
+      /* Diagram family 2: data flow between components, example data on the arrows. */
       .dataflow {
         display: flex;
         flex-wrap: wrap;
@@ -379,6 +407,9 @@
         font-weight: 600;
         margin: 1.25rem 0 0.25rem;
       }
+      /* A numbered sequence with one marked position: call stacks, retry
+         counts, any ranked list. Not one of the numbered families; reach for
+         it when a step in an ordered list is the point. */
       .frames {
         list-style: none;
         padding: 0;
@@ -403,6 +434,66 @@
         min-width: 2.2em;
         color: var(--muted);
       }
+      /* Diagram family 3: node/recursion tree (ASTs, nesting, recursion) */
+      .tree {
+        margin: 1.5rem 0;
+        font:
+          0.82rem/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .tnode {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        margin: 0.3rem 0;
+        background: var(--surface);
+        display: inline-block;
+      }
+      .tnode.leaf {
+        background: var(--bg);
+      }
+      .tnode.kept {
+        border-color: var(--ok);
+        background: var(--ok-soft);
+      }
+      .tnode.skipped {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      .tchildren {
+        margin-left: 1.4rem;
+        border-left: 2px dotted var(--border);
+        padding-left: 0.9rem;
+      }
+      .tnote {
+        color: var(--muted);
+        font-size: 0.75rem;
+        margin-left: 0.4rem;
+      }
+
+      /* Optional tabular body for .ui-mockup, when the mocked UI is a table. */
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .mock-table th,
+      .mock-table td {
+        border: 1px solid var(--border);
+        padding: 0.35rem 0.5rem;
+        text-align: left;
+      }
+      .mock-table th {
+        background: var(--surface);
+        font-weight: 600;
+      }
+      .mock-table .col-highlight {
+        background: var(--accent-soft);
+      }
+
       .mermaid {
         margin: 1.75rem 0;
         background: var(--surface);
@@ -422,6 +513,7 @@
         background: var(--surface) !important;
         color: var(--text) !important;
       }
+      /* Quiz */
       .quiz-question {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -522,10 +614,15 @@
         main > header h1 {
           font-size: 1.6rem;
         }
+        table.vals {
+          display: block;
+          overflow-x: auto;
+          max-width: 100%;
+        }
       }
     </style>
   </head>
-    <body>
+  <body>
     <div class="layout">
       <nav class="toc">
         <strong>Contents</strong>
@@ -539,708 +636,847 @@
 
       <main>
         <header>
-          <h1>Deleting an attribute moved the decision</h1>
+          <h1>uPortal PR 2983: skin and JSP asset URLs point at /resource-server</h1>
           <p class="lead">
-            uPortal
-            <a href="https://github.com/uPortal-Project/uPortal/pull/2983"
-              >pull request 2983</a
-            >
-            reads as find-and-replace across 17 files. Three of its lines delete
-            an attribute, and deleting it changes who works out where a file
-            lives: the server, or the browser.
+            This pull request points uPortal core's asset URLs at the
+            <code>/resource-server/</code> context instead of the legacy
+            <code>/ResourceServingWebapp/</code> one, including three libraries
+            whose skin entries picked up the legacy prefix at run time while
+            that webapp was deployed, and it stops loading lodash, modernizr,
+            normalize.css, and four polyfills.
           </p>
           <p class="provenance">
-            uPortal-Project/uPortal PR 2983 at 0468c6d, explained 2026-09-01. References link to this commit.
+            uPortal-Project/uPortal PR 2983 at 0468c6d, explained 2026-11-16.
+            References link to this commit.
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
-
           <details class="skippable">
             <summary>
-              New to uPortal skins, or to servlet contexts? Expand for the deeper
-              background.
+              New to this area? Expand for the deeper background.
             </summary>
             <p>
-              uPortal renders a page by wrapping portlets in a theme, and the
-              theme's appearance comes from a <em>skin</em>. A skin is a
-              directory plus a descriptor: an XML file listing the stylesheets
-              and scripts the page needs.
-            </p>
-            <pre>&lt;js included="plain"&gt;/resource-server/rs/underscore/1.8.3/underscore.js&lt;/js&gt;
-&lt;css included="aggregated"&gt;/resource-server/webjars/.../dataTables.bootstrap5.min.css&lt;/css&gt;</pre>
-            <p>
-              The <code>included</code> attribute says which build the entry
-              belongs to. <em>Aggregation</em> is uPortal concatenating and
-              minifying a skin's own files into one bundle, so
-              <code>aggregated</code> entries are the versions used when that
-              bundle is built.
+              uPortal is a Java web application, shipped as a war, a web
+              application archive. Tomcat, the server it runs in, can host
+              several web applications at once, and each one answers under its
+              own context path: the portal under a path such as
+              <code>/uPortal</code>, an asset server under
+              <code>/resource-server</code>. A browser that requests
+              <code>/resource-server/rs/underscore/1.8.3/underscore.js</code>
+              reaches whichever application owns <code>/resource-server</code>.
             </p>
             <p>
-              Where those files come from is the subject here. A Java servlet
-              container runs several web applications side by side, each mounted
-              at a <em>context path</em>, the first segment of the URL. uPortal
-              is one context. A second one, the
-              <em>resource server</em>, carries shared front-end libraries, so
-              several portals on a server can reference the same copies. Its
-              older context path was <code>/ResourceServingWebapp/</code> and the
-              current one is <code>/resource-server/</code>.
+              One application can look up another by its context path with the
+              servlet method <code>ServletContext.getContext</code>. Tomcat
+              answers only when the asking application allows cross-context
+              access, and uPortal does:
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/META-INF/context.xml#L21"><code>META-INF/context.xml:21</code></a>
+              sets <code>crossContext="true"</code>.
             </p>
             <p>
+              A uPortal page is rendered on the server. A theme stylesheet,
+              <code>respondr.xsl</code>, writes the page's
+              <code>&lt;head&gt;</code>, and each portlet on the page adds a
+              fragment rendered from a JSP. A JSP calls Java code through tags
+              from a tag library. Every JSP in this change includes
+              <code>include.jsp</code>, which declares the prefix
+              <code>c:</code> for the standard JSTL core tags at
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp#L21"><code>include.jsp:21</code></a>
+              and <code>rs:</code> for the resource-server tags at
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp#L30"><code>include.jsp:30</code></a>.
+              <code>&lt;c:set var="x" value="..."/&gt;</code> stores a string
+              in a page variable, and <code>${x}</code> reads it back.
+            </p>
+            <p>
+              A skin descriptor lists most entries twice: once with
+              <code>included="plain"</code> for the readable file, and once
+              with <code>included="aggregated"</code> for the minified one. The
+              portal loads one set on every page. It loads the aggregated set
+              unless the Java system property
+              <code>org.jasig.resourceserver.utils.aggr.aggregated_theme</code>
+              is <code>false</code>. For the aggregated set it reads
+              <code>skin.aggr.xml</code>, a copy of the descriptor that the build
+              writes with local files merged. Absolute entries pass through that
+              copy unchanged
+              (<code data-bare="outside-repo">ResourcesAggregatorImpl.java:262-264</code>,
+              in resource-server-core 1.5.3).
+            </p>
+            <p>
+              lodash and underscore are JavaScript utility libraries with
+              overlapping functions, and each installs itself as a global named
+              <code>_</code>. The theme loads underscore 1.8.3 and then, at
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/layout/theme/respondr/respondr.xsl#L274"><code>respondr.xsl:274</code></a>,
+              stores it as <code>up._</code> with <code>_.noConflict()</code>,
+              which gives the global <code>_</code> back to whatever held it
+              before.
             </p>
           </details>
 
           <p>
-            Three names recur below, so they are here rather than in the
-            collapsed part. A <em>webjar</em> is a front-end library packaged as
-            a Java artifact, so a build resolves it like any other dependency.
-            <em>Aggregation</em> is uPortal concatenating and minifying a skin's
-            own files into one bundle. And <code>rs</code> is a JSP tag library
-            that the resource server ships, bound once in this codebase, used for
-            building URLs and for compressing inline scripts.
-
-          <p>
-            An entry in a skin descriptor could carry one extra attribute, and
-            this change is about what it did.
+            The pull request body gives the reason for the change. uPortal-start,
+            the project that assembles and deploys a full portal, is about to
+            retire its <code>ResourceServingWebapp</code> overlay, the build
+            project that deploys the legacy asset server. Before that happens,
+            every reference in uPortal core to
+            <code>/ResourceServingWebapp/...</code> has to land on
+            <code>/resource-server/...</code>, which resource-server-webapp
+            1.5.x serves and which the body calls the modern context. The
+            commit messages report that the files these references name, among
+            them the tango and famfamfam icon sets, are byte-identical at the
+            new paths. The head commit says it checked its three libraries with
+            curl against a running portal.
           </p>
-
-          <p class="filename">
-            uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml,
-            before
-          </p>
-          <pre>    &lt;js included="plain" resource="true"&gt;/rs/underscore/1.8.3/underscore.js&lt;/js&gt;</pre>
-
           <p>
-            Note the path: no context, just <code>/rs/...</code>. With
-            <code>resource="true"</code>, a component named below supplied the
-            missing prefix while the page rendered. Without the attribute, the
-            path is emitted as written.
-          </p>
-
-          <h3>Who resolves it</h3>
-
-          <p>
-            The theme calls into Java for every skin entry.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/layout/theme/resourcesTemplates.xsl#L30">uPortal-webapp/src/main/resources/layout/theme/resourcesTemplates.xsl:30</a></p>
-          <pre>&lt;xsl:template name="skinResources"&gt;
-    &lt;xsl:param name="path" /&gt;
-    &lt;xsl:variable name="resourceHelper" select="resources:getElmenentsProvider($RESOURCES_ELEMENTS_HELPER)" /&gt;
-    &lt;xsl:variable name="request" select="resources:getHttpServletRequest($CURRENT_REQUEST)" /&gt;
-    &lt;xsl:copy-of select="resources:getResourcesXmlFragment($resourceHelper, $request, $path)" /&gt;</pre>
-
-          <p>
-            That reaches a thin delegate in this repository, at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-web/src/main/java/org/apereo/portal/web/skin/ResourcesElementsXsltcHelper.java#L58"><code>uPortal-web/src/main/java/org/apereo/portal/web/skin/ResourcesElementsXsltcHelper.java:58</code></a>,
-            which hands straight off to a provider bean built at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/java/org/apereo/portal/context/rendering/RenderingPipelineConfiguration.java#L325"><code>RenderingPipelineConfiguration.java:325</code></a> with no context
-            path or base URL configured on it.
-          </p>
-
-          <p>
-            And then the trail leaves the repository. The class that reads the
-            attribute, <code>ResourcesElementsProviderImpl</code>, ships in
-            <code>org.jasig.resourceserver:resource-server-utils</code>, pinned
-            at <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/gradle.properties#L98"><code>gradle.properties:98</code></a> to
-            <code>resourceServerVersion=1.5.3</code>. No copy of that jar is in
-            the checkout, so the exact prefix logic cannot be read here.
+            A skin descriptor is an XML file, such as <code>skin.xml</code> or
+            <code>common_skin.xml</code>, that lists a skin's CSS and
+            JavaScript files. The portal turns each entry into an element in
+            the page's head.
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/layout/theme/respondr/respondr.xsl#L640-L642"><code>respondr.xsl:640-642</code></a>
+            calls the <code>skinResources</code> template with
+            <code>SKIN_RESOURCES_PATH</code>, the path of the skin's
+            <code>skin.xml</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/layout/theme/respondr/respondr.xsl#L152"><code>respondr.xsl:152</code></a>).
+            The template, at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/layout/theme/resourcesTemplates.xsl#L36"><code>resourcesTemplates.xsl:36</code></a>,
+            hands that path to the provider,
+            <code>ResourcesElementsProviderImpl</code>, a class in the
+            resource-server-utils 1.5.3 library from
+            <code>org.jasig.resourceserver</code>. The provider reads the
+            descriptor and returns one <code>&lt;script&gt;</code> or
+            <code>&lt;link&gt;</code> element per entry. The default skin's
+            <code>skin.xml</code> pulls in the shared
+            <code>common_skin.xml</code> at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/defaultSkin/skin.xml#L50"><code>skin.xml:50</code></a>,
+            so the shared entries reach every page on that skin.
           </p>
 
           <div class="callout">
             <span class="label">Key concept</span>
-            <code>resource="true"</code> is an indirection. The descriptor says
-            what it wants and lets a component decide where that lives, per
-            request, at render time. An explicit path says where it lives and
-            leaves nothing to decide. Both produce a URL; they differ in who
-            computes it and when.
+            The provider handles an entry in one of three ways, by its path and
+            its <code>resource</code> attribute. A path that starts with none
+            of <code>/</code>, <code>http://</code>, or <code>https://</code>
+            is relative, and it
+            gets the skin's folder in front. Any other path is absolute, and
+            the provider writes it to the page as it stands. An absolute path
+            marked <code>resource="true"</code> goes instead to a resolver,
+            <code>resolveResourceUrl</code>, which picks a context path to put
+            in front while the page renders. This page calls such an entry a
+            resolver entry.
           </div>
+
+          <p>
+            The <code>rs:</code> tags come from the same library.
+            <code>&lt;rs:resourceURL value="/rs/..."/&gt;</code> turns a path
+            into a URL and prints it, or stores it in a page variable when the
+            tag has a <code>var</code> attribute.
+            <code>&lt;rs:compressJs&gt;</code> wraps an inline script. Its
+            javadoc says it once minified the script with YUI Compressor. In
+            1.5.3 it is marked <code>@Deprecated</code> and copies its body
+            through unchanged
+            (<code data-bare="outside-repo">JavaScriptMinificationTag.java:46-50</code>,
+            in resource-server-utils).
+          </p>
+          <p>
+            Two portlet JSPs loaded lodash 4.17.4 themselves, through
+            <code>&lt;rs:resourceURL&gt;</code>, and called it as
+            <code>_</code>. <code>sitemap.jsp</code> builds a sitemap from the
+            layout API, <code>/api/v4-3/dlm/layout.json</code>, and checks the
+            JSON with its own helper, <code>sitemapJsonCheck</code>, before it
+            reads a key. <code>searchRest.jsp</code> builds one tab of results
+            per result type from the search API,
+            <code>/api/v5-0/portal/search</code>, which answers with an object
+            such as <code>{"people": [...], "portlets": [...]}</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-api/uPortal-api-rest/src/main/java/org/apereo/portal/rest/search/SearchRESTController.java#L144-L151"><code>SearchRESTController.java:144-151</code></a>).
+            The lodash calls were <code>_.has</code>, which tests a dotted key
+            path; <code>_.every</code>, <code>_.forEach</code>, and
+            <code>_.forOwn</code>, which loop; <code>_.unescape</code>, which
+            decodes HTML entities; and <code>_.startCase</code> and
+            <code>_.kebabCase</code>, which turn <code>peopleTab</code> into
+            <code>People Tab</code> and <code>people-tab</code>.
+          </p>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
-
           <p>
-            The change deletes the attribute in three places and writes the
-            context into the path instead.
+            A page can ask <code>/ResourceServingWebapp</code> for a file in
+            two ways. The first is a string that says so, such as
+            <code>/ResourceServingWebapp/rs/fontawesome/4.7.0/css/font-awesome.min.css</code>
+            in the old <code>skin.xml</code>. A text search for
+            <code>ResourceServingWebapp</code> finds it. The second is a path
+            with no context in it, such as
+            <code>/rs/underscore/1.8.3/underscore.min.js</code>, marked
+            <code>resource="true"</code>. That path names no server at all
+            until the resolver adds one while the page renders.
+          </p>
+          <p>The provider and its resolver decide like this:</p>
+          <pre class="mermaid">
+flowchart TD
+  A["A js or css entry in a skin descriptor"] --&gt; B{"Starts with / or http:// or https://?"}
+  B --&gt;|no| C["Prefix the skin folder"]
+  B --&gt;|yes| D{"resource is true?"}
+  D --&gt;|no| E["Emit the path as written"]
+  D --&gt;|yes| F{"/ResourceServingWebapp deployed and holds the file?"}
+  F --&gt;|yes| G["Prefix /ResourceServingWebapp"]
+  F --&gt;|no| H["Prefix the portal context path"]
+  classDef touched fill:#e8eefc,stroke:#3b6cf6,color:#16181b
+  classDef caveat fill:#fbefe1,stroke:#b5620a,color:#16181b
+  class E touched
+  class G caveat
+</pre>
+          <p>
+            The resolver's default context is
+            <code>"/ResourceServingWebapp"</code>
+            (<code data-bare="outside-repo">ResourcesElementsProvider.java:58</code>,
+            the interface the provider implements). A
+            <code>resourceContextPath</code> context parameter in the portal's
+            <code>web.xml</code> would replace it, and uPortal sets none. The
+            last check asks Tomcat, through <code>getContext</code>, for the web
+            application at that path, which <code>crossContext="true"</code>
+            permits. It then asks that application whether it holds the file.
+            So on a portal that still runs the legacy webapp, the underscore
+            entry becomes a request to it, although no line of uPortal names
+            it.
           </p>
 
-          <pre><span class="del">-    &lt;js included="plain" resource="true"&gt;/rs/underscore/1.8.3/underscore.js&lt;/js&gt;</span>
-<span class="add">+    &lt;js included="plain"&gt;/resource-server/rs/underscore/1.8.3/underscore.js&lt;/js&gt;</span></pre>
-
-          <p>
-            One attribute out, one path segment in. It looks like the same URL
-            spelled differently. The pull request body says the two forms reach
-            byte-identical paths in the deployment the author tested, checked with
-            curl. Section 7 comes back to what this repository can say about
-            that, which is nothing.
-          </p>
-
-          <p>
-            What actually changes is who does the work, and what happens when
-            the answer is not there.
-          </p>
-
-          <pre class="mermaid">flowchart LR
-    subgraph portal["the uPortal context"]
-        direction TB
-        W["the uPortal war, built by unpacking&lt;br/&gt;the rs/ tree and every webjar into it"]
-        A["/scripts/portal-analytics.js&lt;br/&gt;a file only uPortal has"]
-    end
-
-    subgraph rserver["the /resource-server/ context, deployed separately"]
-        direction TB
-        R["the same rs/ tree and webjars,&lt;br/&gt;served by another project"]
-    end
-
-    OLD["with the attribute: /rs/underscore/1.8.3/underscore.js"]
-    NEW["without it: /resource-server/rs/underscore/1.8.3/underscore.js"]
-
-    OLD --&gt;|the provider supplies a context at render time| W
-    NEW --&gt;|the browser requests exactly this path| R
-    OLD -.-&gt;|four jsTree entries and the analytics script still use this form| A</pre>
-
-          <p>
-            The second half of that picture is written down in this repository,
-            even though the provider is not. A fixture pair under
-            <code>src/test/resources</code> records what the no-attribute form
-            produces. No test in the checkout loads those files, so they document
-            the behavior rather than asserting it.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/test/resources/org/apereo/portal/web/skin/resources1.xml#L30">uPortal-webapp/src/test/resources/org/apereo/portal/web/skin/resources1.xml:30</a></p>
-          <pre>&lt;!-- absolute won't get touched, prove the 2 don't aggregate --&gt;</pre>
-
-          <p>
-            The expected output confirms it: a path starting with
-            <code>/</code> appears in the emitted markup unchanged, and it is
-            excluded from aggregation. A relative path, by contrast, is resolved
-            against the skin directory and can be aggregated.
-          </p>
-
-          <table class="vals">
-            <tr>
-              <th></th>
-              <th><code>resource="true"</code>, path <code>/rs/...</code></th>
-              <th>no attribute, path <code>/resource-server/rs/...</code></th>
-            </tr>
-            <tr>
-              <td>Who computes the URL</td>
-              <td>the provider, on the server, per request</td>
-              <td>nobody; it is emitted as written</td>
-            </tr>
-            <tr>
-              <td>Which deployment the URL points into</td>
-              <td>whichever one the provider picks at render time</td>
-              <td>the one named in the path</td>
-            </tr>
-            <tr>
-              <td>What has to be true for it to resolve</td>
-              <td>the serving context has the file</td>
-              <td>
-                a context is deployed at <code>/resource-server/</code> and has
-                the file
-              </td>
-            </tr>
-            <tr>
-              <td>Aggregation</td>
-              <td>excluded</td>
-              <td>excluded</td>
-            </tr>
-          </table>
-
-          <p>
-            Row two is the one the diff does not show, and it is the one to be
-            careful about. uPortal's own build unpacks every webjar and the
-            resource server's <code>rs/</code> tree into its war, at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L132"><code>uPortal-webapp/build.gradle:132</code></a> and
-            <code>:139</code>, and the war task puts both at the root. So copies
-            of these libraries were already inside uPortal.
-          </p>
-
-          <p>
-            That the old form resolved to those copies is my reading, not
-            something this repository states. The code that chose the prefix is
-            in the absent jar, and whether the external artifact happens to
-            contain these three specific paths cannot be checked here either. The
-            new form needs no reading: it names one context, literally.
-          </p>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            The attribute cannot simply be replaced everywhere. Five active
-            <code>resource="true"</code> entries survive this change, and one of
-            them is
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L110"><code>common_skin.xml:110</code></a>, pointing at
-            <code>/scripts/portal-analytics.js</code>. That file is uPortal's
-            own, at
-            <code>uPortal-webapp/src/main/webapp/scripts/portal-analytics.js</code>,
-            not a resource-server asset. Rewriting that one to
-            <code>/resource-server/...</code> would name a file that is not
-            there.
+          <p class="flow-label">Before: the resolver picks the server</p>
+          <div class="dataflow">
+            <div class="node terminal">common_skin.xml entry</div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">/rs/underscore/…</span
+                ><span class="line"></span>
+              </div>
+              <div class="node">resolveResourceUrl</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">/ResourceServingWebapp/rs/…</span
+                ><span class="line"></span>
+              </div>
+              <div class="node fail">legacy webapp</div>
+            </div>
           </div>
+          <p class="flow-label">After: the entry names the server</p>
+          <div class="dataflow">
+            <div class="node terminal">common_skin.xml entry</div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">/resource-server/rs/…</span
+                ><span class="line"></span>
+              </div>
+              <div class="node pass">resource-server webapp</div>
+            </div>
+          </div>
+
+          <p>
+            The fallback branch would not have rescued these entries. When the
+            lookup fails, the resolver puts the portal's own context path in
+            front. The build copies the <code>rs/</code> folder of
+            resource-server-content 1.5.3 into the portal's war
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L139-L146"><code>build.gradle:139-146</code></a>),
+            but that copy holds <code>underscore.js</code> and
+            <code>underscore-min.js</code>, not <code>underscore.min.js</code>,
+            and no <code>.min.js</code> file for backbone or the rating plugin.
+            On the default aggregated set, the fallback would name files that
+            copy lacks. That fits the head commit's statement that dropping the
+            overlay would otherwise leave these scripts unresolved.
+          </p>
+          <p>
+            Writing the context into the path settles the choice in the file
+            rather than at deployment. An absolute path without the attribute
+            never reaches the resolver, so every deployment requests the same
+            server. The pull request's earlier commit,
+            <a href="https://github.com/uPortal-Project/uPortal/commit/c80cdea43bf22ba0333f9619e612815510ce1591"><code>c80cdea43</code></a>,
+            rewrote the literal <code>/ResourceServingWebapp/...</code> strings
+            and left the resolver entries for underscore, backbone, and the
+            rating plugin as they were. The record does not say how that commit
+            chose its targets. The head commit,
+            <a href="https://github.com/uPortal-Project/uPortal/commit/0468c6de77bb640726e25aecd37c5203c7839a74"><code>0468c6d</code></a>,
+            rewrote the resolver entries. Its message says a uPortal-start
+            smoke test caught them once it visited an admin page,
+            <code>uportal-links?pCm=config</code>, and the pull request body
+            says that suite asserts the absence of legacy URL requests.
+          </p>
+          <p>
+            The rest of the change removes requests instead of redirecting
+            them. The descriptors drop libraries the author judged unused or
+            covered by the browser, and two JSPs replace lodash with plain
+            JavaScript.
+          </p>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
-
           <p>
-            The flow, end to end. The theme asks for a skin's entries. A provider
-            turns each into markup. The browser requests what it is given. This
-            change edits the descriptors and JSPs that feed the first step, and
-            in three places it changes which participant decides the URL.
+            Flow map: page request → <code>respondr.xsl</code> writes the head
+            from <code>skin.xml</code> and <code>common_skin.xml</code> →
+            portlet JSPs add their own scripts → icon URLs in CSS, JavaScript,
+            JSPs, and portlet data → the browser fetches the repointed files
+            from <code>/resource-server/</code>.
           </p>
 
-          <h3>1. Six kinds of change in 17 files</h3>
-
-          <pre>$ grep '^diff --git' diff.txt | wc -l
-17</pre>
-
+          <h3 class="core-step">1. The skin descriptors name /resource-server in the path</h3>
           <p>
-            Six kinds of change, counted by asking which files have a removed
-            line matching each pattern:
+            The head comes first. In <code>common_skin.xml</code>, the entries
+            for underscore, backbone, and the rating plugin, a plain and an
+            aggregated line each, lose their <code>resource</code> attribute
+            and gain the context in their text:
+          </p>
+          <p class="filename">
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L59-L63">uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:59-63</a>
+          </p>
+          <pre><span class="del">-    &lt;js included="plain" resource="true"&gt;/rs/underscore/1.8.3/underscore.js&lt;/js&gt;</span>
+<span class="del">-    &lt;js included="aggregated" resource="true"&gt;/rs/underscore/1.8.3/underscore.min.js&lt;/js&gt;</span>
+<span class="add">+    &lt;js included="plain"&gt;/resource-server/rs/underscore/1.8.3/underscore.js&lt;/js&gt;</span>
+<span class="add">+    &lt;js included="aggregated"&gt;/resource-server/rs/underscore/1.8.3/underscore.min.js&lt;/js&gt;</span>
+
+<span class="del">-    &lt;js included="plain" resource="true"&gt;/rs/backbone/1.3.3/backbone-1.3.3.js&lt;/js&gt;</span>
+<span class="del">-    &lt;js included="aggregated" resource="true"&gt;/rs/backbone/1.3.3/backbone-1.3.3.min.js&lt;/js&gt;</span>
+<span class="add">+    &lt;js included="plain"&gt;/resource-server/rs/backbone/1.3.3/backbone-1.3.3.js&lt;/js&gt;</span>
+<span class="add">+    &lt;js included="aggregated"&gt;/resource-server/rs/backbone/1.3.3/backbone-1.3.3.min.js&lt;/js&gt;</span></pre>
+          <p>
+            The rating plugin, <code>bootstrap-rating-input</code>, takes the
+            same edit at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L79-L80"><code>common_skin.xml:79-80</code></a>.
+            Both the plain and the aggregated line change, because a portal
+            loads one set or the other and either may be in use. With no
+            attribute, each path is absolute and takes the "Emit the path as
+            written" branch of the flowchart.
+          </p>
+          <p>
+            Two sets of entries keep the attribute. One is the files for
+            jstree, the tree widget the entity selector uses, at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L99-L102"><code>common_skin.xml:99-102</code></a>.
+            The other is the portal's analytics script at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L110"><code>common_skin.xml:110</code></a>.
+            Their paths start <code>/webjars/</code> and <code>/scripts/</code>,
+            and the portal's own build puts both files in its war. jstree
+            arrives as a webjar, a browser library packaged as a Java jar,
+            through
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L98"><code>build.gradle:98</code></a>
+            and
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L190-L195"><code>build.gradle:190-195</code></a>,
+            and the script sits in <code>src/main/webapp/scripts/</code>. So
+            the portal itself can serve both.
+          </p>
+          <p>
+            The jqueryui i18n entries at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L51-L54"><code>common_skin.xml:51-54</code></a>
+            still name <code>/ResourceServingWebapp</code>, inside an XML
+            comment. The head commit's message leaves them as inactive markup,
+            so a text search after this change still finds them.
+          </p>
+          <p>
+            The default skin's own descriptor has one string to fix. Its pair
+            for the fontawesome 4.7.0 icon font, at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/defaultSkin/skin.xml#L31-L32"><code>uPortal-webapp/src/main/webapp/media/skins/respondr/defaultSkin/skin.xml:31-32</code></a>,
+            said <code>/ResourceServingWebapp/rs/fontawesome/...</code> and now
+            says <code>/resource-server/rs/fontawesome/...</code>, with the rest
+            of the path unchanged.
           </p>
 
-          <pre>$ awk '/^diff --git/{f=$3} /^-/ &amp;&amp; /ResourceServingWebapp/{print f}' diff.txt | sort -u | wc -l
-8
-$ awk '/^diff --git/{f=$3} /^-/ &amp;&amp; /resource=\"true\"/{print f}' diff.txt | sort -u | wc -l
-1
-$ awk '/^diff --git/{f=$3} /^-/ &amp;&amp; /compressJs/{print f}' diff.txt | sort -u | wc -l
-6
-$ awk '/^diff --git/{f=$3} /^-/ &amp;&amp; /rs:resourceURL/{print f}' diff.txt | sort -u | wc -l
-3</pre>
-
+          <h3 class="core-step">2. The skin descriptors drop modernizr, normalize.css, and the polyfills</h3>
           <p>
-            These groups overlap, so they do not sum to 17. One file can be in
-            several: <code>reportGraph.jsp</code> loses both
-            <code>compressJs</code> wrappers and
-            <code>resourceURL</code> tags, and <code>common_skin.xml</code> both
-            loses library entries and has entries rewritten. The union of all six
-            groups is the 17 files.
+            Some entries are deleted rather than repointed, and a dated comment
+            takes each block's place. The polyfills, scripts that add browser
+            features older browsers lack, go from near the end of
+            <code>common_skin.xml</code>:
           </p>
-
-          <table class="vals">
-            <tr>
-              <th>Kind</th>
-              <th>Files</th>
-            </tr>
-            <tr>
-              <td>
-                <code>/ResourceServingWebapp/</code> to
-                <code>/resource-server/</code> in a literal path
-              </td>
-              <td>8</td>
-            </tr>
-            <tr>
-              <td><code>resource="true"</code> removed, path made explicit</td>
-              <td>1, three entries</td>
-            </tr>
-            <tr>
-              <td>Library entries deleted, replaced by dated comments</td>
-              <td>2</td>
-            </tr>
-            <tr>
-              <td><code>&lt;rs:compressJs&gt;</code> wrappers removed</td>
-              <td>6</td>
-            </tr>
-            <tr>
-              <td>
-                <code>&lt;rs:resourceURL&gt;</code> tags removed or replaced
-              </td>
-              <td>3</td>
-            </tr>
-            <tr>
-              <td>Inline JavaScript rewritten to drop a library</td>
-              <td>2</td>
-            </tr>
-          </table>
-
+          <p class="filename">
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L104-L106">uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:104-106</a>
+          </p>
+          <pre><span class="del">-    &lt;!-- ES6&amp;7 polyfill --&gt;</span>
+<span class="del">-    &lt;js included="plain" resource="true"&gt;/webjars/core-js-bundle/index.js&lt;/js&gt;</span>
+<span class="del">-    &lt;js included="aggregated" resource="true"&gt;/webjars/core-js-bundle/minified.js&lt;/js&gt;</span>
+     (elided: the same deletion for regenerator-runtime, whatwg-fetch, and webcomponents)
+<span class="add">+    &lt;!-- ES6+/fetch/async-await/Web-Components polyfills removed 2026-05-06.</span>
+<span class="add">+         uPortal targets Bootstrap 5 baseline browsers (no IE), all of</span>
+<span class="add">+         which natively support these APIs. Polyfills were dead weight. --&gt;</span></pre>
           <p>
-            Groups two and five are the same move in two languages. In the skin
-            XML the attribute goes and the path becomes literal; in a JSP the tag
-            goes and the path becomes literal.
+            modernizr, a feature-detection library, goes from the top of
+            <code>common_skin.xml</code>, and its comment sits at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L26-L27"><code>common_skin.xml:26-27</code></a>.
+            normalize.css, a stylesheet that evens out browser defaults, goes
+            from <code>skin.xml</code>, with its comment at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/defaultSkin/skin.xml#L28-L29"><code>skin.xml:28-29</code></a>.
           </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L26">uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp:26</a></p>
-          <pre><span class="del">-&lt;rs:resourceURL var="rgbcolorScriptPath" value="/rs/canvg/r144/rgbcolor-r144.min.js"/&gt;</span>
-<span class="add">+&lt;c:set var="rgbcolorScriptPath" value="/resource-server/rs/canvg/r144/rgbcolor-r144.min.js"/&gt;</span></pre>
-
           <p>
-            A tag that computed a URL becomes a variable assignment holding one.
-            Four of them change in that file:
+            Each comment gives the author's reason. For modernizr, the reason
+            is that no code calls <code>Modernizr</code>, and that holds within
+            this repository: at this commit, the name appears only in the
+            comment and twice in an architecture document, in a table of
+            outdated libraries and in a list of libraries to remove. The other
+            reasons are claims about supported browsers:
+            that Bootstrap 5's reboot.css does the job of normalize.css, and
+            that the browsers Bootstrap 5 supports have the polyfilled features
+            natively. The diff does not test them.
           </p>
-
-          <pre>$ grep -c 'rs:resourceURL' uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp
-0</pre>
-
-          <p>
-            Zero remain after the change, and the diff shows four removed.
-          </p>
-
-          <h3>2. A tag library with no remaining callers</h3>
-
-          <p>
-            Between groups four and five, the <code>rs</code> prefix stops being
-            used in any JSP or XSL file.
-          </p>
-
-          <pre>$ grep -rIn '&lt;rs:' --include='*.jsp' --include='*.xsl' .
-$ </pre>
-
-          <p>
-            No hits. The binding that makes the prefix available is still there,
-            at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp#L30"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp:30</code></a>:
-          </p>
-
-          <pre>&lt;%@ taglib prefix="rs" uri="http://www.jasig.org/resource-server" %&gt;</pre>
-
-          <p>
-            The body describes the removed <code>&lt;rs:compressJs&gt;</code>
-            wrappers as already a no-op upstream, with minification moved to
-            esbuild. That is a statement about the tag's implementation, which
-            ships in the same external jar as the provider. The checkout has two
-            tag library descriptors of its own, under
-            <code>WEB-INF/tag/</code>, and neither is the resource server's; no
-            copy of its descriptor or its tag handler is here. So the claim can be
-            neither confirmed nor refuted from this repository.
-          </p>
-
-          <h3>3. Losing lodash, by hand</h3>
-
-          <p>
-            Two JSPs loaded lodash 4.17.4 with a script tag and used a handful of
-            its helpers in inline JavaScript. The change deletes the script tag
-            and writes replacements for exactly the functions each page called.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L73">uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp:73</a></p>
-          <pre>    // hasPath('a.b.c', obj) — supports the dot-path semantics of lodash _.has
-    function hasPath(obj, dotPath) {
-        var parts = dotPath.split('.');
-        for (var i = 0; i &lt; parts.length; i++) {
-            if (obj == null || typeof obj !== 'object' || !(parts[i] in obj)) {
-                return false;
-            }
-            obj = obj[parts[i]];
-        }
-        return true;
-    }</pre>
-
-          <p>
-            The rest is substitution: <code>_.forEach(collection, fn)</code>
-            becomes <code>collection.forEach(fn)</code>,
-            <code>_.forOwn</code> and one <code>_.forEach</code> over an object
-            become <code>Object.keys(...).forEach(...)</code>, and
-            <code>_.unescape</code>, <code>_.startCase</code>, and
-            <code>_.kebabCase</code> become local functions. The two files grow
-            because the shims and the <code>Object.keys</code> boilerplate are
-            longer than the calls they replace.
-          </p>
-
-          <pre>$ grep -rIn 'lodash' . | grep -v '^./.git/' | grep -v package-lock
-./uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp:73
-./uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp:84</pre>
-
-          <p>
-            Both remaining hits are the explanatory comments. Nothing else in the
-            repository references it.
-          </p>
-
-          <h3>4. Deleting a library, and showing the work</h3>
-
-          <p>
-            One deletion carries its own justification in the file.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L26">uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:26</a></p>
-          <pre>    &lt;!-- modernizr removed 2026-05-06: zero Modernizr.* callsites in workspace,
-         no .no-js/.js class dependencies. Pure dead weight. --&gt;</pre>
-
-          <p>
-            The comment states its own justification, which makes it checkable.
-          </p>
-
-          <pre>$ grep -rIn -i 'modernizr' . | grep -v '^./.git/'
-uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:26:    &lt;!-- modernizr removed ...
-docs/architecture/subsystem-analysis.md:261:| **Modernizr** | 2.6.2 | Outdated | ...
-docs/architecture/subsystem-analysis.md:327:- Modernizr (unnecessary for modern ...
-$ grep -rIn 'no-js' . | grep -v '^./.git/'
-uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml:27:         no .no-js/.js class ...</pre>
-
-          <p>
-            Printing the paths rather than counting them is the point here. The
-            three Modernizr hits are the comment's first line and two lines in an
-            architecture document that already listed the library as outdated. The
-            only <code>no-js</code> hit is the comment's second line. So the
-            claim holds: nothing called it, and nothing depended on the classes it
-            set.
-          </p>
-
-          <p>
-            Four polyfill entries also go from the same file, for
-            <code>core-js-bundle</code>, <code>regenerator-runtime</code>,
-            <code>whatwg-fetch</code>, and the web components bundle, along with
-            a <code>normalize.css</code> pair from
-            <code>defaultSkin/skin.xml</code>.
-          </p>
-
           <div class="callout edge">
-            <span class="label">Where the body and the build disagree</span>
-            The body's first commit description says it dropped "the dead
-            utility-lib webjar dependencies". The skin entries are gone, and the
-            dependency declarations are not:
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L97"><code>uPortal-webapp/build.gradle:97</code></a> and
-            <code>:99</code> through <code>:101</code> still declare all four
-            webjars, with versions at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/gradle.properties#L118"><code>gradle.properties:118</code></a>, <code>:119</code>,
-            <code>:121</code>, and <code>:122</code>. The
-            build still resolves them and still unpacks them into the war. What
-            changed is that the skin no longer tells a browser to load them.
+            <span class="label">Edge case</span>
+            The diff touches no build file.
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L97"><code>build.gradle:97</code></a>
+            and
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/build.gradle#L99-L101"><code>build.gradle:99-101</code></a>
+            still declare the core-js-bundle, regenerator-runtime,
+            webcomponentsjs, and whatwg-fetch webjars, so the build still
+            unpacks those files into the war. What this change stops is the
+            page asking for them.
           </div>
 
-          <h3>5. Two data files, for different reasons</h3>
-
+          <h3 class="core-step">3. reportGraph.jsp sets its script paths directly</h3>
           <p>
-            A path change reached two files that are not code.
+            Portlet bodies come next in the page.
+            <code>Statistics/reportGraph.jsp</code> built four script URLs with
+            <code>&lt;rs:resourceURL var="..."&gt;</code> and now builds them
+            with <code>&lt;c:set&gt;</code>:
+          </p>
+          <p class="filename">
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L26-L27">uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp:26-27</a>
+          </p>
+          <pre><span class="del">-&lt;rs:resourceURL var="rgbcolorScriptPath" value="/rs/canvg/r144/rgbcolor-r144.min.js"/&gt;</span>
+<span class="add">+&lt;c:set var="rgbcolorScriptPath" value="/resource-server/rs/canvg/r144/rgbcolor-r144.min.js"/&gt;</span>
+ &lt;script type="text/javascript" src="${rgbcolorScriptPath}"&gt;&lt;/script&gt;</pre>
+          <p>
+            <code>&lt;rs:resourceURL&gt;</code> hands its value to the same
+            <code>resolveResourceUrl</code> that resolver entries go through
+            (<code data-bare="outside-repo">ResourceIncludeTag.java:58</code>,
+            in resource-server-utils). <code>&lt;c:set&gt;</code> stores
+            exactly the string it is given. The replacements for rgbcolor at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L26"><code>reportGraph.jsp:26</code></a>,
+            canvg at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L29"><code>reportGraph.jsp:29</code></a>,
+            base64 at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L32"><code>reportGraph.jsp:32</code></a>,
+            and canvas2image at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L35"><code>reportGraph.jsp:35</code></a>
+            keep their variable names, so the
+            <code>&lt;script src="${...}"&gt;</code> line under each one is
+            unchanged.
+          </p>
+          <p>
+            The same file also loses an <code>&lt;rs:compressJs&gt;</code>
+            wrapper around the inline script that opens at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Statistics/reportGraph.jsp#L116"><code>reportGraph.jsp:116</code></a>.
+            The tag copied its body through unchanged, so the script that
+            reaches the browser is the same. Five other JSPs lose the same
+            wrapper, and the table at the end of this section lists them.
           </p>
 
+          <h3 class="core-step">4. sitemap.jsp and searchRest.jsp drop lodash</h3>
+          <p>Both files delete the same line, the one that loaded lodash:</p>
+          <p class="filename">Removed from sitemap.jsp and searchRest.jsp</p>
+          <pre><span class="del">-&lt;script src="&lt;rs:resourceURL value="/rs/lodash/4.17.4/lodash.min.js"/&gt;"&gt;&lt;/script&gt;</span></pre>
           <p>
-            The first is seed data, at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml#L45"><code>uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml:45</code></a>.
-            It is imported when a tenant is created, through a listener
-            configured at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/properties/portal.properties#L751"><code>portal.properties:751</code></a>. So a stale path here would be
-            written into a live database at provisioning time, where no search of
-            the source tree would find it afterwards.
+            That tag was one more trip through the resolver. The earlier
+            commit's message gives the reasons to drop lodash rather than
+            repoint it: four CVEs against 4.17.4, CVE-2018-3721,
+            CVE-2019-10744, CVE-2020-8203, and CVE-2021-23337, and calls that
+            plain JavaScript can replace. Once the tag is gone, <code>_</code>
+            no longer names lodash in these files. Underscore is no stand-in,
+            because the theme keeps it at <code>up._</code>, not
+            <code>_</code>. So each <code>_.</code> call is rewritten in plain
+            JavaScript.
           </p>
-
           <p>
-            The second, at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml#L48"><code>uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml:48</code></a>,
-            is an import fixture in the 4.0 document format. No test in the
-            checkout names it. The edit keeps its paths consistent with the rest
-            of the change.
+            In <code>sitemap.jsp</code>, <code>sitemapJsonCheck</code> at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L93-L101"><code>sitemap.jsp:93-101</code></a>
+            takes an object and a list of paths, <code>pathChecks</code>, and
+            returns <code>true</code> when a path is missing. Inside it,
+            <code>pathChecks.every</code> replaces <code>_.every</code> and asks
+            the key test about each path, and a leading <code>!</code> flips
+            the answer, as it did before. The check at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L119"><code>sitemap.jsp:119</code></a>
+            throws when <code>'layout.navigation.tabs'</code> is absent, and the
+            checks at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L127"><code>sitemap.jsp:127</code></a>,
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L138"><code>sitemap.jsp:138</code></a>,
+            and
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L143"><code>sitemap.jsp:143</code></a>
+            skip the item that lacks a key. lodash's <code>_.has</code> took a
+            dotted path and walked it one key at a time, testing own
+            properties. <code>hasPath</code> walks it the same way with a loop,
+            but tests each key with <code>in</code>, which also accepts
+            inherited keys. For the keys this file checks, the answer is the
+            same:
           </p>
-
-          <h3>6. How much of the old context is left</h3>
-
-          <pre>$ grep -rIn 'ResourceServingWebapp' . | grep -v '^./.git/' | wc -l
-7
-$ grep -rIn 'resource="true"' . | grep -v '^./.git/' | wc -l
-7</pre>
-
+          <p class="filename">
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L74-L83">uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp:74-83</a>
+          </p>
+          <pre><span class="add">+    function hasPath(obj, dotPath) {</span>
+<span class="add">+        var parts = dotPath.split('.');</span>
+<span class="add">+        for (var i = 0; i &lt; parts.length; i++) {</span>
+<span class="add">+            if (obj == null || typeof obj !== 'object' || !(parts[i] in obj)) {</span>
+<span class="add">+                return false;</span>
+<span class="add">+            }</span>
+<span class="add">+            obj = obj[parts[i]];</span>
+<span class="add">+        }</span>
+<span class="add">+        return true;</span>
+<span class="add">+    }</span></pre>
           <p>
-            Of the seven old-context references, two sit inside a commented-out
-            block in <code>common_skin.xml</code>, headed "Uncomment for
-            internationalization." Four are in the fixture pair from Intuition,
-            where the literal string is the input and the expected output. One is
-            in an architecture document.
+            The loops over tabs and portlets at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L126"><code>sitemap.jsp:126</code></a>,
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L137"><code>sitemap.jsp:137</code></a>,
+            and
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L142"><code>sitemap.jsp:142</code></a>
+            become <code>Array.prototype.forEach</code>.
+            <code>_.unescape</code> becomes <code>unescapeHtml</code> at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L85-L90"><code>sitemap.jsp:85-90</code></a>.
+            It decodes the entities lodash 4.17.4 decodes,
+            <code>&amp;amp;</code>, <code>&amp;lt;</code>,
+            <code>&amp;gt;</code>, <code>&amp;quot;</code>, and
+            <code>&amp;#39;</code>, plus <code>&amp;#96;</code>. So a tab or
+            portlet name that arrives with <code>&amp;#96;</code> now shows a
+            backtick, where lodash left the entity text on screen.
           </p>
-
           <p>
-            Of the seven <code>resource="true"</code> occurrences, two are in
-            that same commented-out block and five are live: four jsTree entries
-            at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L99"><code>common_skin.xml:99</code></a> through <code>:102</code>, and the
-            analytics script from the edge case above.
+            <code>searchRest.jsp</code> used lodash to turn each key of the
+            search response into a tab. <code>_.startCase</code> made the tab's
+            label, and <code>_.kebabCase</code> made its element id. Two small
+            helpers stand in for them:
           </p>
-
-          <h3>7. What the checkout cannot settle</h3>
-
+          <p class="filename">
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/searchRest.jsp#L138-L150">uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/searchRest.jsp:138-150</a>
+          </p>
+          <pre><span class="add">+function startCase(s) {</span>
+<span class="add">+    return s.replace(/([a-z])([A-Z])/g, '$1 $2')</span>
+<span class="add">+            .replace(/[-_]+/g, ' ')</span>
+<span class="add">+            .replace(/\s+/g, ' ')</span>
+<span class="add">+            .trim()</span>
+<span class="add">+            .replace(/\b\w/g, function (c) { return c.toUpperCase(); });</span>
+<span class="add">+}</span>
+<span class="add">+// "peopleTab" -&gt; "people-tab"</span>
+<span class="add">+function kebabCase(s) {</span>
+<span class="add">+    return s.replace(/([a-z])([A-Z])/g, '$1-$2')</span>
+<span class="add">+            .replace(/[\s_]+/g, '-')</span>
+<span class="add">+            .toLowerCase();</span>
+<span class="add">+}</span></pre>
           <p>
-            Several of the body's claims cannot be checked from this checkout.
-            Here is which, and why.
+            For the keys the search API sends, the output is what lodash gave:
+            <code>startCase('people')</code> is <code>People</code>, and
+            <code>kebabCase('portlets')</code> is <code>portlets</code>. The
+            loop over the response changes shape too. <code>_.forEach</code>
+            over an object passed each value with its key, while
+            <code>Object.keys(response).forEach</code> passes only the key,
+            <code>tabProperty</code>. So
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/searchRest.jsp#L194"><code>searchRest.jsp:194</code></a>
+            reads <code>response[tabProperty]</code> itself. The
+            <code>_.forOwn</code> loop over a result's attributes, at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/searchRest.jsp#L233-L236"><code>searchRest.jsp:233-236</code></a>,
+            gets the same treatment. Its
+            <code>i18n.hasOwnProperty(attributeName)</code> becomes
+            <code>Object.prototype.hasOwnProperty.call(i18n, attributeName)</code>,
+            which gives the same answer for <code>i18n</code>, a plain object
+            literal.
           </p>
-
-          <p>
-            Two of the body's claims check out here. The prefix swaps, the
-            deletions, and the tag removals are all in the diff as described, file
-            by file. And the Modernizr rationale holds, by the search above.
-          </p>
-
-          <p>
-            Three cannot be checked from this repository, for the same reason each
-            time: the thing they describe is not in it. Whether
-            <code>&lt;rs:compressJs&gt;</code> is a no-op depends on the external
-            jar. Whether the two forms produce byte-identical URLs depends on the
-            external deployment. And the body describes two commits, while this
-            clone has one, with the second commit's edits already folded in.
-          </p>
-
-          <p>
-            The last of those is worth following. Nothing in this repository
-            serves <code>/resource-server/</code>.
-            <code>web.xml</code> declares one static-asset servlet, Spring's,
-            mapped at <code>/resources/*</code>, and nothing maps
-            <code>/resource-server/</code>. Elsewhere a Spring handler does serve
-            <code>/webjars/**</code> from the classpath, which is a different
-            path under a different dispatcher. That context is deployed by a
-            separate project, which pins its own resource-server version. So
-            whether these paths resolve is a fact about a deployment rather than
-            about this code.
-          </p>
-
-          <p>
-            Two statements in the tree sit against each other at this commit.
-            The comment replacing the polyfill entries gives modern browser
-            support as the reason they are unnecessary.
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/docs/SUPPORTED_BROWSERS.md?plain=1#L10"><code>docs/SUPPORTED_BROWSERS.md:10</code></a> lists Internet Explorer
-            among supported browsers. Reading the code alone would not tell you
-            which one describes the project's intent.
-          </p>
-
-          <div class="callout">
-            <span class="label">The transferable part</span>
-            When an indirection disappears, look for what it was absorbing. An
-            attribute that resolves a path at render time can also be papering
-            over a difference between environments, and replacing it with a
-            literal makes the environment part of the source. An explicit path is
-            easier to read and to grep. The trade is
-            that the deployment now has to match what the file says, and a file
-            cannot check that.
+          <div class="callout edge">
+            <span class="label">Edge case</span>
+            <code>startCase</code> also formats each attribute label, at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/searchRest.jsp#L242"><code>searchRest.jsp:242</code></a>,
+            which adds a colon after it. Those labels come from the message
+            bundles. The helper's last step, <code>\b\w</code>, counts only
+            ASCII letters, digits, and the underscore as word characters, so an
+            accented letter ends a word. The French label for
+            <code>givenName</code> is <code>Pr&#92;u00E9nom</code> at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/properties/i18n/Messages_fr.properties#L70"><code>Messages_fr.properties:70</code></a>,
+            which reads Prénom, and the one at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/properties/i18n/Messages_fr.properties#L75"><code>Messages_fr.properties:75</code></a>
+            reads Téléphone. When a label reaches the script in that form, the
+            helper shows <code>PréNom:</code> and <code>TéLéPhone:</code>.
+            lodash's <code>_.startCase</code> stripped accents first, with
+            <code>deburr</code>
+            (<code data-bare="outside-repo">lodash.js:5009</code>, in lodash
+            4.17.4), so it showed <code>Prenom:</code> and
+            <code>Telephone:</code>. The exact input depends on the response
+            encoding, because
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/include.jsp#L35"><code>include.jsp:35</code></a>
+            turns on Spring's HTML
+            escaping for the message tag.
           </div>
+
+          <h3 class="core-step">5. Hardcoded icon URLs name /resource-server</h3>
+          <p>
+            The rest of the change is strings that name the legacy context
+            outright. Each one swaps <code>/ResourceServingWebapp/</code> for
+            <code>/resource-server/</code> and keeps the path after it. The
+            portlet browser's fallback thumbnail is typical:
+          </p>
+          <p class="filename">
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/common/javascript/uportal/modern-portlet-browser.js#L248-L251">uPortal-webapp/src/main/webapp/media/skins/common/javascript/uportal/modern-portlet-browser.js:248-251</a>
+          </p>
+          <pre>             iconUrl:
+                 channel.iconUrl ||
+                 channel.parameters?.iconUrl?.value ||
+<span class="del">-                '/ResourceServingWebapp/rs/tango/0.8.90/32x32/categories/applications-other.png',</span>
+<span class="add">+                '/resource-server/rs/tango/0.8.90/32x32/categories/applications-other.png',</span></pre>
+          <p>
+            The fallback applies only when a portlet has no
+            <code>iconUrl</code> of its own, and the thumbnail template repeats
+            it at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/common/javascript/uportal/modern-portlet-browser.js#L479"><code>modern-portlet-browser.js:479</code></a>.
+            The same swap covers these files:
+          </p>
+          <ul>
+            <li>
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/scss/entity-selector.scss#L64"><code>uPortal-webapp/src/main/webapp/media/skins/respondr/common/scss/entity-selector.scss:64</code></a>
+              to
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/scss/entity-selector.scss#L361"><code>entity-selector.scss:361</code></a>:
+              the famfamfam silk icons in the entity selector's stylesheet. It
+              is Sass that the build compiles into the skin's CSS, through
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/scss/common.scss#L135"><code>common.scss:135</code></a>,
+              so the new URLs take effect with the next build.
+            </li>
+            <li>
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/BackgroundPreference/viewBackgroundPreference.jsp#L111"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/BackgroundPreference/viewBackgroundPreference.jsp:111</code></a>:
+              the image-edit icon.
+            </li>
+            <li>
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/flows/locale-selector/selectLocale.jsp#L42"><code>uPortal-webapp/src/main/webapp/WEB-INF/flows/locale-selector/selectLocale.jsp:42</code></a>:
+              the locale flags.
+            </li>
+            <li>
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml#L45"><code>uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml:45</code></a>
+              and
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/resources/org/apereo/portal/tenants/sampledata/portlet-definition/skin.portlet-definition.xml#L49"><code>skin.portlet-definition.xml:49</code></a>:
+              the skin portlet's <code>iconUrl</code> and
+              <code>mobileIconUrl</code> in the tenant sample data.
+            </li>
+          </ul>
+          <p>
+            Portlet definitions already stored in a portal's database keep the
+            <code>iconUrl</code> they were imported with, because the diff
+            changes the sample data and the fallback, not stored rows. A stored
+            <code>/ResourceServingWebapp/...</code> icon URL would stop loading
+            once that webapp is retired.
+          </p>
+
+          <table class="vals also-changed">
+            <caption>
+              Every other changed file (7 of 17)
+            </caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/docs/developer/other/API.md"><code>docs/developer/other/API.md</code></a>
+                </td>
+                <td>The example API response now shows a <code>/resource-server/</code> icon path.</td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml"><code>uPortal-webapp/src/test/resources/org/apereo/portal/io/xml/portlet/test_4-0.portlet.xml</code></a>
+                </td>
+                <td>A portlet test fixture's <code>iconUrl</code> gets the same path swap.</td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/search.jsp"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/search.jsp</code></a>
+                </td>
+                <td>It drops an <code>&lt;rs:compressJs&gt;</code> wrapper, which passed its script through unchanged.</td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/searchLauncher.jsp"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/Search/searchLauncher.jsp</code></a>
+                </td>
+                <td>It drops an <code>&lt;rs:compressJs&gt;</code> wrapper, which passed its script through unchanged.</td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/SessionTimeout/header.jsp"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/SessionTimeout/header.jsp</code></a>
+                </td>
+                <td>It drops an <code>&lt;rs:compressJs&gt;</code> wrapper, which passed its script through unchanged.</td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/DynamicRespondrSkin/skinConfig.jsp"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/DynamicRespondrSkin/skinConfig.jsp</code></a>
+                </td>
+                <td>It drops an <code>&lt;rs:compressJs&gt;</code> wrapper, which passed its script through unchanged.</td>
+              </tr>
+              <tr>
+                <td>
+                  <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Translator/translator.jsp"><code>uPortal-webapp/src/main/webapp/WEB-INF/jsp/Translator/translator.jsp</code></a>
+                </td>
+                <td>It drops an <code>&lt;rs:compressJs&gt;</code> wrapper, which passed its script through unchanged.</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
 
-          <p>
-            Five questions about why the change is shaped the way it is. Click an
-            option to see the answer.
-          </p>
-
           <div class="quiz-question">
             <p class="q">
-              1. Removing <code>resource="true"</code> and writing
-              <code>/resource-server/</code> into the path changes what, at
-              runtime?
+              uPortal-start has retired <code>ResourceServingWebapp</code>, and
+              the portal runs at <code>/uPortal</code>. Which URL does the
+              aggregated jstree entry at
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/media/skins/respondr/common/common_skin.xml#L100"><code>common_skin.xml:100</code></a>
+              put on the page?
             </p>
             <button class="quiz-option">
-              Nothing observable. Both forms produce the same URL, which is why
-              the change is safe to make in bulk.
+              <code>/ResourceServingWebapp/webjars/jstree/dist/jstree.min.js</code>, which now fails to load
             </button>
             <button class="quiz-option">
-              The entry becomes eligible for aggregation, so the file is bundled
-              with the skin instead of requested separately.
+              <code>/resource-server/webjars/jstree/dist/jstree.min.js</code>, the resolver's new default context
             </button>
             <button class="quiz-option" data-correct>
-              Who computes the URL. The server used to supply the context; now
-              the browser resolves it.
+              <code>/uPortal/webjars/jstree/dist/jstree.min.js</code>, served from the portal's own war
+            </button>
+            <button class="quiz-option">
+              <code>/webjars/jstree/dist/jstree.min.js</code>, written to the page as is
             </button>
             <div class="quiz-feedback" role="status">
-              Both forms start with <code>/</code>, so aggregation is excluded
-              either way, and the fixture in this repository records that. The
-              body reports identical URLs in a correctly deployed environment.
-              Identical output still does not mean the same mechanism produced
-              it.
+              The jstree entry still carries <code>resource="true"</code>, so
+              the provider sends it to <code>resolveResourceUrl</code>. With no
+              <code>/ResourceServingWebapp</code> context to find, the resolver
+              falls back to the request's own context path,
+              <code>/uPortal</code>. The build unpacks the jstree webjar into
+              the portal's war, and that webjar holds
+              <code>dist/jstree.min.js</code>, so the file is there. Nothing in
+              this change moves the resolver's default away from
+              <code>/ResourceServingWebapp</code>, and a path goes to the page
+              unchanged only when the attribute is absent.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              2. Five <code>resource="true"</code> entries survive this change.
-              Why can they not all be rewritten the same way?
+              Suppose <code>hasPath</code> in <code>sitemap.jsp</code> were
+              replaced by
+              <code>Object.prototype.hasOwnProperty.call(obj, dotPath)</code>,
+              an own-property check on the whole string. What would a user see
+              where the sitemap belongs?
             </p>
-            <button class="quiz-option">
-              They are inside a commented-out block, so editing them would have
-              no effect.
-            </button>
             <button class="quiz-option" data-correct>
-              One points at <code>/scripts/portal-analytics.js</code>, a file in
-              uPortal's own webapp, not the resource server.
+              Only the error message "Unable to load sitemap.", whatever the layout holds
             </button>
             <button class="quiz-option">
-              They are <code>css</code> entries rather than <code>js</code>, and
-              the attribute means something different for stylesheets.
+              Every tab name, but with an empty list of portlets under each tab
+            </button>
+            <button class="quiz-option">
+              Every tab except the ones whose portlets are missing an ID
+            </button>
+            <button class="quiz-option">
+              The same sitemap, since every key it checks is an own property
             </button>
             <div class="quiz-feedback" role="status">
-              That is what makes the attribute an indirection rather than a
-              prefix: it resolved against whatever was serving, which for that
-              entry is the portal itself. Two of the seven occurrences are
-              indeed in a commented-out block, but the other five are live. Four
-              of those are the jsTree entries, two <code>js</code> and two
-              <code>css</code>.
+              The check at
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L119"><code>sitemap.jsp:119</code></a>
+              passes the dotted path <code>'layout.navigation.tabs'</code>. No
+              object has an own property named with that whole string, so the
+              check reports it missing for every response. The next line
+              throws, and the <code>.catch</code> at
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/0468c6de77bb640726e25aecd37c5203c7839a74/uPortal-webapp/src/main/webapp/WEB-INF/jsp/Invoker/sitemap.jsp#L179-L185"><code>sitemap.jsp:179-185</code></a>
+              appends the <code>error.loading.sitemap</code> message, "Unable
+              to load sitemap." in English. The checks on tabs and portlets pass
+              single key names and would still work, but the code never reaches
+              them.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              3. The Modernizr deletion carries a comment claiming zero call
-              sites and no class dependencies. What did checking the claim
-              against the repository find?
+              The three libraries' entries could have kept
+              <code>resource="true"</code> instead of naming
+              <code>/resource-server/</code> in the path. When would keeping
+              the attribute have been the better choice?
             </p>
             <button class="quiz-option">
-              Several call sites in the skin JavaScript, which the deletion would
-              leave broken.
+              When aggregation is on, since only resolver entries get the minified file
             </button>
             <button class="quiz-option">
-              Nothing either way, since the library was loaded from a context
-              this repository does not contain.
+              When the plain set is in use, since plain mode skips the resolver
+            </button>
+            <button class="quiz-option">
+              When the legacy webapp stays deployed, since the resolver then prefers it
             </button>
             <button class="quiz-option" data-correct>
-              The claim holds. The only remaining mentions are the comment and
-              one architecture document.
+              When some portals run no asset server but carry the files themselves
             </button>
             <div class="quiz-feedback" role="status">
-              A comment that states its own justification is checkable, and this
-              one checks out. Where the library was served from does not affect
-              whether anything called it, since the call sites would be in this
-              repository's own scripts.
+              The resolver falls back to the portal's own context path whenever
+              it cannot find the legacy webapp or the file in it, so a resolver
+              entry still loads on a portal whose war holds the file. A path
+              written into the entry always asks <code>/resource-server</code>,
+              and fails where that webapp is absent. This portal's war lacks
+              the minified files the aggregated entries name, so here the
+              fallback would not have served them. The resolver never looks for
+              <code>/resource-server</code>: while the legacy webapp is
+              deployed and holds the file, the attribute sends the request
+              there, which is what this change removes. The
+              <code>included</code> value picks the readable or the minified
+              file, and both kinds follow the same path rules.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              4. The body says the change dropped the dead utility-library webjar
-              dependencies. What does the build file say?
+              Before this change, a portal ran both asset webapps, and the
+              legacy one held the canvg file. What value did
+              <code>reportGraph.jsp</code> store in
+              <code>canvgScriptPath</code>?
             </p>
             <button class="quiz-option">
-              It agrees. The four webjar declarations and their version
-              properties are removed alongside the skin entries.
+              <code>/rs/canvg/r144/canvg-r144.min.js</code>
             </button>
             <button class="quiz-option" data-correct>
-              All four are still declared with versions set, so the build still
-              unpacks them. Only the skin entries were removed.
+              <code>/ResourceServingWebapp/rs/canvg/r144/canvg-r144.min.js</code>
             </button>
             <button class="quiz-option">
-              The webjars were never declared in the build; they came from the
-              resource server, so there is nothing to remove.
+              <code>/resource-server/rs/canvg/r144/canvg-r144.min.js</code>
+            </button>
+            <button class="quiz-option">
+              <code>/uPortal/rs/canvg/r144/canvg-r144.min.js</code>
             </button>
             <div class="quiz-feedback" role="status">
-              The difference between "no longer loaded by a browser" and "no
-              longer a dependency" is the whole distance here. The files are
-              still fetched at build time and still packaged; nothing in the skin
-              now points a page at them.
+              <code>&lt;rs:resourceURL&gt;</code> sends its value through
+              <code>resolveResourceUrl</code>, the same resolver as a skin
+              entry with <code>resource="true"</code>. The resolver's default
+              context is <code>/ResourceServingWebapp</code>, the cross-context
+              lookup finds that webapp, and the webapp holds the file, so the
+              resolver puts that context in front. With <code>var</code>, the
+              tag stores the result instead of printing it. A
+              <code>/uPortal/...</code> value is the fallback for a failed
+              lookup, and <code>/resource-server/...</code> is what the new
+              <code>&lt;c:set&gt;</code> line stores.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              5. After this change, the <code>rs</code> tag prefix has no
-              remaining uses in any JSP or XSL, and the
-              <code>taglib</code> binding that declares it is still in
-              <code>include.jsp</code>. What does keeping the binding do?
+              The earlier commit in this pull request missed three libraries
+              whose skin entries a text search for
+              <code>ResourceServingWebapp</code> cannot find, and a browser
+              test caught them. Which general point does that illustrate?
             </p>
             <button class="quiz-option">
-              It keeps the external tag library on the classpath, without which
-              the removed paths would stop resolving.
+              Two names for one server drift apart until one of them is retired
             </button>
             <button class="quiz-option">
-              Nothing at all. An unused <code>taglib</code> directive is
-              stripped when the JSP is compiled.
+              A cached path keeps being served until the aggregated set is rebuilt
             </button>
             <button class="quiz-option" data-correct>
-              It keeps the prefix available, so the tags stay usable without
-              re-adding the declaration.
+              A URL built at run time is invisible to a search of the source
+            </button>
+            <button class="quiz-option">
+              An absolute path ties a file to the directory layout of one deployment
             </button>
             <div class="quiz-feedback" role="status">
-              A <code>taglib</code> directive is resolved at translation time
-              whether or not any tag is used, and it is not stripped. It also
-              has nothing to do with the paths: those are now plain strings in
-              the file. Whether an unused declaration should stay is a question
-              for this project.
+              The entries held <code>/rs/...</code> paths, and the resolver
+              added <code>/ResourceServingWebapp</code> only while a page
+              rendered, so no line of source contained the string. A test that
+              watches the requests a rendered page makes sees each URL after it
+              is built. The other claims describe real hazards, not this miss:
+              the entries named no server at all, the resolver's cache cannot
+              hide a string that was never in the file, and the fix itself
+              writes absolute paths.
             </div>
           </div>
         </section>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Serving a built frontend from FastAPI: app.frontend()</title>
+    <title>FastAPI PR 15800: app.frontend()</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -244,6 +244,25 @@
       }
       table.vals td.warn {
         background: var(--edge-soft);
+      }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
       }
       /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
@@ -617,745 +636,765 @@
 
       <main>
         <header>
-          <h1>Serving a built frontend from FastAPI</h1>
+          <h1>FastAPI PR 15800: serving a frontend build with <code>app.frontend()</code></h1>
           <p class="lead">
-            FastAPI gains <code>app.frontend("/", directory="dist")</code>, which
-            serves a compiled frontend directory from routes the router consults
-            only after every path operation has failed to match. Most of the
-            design sits in one question: what should the server do with a path
-            that matches no file?
+            The change adds <code>app.frontend()</code> and <code>router.frontend()</code>, which serve a frontend build
+            directory only after every path operation has missed, and answer a missing path with the build's
+            <code>404.html</code> or, for a browser navigation, its <code>index.html</code>.
           </p>
           <p class="provenance">
-            fastapi/fastapi PR 15800 at 5bd3221f, explained 2026-09-13. References link to this commit.
+            fastapi/fastapi <a href="https://github.com/fastapi/fastapi/pull/15800">PR 15800</a> at 5bd3221f,
+            explained 2026-11-16. References link to this commit.
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
-
           <details class="skippable">
-            <summary>New to ASGI routing? Expand for the deeper background.</summary>
+            <summary>New to this area? Expand for the deeper background.</summary>
             <p>
-              A FastAPI application is an ASGI application: a callable that
-              receives a <code>scope</code> describing the request, plus
-              <code>receive</code> and <code>send</code> channels. Routing means
-              picking which piece of code handles a given scope.
+              Every request reaches a FastAPI app as an ASGI scope. ASGI is the interface between Python web servers
+              and async web apps, and the scope is a plain dict that holds the request's <code>type</code>
+              (<code>"http"</code>, <code>"websocket"</code>, or <code>"lifespan"</code>), its <code>method</code>,
+              its <code>path</code>, its <code>root_path</code>, and its headers. Routing code reads the scope to
+              decide who answers. It also writes into the scope to pass facts to whoever answers.
             </p>
             <p>
-              Routing means picking which piece of code handles a given scope.
-              Starlette, which FastAPI builds on, gives every route a
-              <code>matches(scope)</code> method, and the router asks each route
-              in turn. The main text below defines the three answers that method
-              can give, because the rest of the page depends on them.
+              Starlette, the toolkit FastAPI builds on, asks each route's <code>matches(scope)</code> for a
+              <code>Match</code> and a child scope, a small dict of keys to merge into the scope if that route is
+              chosen. <code>Match.FULL</code> means the path and the method both fit, <code>Match.PARTIAL</code> means
+              only the path fits, and <code>Match.NONE</code> means the path does not fit. Starlette's
+              <code>Router.app</code> (<code data-bare="outside-repo">starlette/routing.py:662-710</code>) walks its
+              <code>routes</code> list in order and hands the request to the first FULL match. With none, it takes
+              the first PARTIAL match, which usually answers 405 Method Not Allowed. With neither, it tries
+              <code>redirect_slashes</code>: if the same path with its trailing slash added or removed would match a
+              route, the answer is a 307 Temporary Redirect there. Otherwise it calls <code>self.default</code>,
+              which under FastAPI raises a 404 that the app renders as <code>{"detail":"Not Found"}</code>.
             </p>
             <p>
-              Starlette also ships <code>StaticFiles</code>, an ASGI application
-              that maps a URL path onto a file inside a directory. It is what
-              actually reads bytes off disk, and the change subclasses it rather
-              than replacing it.
+              A <code>Mount</code> hands every path under a prefix to another ASGI app, and moves that prefix into
+              the scope's <code>root_path</code> so the inner app sees only the rest. A mount at <code>/</code>
+              compiles to the pattern <code>/{path:path}</code>
+              (<code data-bare="outside-repo">starlette/routing.py:381</code>), so it matches every path. Because the
+              router takes the first FULL match in list order, the mount's position in <code>routes</code> decides
+              whether it hides the routes after it.
+            </p>
+            <p>
+              <code>StaticFiles</code> is the Starlette app that serves a directory. Its <code>get_path</code> turns
+              the request into a relative file path through <code>get_route_path</code>, a Starlette helper that
+              returns <code>scope["path"]</code> with <code>root_path</code> removed. Its <code>lookup_path</code>
+              joins that path to the directory and refuses any result outside it. With
+              <code>follow_symlink=False</code>, the default, it resolves symlinks before comparing, so a link that
+              points out of the directory is refused too. Its <code>get_response</code> serves a regular file through
+              <code>file_response</code>. With <code>html=True</code> it does more. It redirects a directory URL to
+              the same URL plus a trailing slash and then serves that directory's <code>index.html</code>, and it
+              answers a request that finds no file with the top-level <code>404.html</code> at status 404
+              (<code data-bare="outside-repo">starlette/staticfiles.py:147-151</code>). It never answers that request
+              with <code>index.html</code>.
+            </p>
+            <p>
+              A single-page app ships one <code>index.html</code> plus scripts. The script reads the URL and draws
+              the matching screen, so a URL such as <code>/dashboard/settings</code> is known only to the router
+              inside the browser, and no file has that name. When a user reloads that URL or opens it from a
+              bookmark, a deep link, the server has to answer with <code>index.html</code> so the script can start.
+              The new tutorial calls this client-side routing. Static-site tools such as Astro write one HTML file
+              per page instead, and a URL with no file there should show the site's <code>404.html</code>.
+            </p>
+            <p>
+              Browsers say what they want in the <code>Accept</code> header. A page navigation sends a list such as
+              <code>text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8</code>. Each entry may carry a
+              quality value <code>q</code> from 0 to 1, and <code>q=0</code> means "not acceptable".
             </p>
           </details>
 
           <p>
-            A modern frontend build produces a directory of static files. Running
-            <code>npm run build</code> with Vite, Astro, Angular or SvelteKit
-            leaves something like this on disk:
+            FastAPI's <code>APIRouter</code> subclasses Starlette's <code>Router</code>, and every
+            <code>FastAPI</code> app keeps one as <code>app.router</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/applications.py#L984"><code>fastapi/applications.py:984</code></a>).
+            A path operation is FastAPI's name for an endpoint function bound to a path and a method, and its route
+            object is an <code>APIRoute</code>. Before this change <code>APIRouter</code> did not override
+            <code>Router.app</code>, so every request ran Starlette's order. The first route whose path and method fit
+            (<code>Match.FULL</code>) answers; failing that, the first whose path fits (<code>Match.PARTIAL</code>,
+            usually a 405); failing that, a 307 slash redirect; and last, <code>self.default</code> and its JSON 404.
           </p>
-
-          <div class="tree">
-            <div class="tnode">dist/</div>
-            <div class="tchildren">
-              <div class="tnode leaf kept">
-                index.html<span class="tnote">the shell every client-side route boots from</span>
-              </div>
-              <div class="tnode leaf">assets/</div>
-              <div class="tchildren">
-                <div class="tnode leaf">app.js</div>
-                <div class="tnode leaf">app.css</div>
-              </div>
-            </div>
-          </div>
-
           <p>
-            Two pieces of FastAPI vocabulary carry the rest of this page. A
-            <em>path operation</em> is a route you declare with a decorator such
-            as <code>@app.get("/items")</code>. Every route, whatever its kind,
-            answers <code>matches(scope)</code> with one of three verdicts:
-            <code>Match.FULL</code> means it handles the request,
-            <code>Match.PARTIAL</code> means the path fit but the HTTP method did
-            not, which is how a <code>405</code> arises rather than a
-            <code>404</code>, and <code>Match.NONE</code> means no. The router
-            walks its routes in order, takes the first <code>FULL</code>, and
-            keeps the first <code>PARTIAL</code> as a consolation prize.
+            <code>include_router</code> does not copy a child router's routes into the parent. It appends an
+            <code>_IncludedRouter</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1518"><code>fastapi/routing.py:1518</code></a>), a
+            wrapper that holds the child router and the include's prefix, tags, and dependencies. When asked to
+            match, the wrapper builds an <code>_EffectiveRouteContext</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1334"><code>fastapi/routing.py:1334</code></a>) for
+            each child route: a view of that route with the include's prefix and dependencies applied.
+            <code>effective_candidates()</code> builds that list and caches it.
           </p>
-
           <p>
-            Before this change, serving a build directory from FastAPI meant
-            <code>app.mount("/", StaticFiles(directory="dist", html=True))</code>.
-            A mount grafts a sub-application onto a path prefix and claims that
-            whole prefix, so mounting at the root puts the static files ahead of
-            every path operation declared after it, and the API starts returning
-            HTML. Ordering the mount last avoids that, which makes correctness
-            depend on where in the file the line sits.
+            The root router matches and handles every request that goes through an include. For an included
+            router, <code>APIRouter.handle</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2580-L2588"><code>fastapi/routing.py:2580-2588</code></a>)
+            sends the request to the include's selected route rather than to the child's own
+            <code>APIRouter.app</code>, which runs only when the child is reached some other way, such as being
+            mounted as an ASGI app. So the root router's <code>APIRouter.app</code> alone decides what
+            happens when no route matches. FastAPI also keeps per-request facts of its own in a dict under
+            <code>scope["fastapi"]</code>, which <code>_get_fastapi_scope</code> creates on first use
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L841-L844"><code>fastapi/routing.py:841-844</code></a>).
+            The frontend code stores its path there.
+          </p>
+          <p>
+            The static files tutorial was the documented way to serve a directory: mount a <code>StaticFiles</code>
+            app. For a frontend at <code>/</code>, Starlette leaves two gaps. The mount competes with path operations
+            by its position in <code>routes</code>, and <code>StaticFiles</code> has no <code>index.html</code> answer
+            for a deep link. The pull request states no motive. The tutorial page it adds states the goal:
+            "FastAPI checks path operations first. The frontend files are checked only if no normal route matched,
+            so your API won't be affected"
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs/en/docs/tutorial/frontend.md?plain=1#L17"><code>docs/en/docs/tutorial/frontend.md:17</code></a>).
+            That the two gaps prompted the change is my reading of the code. A frontend enters the code at
+            <code>APIRouter.frontend</code>, and a request enters at <code>APIRouter.app</code>.
           </p>
 
           <div class="callout">
             <span class="label">Key concept</span>
-            <p style="margin: 0">
-              A <em>single-page app</em> does its own routing in the browser. The
-              URL <code>/dashboard/settings</code> is real to the user but
-              corresponds to no file on disk. For a direct visit or a refresh to
-              work, the server has to answer that URL with
-              <code>index.html</code> and let the frontend framework take over.
-              This is usually called a deep link.
-            </p>
+            A low-priority route is one the root router tries only after every ordinary route, every partial match,
+            and the slash redirect have failed. The change adds this low-priority tier as
+            <code>APIRouter._low_priority_routes</code> and puts only frontends in it.
           </div>
-
-          <p>
-            That requirement collides with a second one. A request for
-            <code>/assets/typo.js</code> also corresponds to no file, and
-            answering it with <code>index.html</code> is actively harmful: the
-            browser receives HTML where it expected JavaScript, and the failure
-            surfaces as a syntax error rather than a missing file. So the server
-            needs to answer two superficially identical requests differently.
-          </p>
-
-          <p>
-            The names this page uses, all introduced by the change unless noted:
-            <code>frontend()</code> is the new public method on both
-            <code>FastAPI</code> and <code>APIRouter</code>.
-            <code>_FrontendRouteGroup</code> holds every frontend mount belonging
-            to one router. <code>_FrontendRoute</code> is one such mount.
-            <code>_FrontendStaticFiles</code> is the subclass of Starlette's
-            <code>StaticFiles</code> that does the serving.
-            <code>_is_frontend_navigation_request</code> is the predicate that
-            separates the two cases above. <code>_low_priority_routes</code> is
-            the list that holds routes the router checks last.
-          </p>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
-
           <p>
-            I read the change as two separable mechanisms, though the commits do
-            not frame it that way. The first settles <em>when</em> the frontend
-            gets a say. The second settles <em>what</em> it says when the path
-            matches no file. Neither one refers to the other in the code.
+            Picture the root router as two tiers. The first is <code>routes</code>: the path operations and the
+            included routers, matched exactly as Starlette matches them. The second is the low-priority tier, which
+            holds only frontends. A frontend is asked only once the first tier has failed completely, partial matches
+            and the slash redirect included. So a frontend at <code>/</code> can claim every path without hiding a
+            path operation, whether <code>app.frontend()</code> runs before or after the <code>@app.get</code>
+            decorators.
           </p>
-
-          <h3>Decision one: a second tier, consulted last</h3>
-
+          <p class="flow-label">The order <code>APIRouter.app</code> tries things in</p>
+          <ol class="frames">
+            <li><span class="n">1</span><code>routes</code>, first <code>Match.FULL</code>: that route answers</li>
+            <li><span class="n">2</span><code>routes</code>, first <code>Match.PARTIAL</code>: usually a 405</li>
+            <li><span class="n">3</span><code>redirect_slashes</code>: a 307 when the flipped slash matches a route</li>
+            <li class="target"><span class="n">4</span>the low-priority tier, through <code>_match_low_priority</code>: new</li>
+            <li><span class="n">5</span><code>self.default</code>: the JSON 404</li>
+          </ol>
           <p>
-            Rather than appending frontend routes to the router's normal
-            <code>routes</code> list, the change gives the router a second list,
-            <code>_low_priority_routes</code>. The normal loop runs to exhaustion
-            first. Only when it produces nothing, and only after the
-            trailing-slash redirect pass has also produced nothing, does the
-            router consult the second list.
+            Inside the low-priority tier, three new classes share the work. <code>_FrontendStaticFiles</code> is the
+            <code>StaticFiles</code> subclass that answers for one directory. <code>_FrontendRoute</code> is one
+            <code>frontend()</code> call: a path prefix such as <code>/app</code> and its
+            <code>_FrontendStaticFiles</code>. <code>_FrontendRouteGroup</code> holds every
+            <code>_FrontendRoute</code> one router registered, so they can be compared by prefix. A route cuts its
+            prefix off the request path and stores the remainder under <code>scope["fastapi"]["frontend_path"]</code>,
+            where <code>_FrontendStaticFiles</code> looks it up. In the code, <code>APIRouter.app</code> reaches the
+            tier through <code>_match_low_priority</code>, which walks what <code>_iter_low_priority_routes</code>
+            yields.
           </p>
-
-          <pre
-            class="mermaid"
-          >flowchart TD
-    A["Request reaches APIRouter.app"] --&gt; B{"A normal route matches FULL?"}
-    B --&gt;|yes| C["The path operation answers"]
-    B --&gt;|no| D{"A normal route matches PARTIAL?"}
-    D --&gt;|yes| E["That route answers, usually 405"]
-    D --&gt;|no| F{"redirect_slashes finds a route?"}
-    F --&gt;|yes| G["Redirect to the slashed path"]
-    F --&gt;|no| H{"A low priority route matches?"}
-    H --&gt;|yes| I["The frontend group answers"]
-    H --&gt;|no| J["Default 404"]
-    classDef touched fill:#e8eefc,stroke:#3b6cf6,color:#16181b
-    classDef ok fill:#e4f3ea,stroke:#1a7f47,color:#16181b
-    classDef bad fill:#fbe7e9,stroke:#c62a3b,color:#16181b
-    class H,I touched
-    class C ok
-    class J bad</pre>
-
           <p>
-            The consequence is that registration order stops deciding who wins
-            between a frontend and a path operation. A frontend registered at
-            <code>/</code> in line one cannot shadow a path operation declared in
-            line fifty. The tests pin the awkward version of this: a router
-            carrying a frontend is included <em>before</em> the API router and
-            still loses, at <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L513"><code>tests/test_frontend.py:513</code></a>. Order still
-            decides between two frontends that tie on specificity, which section
-            4 comes back to.
+            When the lookup finds no file, the <code>fallback</code> argument decides. It takes <code>"auto"</code>,
+            the default, or <code>"index.html"</code>, <code>"404.html"</code>, or <code>None</code>.
+            <code>"404.html"</code> serves that file with status 404. <code>"index.html"</code> serves the top-level
+            <code>index.html</code> with status 200, but only to a request that looks like a browser navigation, which
+            <code>_is_frontend_navigation_request</code> judges from the URL's last segment and the
+            <code>Accept</code> header. <code>"auto"</code> tries <code>404.html</code> first and
+            <code>index.html</code> second, and uses whichever file exists. <code>None</code> gives the plain 404.
           </p>
-
           <p>
-            Two details of the ordering are easy to miss. A <em>partial</em> match
-            also wins, so <code>POST</code> to a path where a
-            <code>GET</code> path operation exists returns
-            <code>405</code> even when a servable file sits at that same path
-            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L213"><code>tests/test_frontend.py:213</code></a>). And the trailing-slash
-            redirect runs before the frontend, so a request that could redirect
-            into a real path operation does so rather than falling through
-            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L577"><code>tests/test_frontend.py:577</code></a>).
+            Take a single-page build in <code>dist</code> holding <code>index.html</code>,
+            <code>assets/app.js</code>, and <code>about/index.html</code>, with no <code>404.html</code>. It is
+            served by <code>app.frontend("/", directory="dist")</code> beside one path operation,
+            <code>GET /api/users</code>:
           </p>
-
-          <h3>Decision two: guessing what a missing path meant</h3>
-
-          <p>
-            Once the request reaches the frontend and no file matches, the code
-            has to choose between the deep link and the mistyped asset. It uses
-            two signals, in this order: whether the final path segment carries a
-            file extension, and what the client put in its
-            <code>Accept</code> header.
-          </p>
-
-          <p class="flow-label">Deciding a missing path</p>
-          <div class="dataflow">
-            <div class="node terminal">Missing path</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">/users/jane.doe</span
-                ><span class="line"></span>
-              </div>
-              <div class="node">Extension check</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">no dot</span><span class="line"></span>
-              </div>
-              <div class="node">Accept check</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">text/html</span><span class="line"></span>
-              </div>
-              <div class="node pass">Serve the shell</div>
-            </div>
-          </div>
-
-          <p>
-            I ran the predicate directly against the source at this commit rather
-            than reasoning about it. These are its actual return values:
-          </p>
-
           <table class="vals">
+            <caption>Requests against a single-page build with no 404.html</caption>
             <thead>
               <tr>
-                <th>Requested path</th>
-                <th>Accept header</th>
-                <th>Navigation?</th>
+                <th>Request</th>
+                <th>Accept</th>
+                <th>What answers</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>/dashboard/settings</td>
-                <td>text/html,...,*/*;q=0.8</td>
-                <td class="yes">yes</td>
+                <td><code>GET /api/users</code></td>
+                <td><code>text/html,…</code></td>
+                <td class="yes">the path operation</td>
               </tr>
               <tr>
-                <td>/dashboard/settings</td>
-                <td>*/*</td>
-                <td class="yes">yes</td>
+                <td><code>GET /assets/app.js</code></td>
+                <td><code>*/*</code></td>
+                <td class="yes"><code>dist/assets/app.js</code>, 200</td>
               </tr>
               <tr>
-                <td>/dashboard/settings</td>
-                <td>application/json</td>
-                <td class="no">no</td>
+                <td><code>GET /about</code></td>
+                <td><code>text/html,…</code></td>
+                <td class="warn">307 to <code>/about/</code>, then <code>about/index.html</code></td>
               </tr>
               <tr>
-                <td>/dashboard/settings</td>
-                <td>text/html;q=0</td>
-                <td class="no">no</td>
+                <td><code>GET /dashboard/settings</code></td>
+                <td><code>text/html,…</code></td>
+                <td class="yes"><code>index.html</code>, 200</td>
               </tr>
               <tr>
-                <td>/dashboard/settings</td>
-                <td>text/html;q=0.1</td>
-                <td class="yes">yes</td>
+                <td><code>GET /dashboard/settings</code></td>
+                <td><code>application/json</code></td>
+                <td class="no">the JSON 404</td>
               </tr>
               <tr>
-                <td>/dashboard/settings</td>
-                <td>text/html;q=wat</td>
-                <td class="warn">yes</td>
+                <td><code>GET /assets/missing.js</code></td>
+                <td><code>text/html,…</code></td>
+                <td class="no">the JSON 404, since the name has an extension</td>
               </tr>
               <tr>
-                <td>/assets/app.js</td>
-                <td>text/html,*/*</td>
-                <td class="no">no</td>
-              </tr>
-              <tr>
-                <td>/users/jane.doe</td>
-                <td>text/html</td>
-                <td class="warn">no</td>
+                <td><code>POST /dashboard</code></td>
+                <td><code>*/*</code></td>
+                <td class="no">405</td>
               </tr>
             </tbody>
           </table>
-
           <p>
-            Two rows deserve attention. A malformed quality value is
-            <em>more</em> permissive than a valid one: <code>q=wat</code> serves
-            the shell while <code>q=0</code> does not. Section 7 shows the parser
-            line that produces this. And a path whose last segment carries a file
-            extension is refused whatever the client said it accepts, which is
-            what keeps a missing <code>.js</code> file out of the shell.
+            The deep link and the missing script both find no file and send the same <code>Accept</code> list, so
+            only the extension tells them apart. That keeps a missing script from arriving as an HTML page with
+            status 200, which is my reading of why the navigation check exists. The tutorial says only that missing
+            JavaScript, CSS, and images still return 404.
           </p>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            <p style="margin: 0">
-              The extension rule means <code>/users/jane.doe</code> never
-              receives the shell. Any browser URL whose last segment looks like a
-              filename, so a username, a domain or a version string, will fail to
-              deep link. The behavior is pinned at
-              <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L365"><code>tests/test_frontend.py:365</code></a>, which tells us it is
-              expected, not whether the cost was weighed. The test is
-              <code>os.path.splitext</code>, not the presence of a dot, so a
-              leading-dot segment slips through: I ran
-              <code>/settings/.env</code> against the predicate and it counts as
-              navigation.
-            </p>
-          </div>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
-
           <p>
-            The flow, end to end: calling <code>app.frontend()</code> puts a
-            frontend route into a low-priority list; a request then falls through
-            the normal route loop, reaches the group holding those routes, picks
-            the most specific one, strips its prefix, and lands in a
-            <code>StaticFiles</code> subclass that either finds a file or walks a
-            fallback ladder.
+            Flow map: <code>app.frontend()</code> and <code>APIRouter.frontend</code> add a <code>_FrontendRoute</code>
+            to the router's group; per request, <code>APIRouter.app</code> calls <code>_match_low_priority</code>,
+            then <code>_FrontendRouteGroup._match</code>, <code>_FrontendRoute.matches</code>, and
+            <code>_FrontendStaticFiles.get_response</code>.
           </p>
-
-          <h3>1. Registration</h3>
-
-          <p>
-            <code>FastAPI.frontend</code> at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/applications.py#L1222"><code>fastapi/applications.py:1222</code></a> is a pass-through to the
-            router. The real work is on <code>APIRouter</code>:
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2504-L2514">fastapi/routing.py:2504-2514</a></p>
-          <pre>normalized_path = _normalize_frontend_path(path)
-<span class="add">if self._frontend_routes is None:
-    self._frontend_routes = _FrontendRouteGroup()
-    self._low_priority_routes.append(self._frontend_routes)</span>
-self._frontend_routes.add_frontend_route(
-    _join_frontend_paths(self.prefix, normalized_path),
-    directory=directory,
-    fallback=fallback,
-    check_dir=check_dir,
-)
-self._mark_routes_changed()</pre>
-
-          <p>
-            One group per router, created on first use and appended to
-            <code>_low_priority_routes</code> exactly once. Every later
-            <code>frontend()</code> call adds a route to the existing group rather
-            than a second entry in the list. The router's own
-            <code>prefix</code> is folded into the path here, at registration
-            time.
-          </p>
-
-          <h3>2. Surviving include_router</h3>
-
-          <p>
-            A prefix can also arrive later, through
-            <code>app.include_router(router, prefix="/app")</code>, which is the
-            form the tutorial added by this change uses
-            (<code>docs/en/docs/tutorial/frontend.md</code>). That path runs
-            through <code>_build_effective_context</code>, the helper that
-            rewrites a router's routes for the place it was included:
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1581-L1585">fastapi/routing.py:1581-1585</a></p>
-          <pre>if isinstance(route, _FrontendRouteGroup):
-    return _EffectiveRouteContext(
-        original_route=route,
-        starlette_route=route.with_prefix(self.include_context.prefix),
-    )</pre>
-
-          <p>
-            <code>with_prefix</code> copies the group and rewrites each route's
-            path rather than mutating it, which leaves the original router
-            unchanged and so includable more than once. The sibling method
-            <code>effective_low_priority_routes</code> at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1551"><code>fastapi/routing.py:1551</code></a> recurses into nested included
-            routers, so a frontend inside a router inside another router still
-            collects every prefix, pinned at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L534"><code>tests/test_frontend.py:534</code></a>.
-          </p>
-
-          <h3>3. The request falls through</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2558-L2578">fastapi/routing.py:2558-2578</a></p>
-          <pre>(
-    low_priority_match,
-    low_priority_scope,
-    low_priority_route,
-    low_priority_context,
-) = self._match_low_priority(scope)
-if low_priority_match != Match.NONE and low_priority_route is not None:
-    _update_scope(scope, low_priority_scope)
-    <span class="hi"># elided: the branch that restores an APIRoute's effective context</span>
-    await low_priority_route.handle(scope, receive, send)
-    return
-
-await self.default(scope, receive, send)</pre>
-
-          <p>
-            This sits at the end of <code>APIRouter.app</code>, after the normal
-            loop and after the redirect pass. <code>self.default</code> is the
-            plain <code>404</code>, so the frontend is the last thing tried before
-            giving up.
-          </p>
-
-          <h3>4. The group picks one frontend route</h3>
-
-          <p>
-            With two frontends registered, one at <code>/</code> and one at
-            <code>/admin</code>, a request for <code>/admin/settings</code> matches
-            both. <code>_FrontendRouteGroup._match</code> at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2027"><code>fastapi/routing.py:2027</code></a> breaks the tie by specificity:
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1791-L1794">fastapi/routing.py:1791-1794</a></p>
-          <pre>def _frontend_path_specificity(path: str) -&gt; int:
-    if path == "/":
-        return 0
-    return len(path)</pre>
-
-          <p>
-            Raw path length, with the root special-cased to zero. The comparison
-            in <code>_match</code> is a strict <code>&gt;</code>, so on an exact
-            tie the first registered route keeps the win. I confirmed that by
-            registering two directories on the same path and requesting a missing
-            file: the first directory answered. Longest path beats registration
-            order otherwise, pinned at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L484"><code>tests/test_frontend.py:484</code></a>.
-          </p>
-
-          <h3>5. The frontend route strips its own prefix</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1977-L1985">fastapi/routing.py:1977-1985</a></p>
-          <pre>def _get_frontend_path(self, route_path: str) -&gt; str | None:
-    if self.path == "/":
-        return route_path.lstrip("/")
-    if route_path == self.path:
-        return ""
-    prefix = self.path + "/"
-    if route_path.startswith(prefix):
-        return route_path[len(prefix) :]
-    return None</pre>
-
-          <p>
-            This method lives on <code>_FrontendRoute</code>. Building the local
-            <code>prefix</code> variable with a trailing slash is what stops a
-            frontend at <code>/app</code> from swallowing
-            <code>/application</code>, pinned at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L473"><code>tests/test_frontend.py:473</code></a>. The stripped remainder does
-            not travel as an argument: <code>matches</code> writes it into the
-            scope, and <code>_FrontendStaticFiles.get_path</code> at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1837"><code>fastapi/routing.py:1837</code></a> reads it back out.
-          </p>
-
-          <h3>6. The fallback ladder</h3>
-
-          <p>
-            <code>_FrontendStaticFiles.get_response</code> at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1842"><code>fastapi/routing.py:1842</code></a> tries a real file, then a
-            directory index, then the fallbacks:
-          </p>
-
-          <pre
-            class="mermaid"
-          >flowchart TD
-    A["get_response receives the stripped path"] --&gt; B{"Method is GET or HEAD?"}
-    B --&gt;|no| C["405"]
-    B --&gt;|yes| D{"The path is a real file?"}
-    D --&gt;|yes| E["200 with that file"]
-    D --&gt;|no| F{"The path is a directory holding index.html?"}
-    F --&gt;|yes| G["200 with that index.html"]
-    F --&gt;|no| H{"404.html applies?"}
-    H --&gt;|yes| I["404 with 404.html"]
-    H --&gt;|no| J{"index.html applies and the request looks like navigation?"}
-    J --&gt;|yes| K["200 with index.html"]
-    J --&gt;|no| L["404 from the API"]
-    classDef touched fill:#e8eefc,stroke:#3b6cf6,color:#16181b
-    classDef ok fill:#e4f3ea,stroke:#1a7f47,color:#16181b
-    classDef bad fill:#fbe7e9,stroke:#c62a3b,color:#16181b
-    class H,J touched
-    class E,K ok
-    class C,L bad</pre>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1872-L1883">fastapi/routing.py:1872-1883</a></p>
-          <pre>if self.fallback == "404.html" or (
-    self.fallback == "auto" and self._fallback_file_exists("404.html")
-):
-    return await self._fallback_response("404.html", scope, status_code=404)
-
-if (
-    self.fallback == "index.html"
-    or (self.fallback == "auto" and self._fallback_file_exists("index.html"))
-) <span class="hi">and _is_frontend_navigation_request(scope)</span>:
-    return await self._fallback_response("index.html", scope, status_code=200)
-
-raise HTTPException(status_code=404)</pre>
-
-          <p>
-            The two rungs differ in two ways. The highlighted clause is the first:
-            the <code>404.html</code> branch carries no such guard, so it answers
-            every missing path including asset requests, while the
-            <code>index.html</code> branch answers only navigation. The second is
-            the status code, <code>404</code> against <code>200</code>. Rung order
-            is a third consequence: when a build ships both files under the
-            default <code>fallback="auto"</code>, declared at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2462"><code>fastapi/routing.py:2462</code></a>, <code>404.html</code> wins and
-            deep linking stops working with no error anywhere
-            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L391"><code>tests/test_frontend.py:391</code></a>).
-          </p>
-
-          <h3>7. The navigation predicate</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1921-L1939">fastapi/routing.py:1921-1939</a></p>
-          <pre>def _is_frontend_navigation_request(scope: Scope) -&gt; bool:
-    route_path = get_route_path(scope)
-    final_segment = route_path.rsplit("/", 1)[-1]
-    if os.path.splitext(final_segment)[1]:
-        return False
-    request = Request(scope)
-    wildcard_accepted = False
-    html_rejected = False
-    for media_type, quality in _iter_accept_media_types(
-        request.headers.get("accept", "")
-    ):
-        if media_type in {"text/html", "application/xhtml+xml"}:
-            if quality == 0:
-                html_rejected = True
-            else:
-                return True
-        elif media_type == "*/*" and quality != 0:
-            wildcard_accepted = True
-    return wildcard_accepted and not html_rejected</pre>
-
-          <p>
-            The extension test runs first and returns immediately, which is why no
-            <code>Accept</code> header can rescue <code>/users/jane.doe</code>. The
-            two flags handle the case where a client accepts everything but names
-            HTML specifically to refuse it.
-          </p>
-
-          <p>
-            The quality values come from a separate parser, which reuses
-            <code>email.message.Message</code> to split a media type from its
-            parameters:
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1908-L1914">fastapi/routing.py:1908-1914</a></p>
-          <pre>q = message.get_param("q")
-quality = 1.0
-if isinstance(q, str):
-    try:
-        quality = float(q)
-    except ValueError:
-        pass</pre>
-
-          <p>
-            This is the line behind the <code>q=wat</code> row in the table above.
-            An unparseable quality value is swallowed and <code>quality</code>
-            keeps its starting <code>1.0</code>, so a malformed parameter reads as
-            full acceptance while a well-formed <code>q=0</code> reads as
-            refusal.
-          </p>
-
-          <h3>8. Failing early</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1810-L1814">fastapi/routing.py:1810-1814</a></p>
-          <pre>if check_dir and not os.path.isdir(directory):
-    raise RuntimeError(
-        f"Frontend directory {directory!r} does not exist. "
-        f"Resolved absolute path: {_get_resolved_absolute_path(directory)!r}"
-    )</pre>
-
-          <p>
-            With the default <code>check_dir=True</code>, declared at
-            <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2470"><code>fastapi/routing.py:2470</code></a>, a missing directory raises at
-            app creation. With <code>check_dir=False</code> the app builds and the
-            error surfaces on the first request instead, and it propagates to the
-            caller rather than becoming a <code>500</code> response
-            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L707"><code>tests/test_frontend.py:707</code></a>). I ran both: the early error
-            names the resolved absolute path, while the deferred one falls back to
-            Starlette's plainer message. That difference looks like the point of
-            the eager check, though the commit does not say so.
-          </p>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            <p style="margin: 0">
-              The argument guards use <code>assert</code>, so
-              <code>_normalize_frontend_path</code> and the <code>fallback</code>
-              validation raise <code>AssertionError</code> and disappear entirely
-              under <code>python -O</code>. The directory and fallback-file checks
-              use <code>RuntimeError</code> and survive. Two classes of guard, two
-              fates.
-            </p>
+          <p class="flow-label">A deep link through a router included at <code>/app</code></p>
+          <div class="dataflow">
+            <div class="node terminal">Browser</div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">GET /app/settings</span><span class="line"></span>
+              </div>
+              <div class="node"><code>APIRouter.app</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">no route matched</span><span class="line"></span>
+              </div>
+              <div class="node"><code>_match_low_priority</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">group at /app</span><span class="line"></span>
+              </div>
+              <div class="node"><code>_FrontendRoute</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">"settings"</span><span class="line"></span>
+              </div>
+              <div class="node"><code>_FrontendStaticFiles</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">no file, navigation</span><span class="line"></span>
+              </div>
+              <div class="node pass"><code>index.html</code>, 200</div>
+            </div>
           </div>
 
+          <h3 class="core-step">1. <code>APIRouter.frontend</code> adds the frontend to the low-priority tier</h3>
           <p>
-            Path traversal and symlink escapes are refused, pinned across five
-            encodings at <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L663"><code>tests/test_frontend.py:663</code></a> and for symlinks
-            at <a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L676"><code>tests/test_frontend.py:676</code></a>. The route also declines to
-            be reversed: <code>url_path_for</code> raises
-            <code>NoMatchFound</code>, and the frontend never appears in the
-            OpenAPI schema.
+            <code>FastAPI.frontend</code> passes its arguments straight to <code>self.router.frontend</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/applications.py#L1288-L1293"><code>fastapi/applications.py:1288-1293</code></a>),
+            so an app and a router share one code path. <code>APIRouter.frontend</code> normalizes the path,
+            creates the router's <code>_FrontendRouteGroup</code> on first use, and adds one
+            <code>_FrontendRoute</code> to it:
           </p>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2504-L2514">fastapi/routing.py:2504-2514</a></p>
+<pre><span class="add">normalized_path = _normalize_frontend_path(path)</span>
+<span class="add">if self._frontend_routes is None:</span>
+<span class="add">    self._frontend_routes = _FrontendRouteGroup()</span>
+<span class="add">    self._low_priority_routes.append(self._frontend_routes)</span>
+<span class="add">self._frontend_routes.add_frontend_route(</span>
+<span class="add">    _join_frontend_paths(self.prefix, normalized_path),</span>
+<span class="add">    directory=directory,</span>
+<span class="add">    fallback=fallback,</span>
+<span class="add">    check_dir=check_dir,</span>
+<span class="add">)</span>
+<span class="add">self._mark_routes_changed()</span></pre>
+          <p>
+            The group goes into <code>_low_priority_routes</code> and never into <code>routes</code>, which is what
+            puts it in the low-priority tier. <code>FastAPI.openapi</code> builds the schema from <code>routes</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/applications.py#L1095"><code>fastapi/applications.py:1095</code></a>),
+            so frontends stay out of it too
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L739"><code>tests/test_frontend.py:739</code></a>).
+            Separately, <code>_FrontendRoute.url_path_for</code> raises <code>NoMatchFound</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1990-L1991"><code>fastapi/routing.py:1990-1991</code></a>),
+            so <code>url_for</code>, which builds a URL from a route name, cannot name a frontend.
+          </p>
+          <p>
+            <code>_normalize_frontend_path</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1773-L1780"><code>fastapi/routing.py:1773-1780</code></a>)
+            rejects an empty path, or one without a leading <code>/</code>, with an <code>AssertionError</code>, and
+            strips a trailing slash from anything but <code>/</code>. <code>_join_frontend_paths</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1783-L1788"><code>fastapi/routing.py:1783-1788</code></a>)
+            prepends the router's own <code>prefix</code>, the one passed to <code>APIRouter(prefix=...)</code>. A path
+            of <code>/</code> becomes the prefix alone, and any other path is appended, so
+            <code>APIRouter(prefix="/internal").frontend("/ui", ...)</code> registers <code>/internal/ui</code>.
+          </p>
+          <p>
+            Checks run when <code>frontend()</code> is called. <code>_FrontendRoute.__init__</code> rejects any
+            <code>fallback</code> outside the four values
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1951-L1954"><code>fastapi/routing.py:1951-1954</code></a>).
+            For a missing directory, <code>_FrontendStaticFiles.__init__</code> raises a <code>RuntimeError</code>
+            that names the path as given and its resolved absolute form
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1810-L1814"><code>fastapi/routing.py:1810-1814</code></a>).
+            The commit that added the absolute path gives the reason in its subject: "Make path errors show absolute
+            path to help with debugging". An explicit <code>fallback="index.html"</code> or <code>"404.html"</code>
+            also has its file checked
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1821-L1822"><code>fastapi/routing.py:1821-1822</code></a>).
+            With <code>check_dir=False</code> neither check runs, and a missing directory fails on the first request
+            instead, when <code>StaticFiles</code> checks its own directory. The constructor also hard-codes
+            <code>html=True</code> and <code>follow_symlink=False</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1815-L1820"><code>fastapi/routing.py:1815-1820</code></a>).
+            A symlink in the build that points outside it is therefore refused, and <code>frontend()</code> has no
+            argument to allow it.
+          </p>
+
+          <h3 class="core-step">2. <code>APIRouter.app</code> asks the low-priority tier last</h3>
+          <p>
+            <code>APIRouter.app</code> is new. Its first part
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2516-L2556"><code>fastapi/routing.py:2516-2556</code></a>)
+            repeats Starlette's <code>Router.app</code>
+            (<code data-bare="outside-repo">starlette/routing.py:662-708</code>), and comparing the two shows only
+            cosmetic differences, such as a tuple in place of two variables. The one change of substance is this
+            block, placed between the slash redirect and <code>self.default</code>, at step 4 of the order in
+            Intuition:
+          </p>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2558-L2578">fastapi/routing.py:2558-2578</a></p>
+<pre><span class="add">(</span>
+<span class="add">    low_priority_match,</span>
+<span class="add">    low_priority_scope,</span>
+<span class="add">    low_priority_route,</span>
+<span class="add">    low_priority_context,</span>
+<span class="add">) = self._match_low_priority(scope)</span>
+<span class="add">if low_priority_match != Match.NONE and low_priority_route is not None:</span>
+<span class="add">    _update_scope(scope, low_priority_scope)</span>
+<span class="add">    if low_priority_context is not None:</span>
+<span class="add">        _get_fastapi_scope(scope)[_FASTAPI_EFFECTIVE_ROUTE_CONTEXT_KEY] = (</span>
+<span class="add">            low_priority_context</span>
+<span class="add">        )</span>
+<span class="add">        original_route = low_priority_context.original_route</span>
+<span class="add">        if isinstance(original_route, APIRoute):</span>
+<span class="add">            scope["route"] = original_route</span>
+<span class="add">            await original_route.handle(scope, receive, send)</span>
+<span class="add">            return</span>
+<span class="add">    await low_priority_route.handle(scope, receive, send)</span>
+<span class="add">    return</span>
+<span class="add"></span>
+<span class="add">await self.default(scope, receive, send)</span></pre>
+          <p>
+            <code>_match_low_priority</code> returns the match, the child scope to merge, the route to call, and, for
+            a route reached through an include, its <code>_EffectiveRouteContext</code>. Any result other than
+            <code>Match.NONE</code> is used. A frontend gives <code>Match.PARTIAL</code> for methods other than GET
+            and HEAD, so a POST still reaches the frontend, which answers 405.
+          </p>
+          <p>
+            The merge uses <code>_update_scope</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L847-L853"><code>fastapi/routing.py:847-853</code></a>)
+            rather than <code>scope.update</code>. It copies top-level keys, but merges the child's
+            <code>scope["fastapi"]</code> dict into the existing one instead of replacing it, so the remainder lands
+            beside whatever FastAPI already stored there. The <code>APIRoute</code> branch serves no library code at
+            this commit. Only tests put a path operation in the low-priority list, and the one that reaches this
+            branch goes through an include
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L174"><code>tests/test_frontend.py:174</code></a>).
+            The record does not say why the branch exists.
+          </p>
+          <p>
+            Tests pin down what this position means. A frontend in a router included before the router that holds
+            <code>GET /api/users</code> still loses to that path operation
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L513"><code>tests/test_frontend.py:513</code></a>).
+            And the slash redirect runs first, with a loop that reads only <code>routes</code>. With
+            <code>@app.get("/api/")</code> and a build that holds <code>api/index.html</code>, a request for
+            <code>/api</code> gets a 307 to the path operation at <code>/api/</code> before the frontend is asked
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L577"><code>tests/test_frontend.py:577</code></a>).
+          </p>
+
+          <h3 class="core-step">3. Included routers add their frontends, prefixed</h3>
+          <p>
+            The low-priority tier also collects frontends registered on included routers.
+            <code>_iter_low_priority_routes</code> yields the root router's own <code>_low_priority_routes</code>
+            first, then asks each <code>_IncludedRouter</code> in <code>routes</code>, in inclusion order:
+          </p>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2600-L2606">fastapi/routing.py:2600-2606</a></p>
+<pre><span class="add">def _iter_low_priority_routes(</span>
+<span class="add">    self,</span>
+<span class="add">) -&gt; Iterator[BaseRoute | _EffectiveRouteContext]:</span>
+<span class="add">    yield from self._low_priority_routes</span>
+<span class="add">    for route in self.routes:</span>
+<span class="add">        if isinstance(route, _IncludedRouter):</span>
+<span class="add">            yield from route.effective_low_priority_routes()</span></pre>
+          <p>
+            <code>effective_low_priority_routes</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1551-L1571"><code>fastapi/routing.py:1551-1571</code></a>)
+            mirrors <code>effective_candidates()</code> from Background. It wraps the child's own groups, recurses
+            into the child's includes with the prefixes combined, and caches the result. The cache key is
+            <code>_get_routes_version()</code>, which adds up the change counters of the child router and every
+            router it includes. Each router bumps its own counter through <code>_mark_routes_changed</code> whenever
+            its routes change, and <code>frontend()</code> bumps it too
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2514"><code>fastapi/routing.py:2514</code></a>). So
+            the cache is rebuilt when a route is added to a child after <code>include_router</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L552"><code>tests/test_frontend.py:552</code></a>).
+            The wrapping is one new branch in <code>_build_effective_context</code>, the method that builds each
+            <code>_EffectiveRouteContext</code>:
+          </p>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1581-L1585">fastapi/routing.py:1581-1585</a></p>
+<pre><span class="add">if isinstance(route, _FrontendRouteGroup):</span>
+<span class="add">    return _EffectiveRouteContext(</span>
+<span class="add">        original_route=route,</span>
+<span class="add">        starlette_route=route.with_prefix(self.include_context.prefix),</span>
+<span class="add">    )</span></pre>
+          <p>
+            <code>with_prefix</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2015-L2021"><code>fastapi/routing.py:2015-2021</code></a>)
+            copies the group and calls each route's <code>with_path</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1961-L1964"><code>fastapi/routing.py:1961-1964</code></a>)
+            with the include prefix joined on. <code>with_path</code> makes a shallow copy of the route, so the copy
+            shares the original's <code>_FrontendStaticFiles</code> and no directory check runs twice.
+          </p>
+          <div class="callout edge">
+            <span class="label">Edge case</span>
+            A group is not an <code>APIRoute</code>, so its context carries none of the include's dependencies. A
+            dependency passed to <code>include_router(..., dependencies=[...])</code> or to
+            <code>FastAPI(dependencies=[...])</code> does not run for frontend requests, so an auth dependency there
+            does not guard the build. Middleware still runs, because it wraps the whole router. No test covers this.
+            On the head commit, a denying dependency on the include returns 403 for the router's path operation and
+            200 for its frontend.
+          </div>
+          <p>
+            <code>_match_low_priority</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2640-L2645"><code>fastapi/routing.py:2640-2645</code></a>)
+            walks those candidates, keeps the first FULL match it meets, and otherwise keeps the first PARTIAL. It
+            compares no prefixes across groups. The prefix comparison happens only inside one group, in step 4.
+          </p>
+
+          <h3 class="core-step">4. A group picks its longest prefix and stores the remainder</h3>
+          <p>
+            <code>_FrontendRouteGroup._match</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2027-L2048"><code>fastapi/routing.py:2027-2048</code></a>)
+            asks each of its routes and keeps the most specific FULL match, scored by
+            <code>_frontend_path_specificity</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1791-L1794"><code>fastapi/routing.py:1791-1794</code></a>):
+            <code>/</code> scores 0, and any other prefix scores its length in characters. A tie keeps the earlier
+            route. So <code>app.frontend("/", ...)</code> and <code>app.frontend("/admin", ...)</code> on one router
+            send <code>/admin/settings</code> to the admin build
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L484"><code>tests/test_frontend.py:484</code></a>).
+            Each route's own check is <code>_FrontendRoute.matches</code>:
+          </p>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1966-L1985">fastapi/routing.py:1966-1985</a></p>
+<pre><span class="add">def matches(self, scope: Scope) -&gt; tuple[Match, Scope]:</span>
+<span class="add">    if scope["type"] != "http":</span>
+<span class="add">        return Match.NONE, {}</span>
+<span class="add">    frontend_path = self._get_frontend_path(get_route_path(scope))</span>
+<span class="add">    if frontend_path is None:</span>
+<span class="add">        return Match.NONE, {}</span>
+<span class="add">    child_scope = {_FASTAPI_SCOPE_KEY: {_FASTAPI_FRONTEND_PATH_KEY: frontend_path}}</span>
+<span class="add">    if scope["method"] not in self.methods:</span>
+<span class="add">        return Match.PARTIAL, child_scope</span>
+<span class="add">    return Match.FULL, child_scope</span>
+<span class="add"></span>
+<span class="add">def _get_frontend_path(self, route_path: str) -&gt; str | None:</span>
+<span class="add">    if self.path == "/":</span>
+<span class="add">        return route_path.lstrip("/")</span>
+<span class="add">    if route_path == self.path:</span>
+<span class="add">        return ""</span>
+<span class="add">    prefix = self.path + "/"</span>
+<span class="add">    if route_path.startswith(prefix):</span>
+<span class="add">        return route_path[len(prefix) :]</span>
+<span class="add">    return None</span></pre>
+          <p>
+            The prefix check works on whole segments. A route at <code>/app</code> takes <code>/app</code> and
+            <code>/app/...</code> but not <code>/application</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L473"><code>tests/test_frontend.py:473</code></a>).
+            The route reads the path through <code>get_route_path</code>, which strips a <code>root_path</code> that
+            a proxy set (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L598"><code>tests/test_frontend.py:598</code></a>).
+          </p>
+          <p>
+            Unlike a <code>Mount</code>, the route leaves <code>scope["path"]</code> and <code>root_path</code> alone
+            and puts the remainder in its child scope. <code>_FrontendRouteGroup.handle</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L2050-L2055"><code>fastapi/routing.py:2050-2055</code></a>)
+            runs the match again, merges that child scope with <code>_update_scope</code>, and calls the route, which
+            calls its <code>_FrontendStaticFiles</code>. There, the overridden <code>get_path</code> reads the
+            remainder instead of the request path:
+          </p>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1837-L1840">fastapi/routing.py:1837-1840</a></p>
+<pre><span class="add">def get_path(self, scope: Scope) -&gt; str:</span>
+<span class="add">    path = _get_fastapi_scope(scope).get(_FASTAPI_FRONTEND_PATH_KEY, "")</span>
+<span class="add">    assert isinstance(path, str)</span>
+<span class="add">    return os.path.normpath(os.path.join(*path.split("/")))</span></pre>
+          <p>
+            An exact prefix match leaves an empty remainder, which <code>os.path.normpath</code> turns into
+            <code>"."</code>, the directory itself. So <code>/app</code> without a slash meets the directory branch
+            in step 5 and, when the build has an <code>index.html</code>, gets a 307 to <code>/app/</code>.
+          </p>
+
+          <h3 class="core-step">5. <code>_FrontendStaticFiles</code> answers with a file, a redirect, a fallback, or a 404</h3>
+          <p>
+            <code>_FrontendStaticFiles.get_response</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1842-L1883"><code>fastapi/routing.py:1842-1883</code></a>)
+            keeps Starlette's opening. It refuses methods other than GET and HEAD with 405 and maps lookup errors as
+            Starlette does
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1846-L1855"><code>fastapi/routing.py:1846-1855</code></a>):
+            a <code>PermissionError</code> becomes 401, and a name that is too long or a <code>ValueError</code>
+            becomes 404. A regular file goes out through the inherited <code>file_response</code>, and a directory
+            holding <code>index.html</code> gets the same trailing-slash redirect Starlette gives. Like Starlette with
+            <code>html=True</code>, it can serve <code>404.html</code> at status 404, though through
+            <code>file_response</code>, so a conditional request can get a 304 instead. The <code>fallback</code>
+            modes and the <code>index.html</code> answer are new. The first rule that applies wins:
+          </p>
+          <p class="flow-label">What <code>get_response</code> tries, in order</p>
+          <ol class="frames">
+            <li><span class="n">1</span>a regular file: that file, 200</li>
+            <li><span class="n">2</span>a directory holding <code>index.html</code>: a 307 when the trailing slash is missing, otherwise that <code>index.html</code></li>
+            <li><span class="n">3</span><code>fallback="404.html"</code>, or auto with a <code>404.html</code>: that file, 404</li>
+            <li class="target"><span class="n">4</span><code>fallback="index.html"</code>, or auto with an <code>index.html</code>, on a browser navigation: the top-level <code>index.html</code>, 200</li>
+            <li><span class="n">5</span>anything else: <code>HTTPException</code>, the JSON 404</li>
+          </ol>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1872-L1883">fastapi/routing.py:1872-1883</a></p>
+<pre><span class="add">if self.fallback == "404.html" or (</span>
+<span class="add">    self.fallback == "auto" and self._fallback_file_exists("404.html")</span>
+<span class="add">):</span>
+<span class="add">    return await self._fallback_response("404.html", scope, status_code=404)</span>
+<span class="add"></span>
+<span class="add">if (</span>
+<span class="add">    self.fallback == "index.html"</span>
+<span class="add">    or (self.fallback == "auto" and self._fallback_file_exists("index.html"))</span>
+<span class="add">) and _is_frontend_navigation_request(scope):</span>
+<span class="add">    return await self._fallback_response("index.html", scope, status_code=200)</span>
+<span class="add"></span>
+<span class="add">raise HTTPException(status_code=404)</span></pre>
+          <p>
+            The <code>404.html</code> branch comes first and has no navigation check. The <code>index.html</code>
+            branch serves the top-level <code>index.html</code> with status 200, and only when
+            <code>_is_frontend_navigation_request</code> agrees. Both end in <code>_fallback_response</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1889-L1901"><code>fastapi/routing.py:1889-1901</code></a>),
+            which raises a <code>RuntimeError</code> when an explicit fallback file has gone missing and otherwise
+            serves the file through <code>file_response</code> with the chosen status. The navigation check:
+          </p>
+<p class="filename"><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1921-L1939">fastapi/routing.py:1921-1939</a></p>
+<pre><span class="add">def _is_frontend_navigation_request(scope: Scope) -&gt; bool:</span>
+<span class="add">    route_path = get_route_path(scope)</span>
+<span class="add">    final_segment = route_path.rsplit("/", 1)[-1]</span>
+<span class="add">    if os.path.splitext(final_segment)[1]:</span>
+<span class="add">        return False</span>
+<span class="add">    request = Request(scope)</span>
+<span class="add">    wildcard_accepted = False</span>
+<span class="add">    html_rejected = False</span>
+<span class="add">    for media_type, quality in _iter_accept_media_types(</span>
+<span class="add">        request.headers.get("accept", "")</span>
+<span class="add">    ):</span>
+<span class="add">        if media_type in {"text/html", "application/xhtml+xml"}:</span>
+<span class="add">            if quality == 0:</span>
+<span class="add">                html_rejected = True</span>
+<span class="add">            else:</span>
+<span class="add">                return True</span>
+<span class="add">        elif media_type == "*/*" and quality != 0:</span>
+<span class="add">            wildcard_accepted = True</span>
+<span class="add">    return wildcard_accepted and not html_rejected</span></pre>
+          <p>
+            The URL's last segment decides first: if <code>os.path.splitext</code> finds an extension, the request
+            is for a file and the answer is no. Otherwise the <code>Accept</code> entries decide, as
+            <code>_iter_accept_media_types</code>
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/fastapi/routing.py#L1904-L1918"><code>fastapi/routing.py:1904-1918</code></a>)
+            parses them, reading a <code>q</code> it cannot parse as 1.0. An HTML type, <code>text/html</code> or
+            <code>application/xhtml+xml</code>, with a nonzero <code>q</code> means yes. Failing that,
+            <code>*/*</code> with a nonzero <code>q</code> means yes, unless an HTML type appeared with
+            <code>q=0</code>. Anything else, <code>application/json</code> or an empty header included, means no.
+          </p>
+          <div class="callout edge">
+            <span class="label">Edge case</span>
+            The extension check treats any dot after the first character of the last segment as an extension. A
+            URL that only the browser-side
+            router knows, such as <code>/users/jane.doe</code>, gets a 404 instead of the top-level
+            <code>index.html</code>, even from a browser
+            (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L362"><code>tests/test_frontend.py:362</code></a>).
+          </div>
+
+          <table class="vals also-changed">
+            <caption>Every other changed file (13 of 15)</caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py"><code>tests/test_frontend.py</code></a></td>
+                <td>New tests for matching, priority over path operations, include prefixes, each fallback mode, navigation detection, and missing-directory errors.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs/en/docs/tutorial/frontend.md"><code>docs/en/docs/tutorial/frontend.md</code></a></td>
+                <td>New tutorial page for <code>app.frontend()</code>, with a section per fallback mode, <code>check_dir</code>, and routers.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs/en/docs/tutorial/static-files.md"><code>docs/en/docs/tutorial/static-files.md</code></a></td>
+                <td>Adds a tip that sends readers who serve a frontend to <code>app.frontend()</code>.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs/en/docs/reference/apirouter.md"><code>docs/en/docs/reference/apirouter.md</code></a></td>
+                <td>Lists <code>frontend</code> among the documented <code>APIRouter</code> members.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs/en/docs/reference/fastapi.md"><code>docs/en/docs/reference/fastapi.md</code></a></td>
+                <td>Lists <code>frontend</code> among the documented <code>FastAPI</code> members.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs/en/mkdocs.yml"><code>docs/en/mkdocs.yml</code></a></td>
+                <td>Adds the new tutorial page to the site navigation, just before Static Files.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs_src/frontend/__init__.py"><code>docs_src/frontend/__init__.py</code></a></td>
+                <td>Empty package marker for the new examples folder, as other <code>docs_src</code> folders have.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs_src/frontend/tutorial001_py310.py"><code>docs_src/frontend/tutorial001_py310.py</code></a></td>
+                <td>The default call, <code>app.frontend("/", directory="dist")</code>, for the tutorial.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs_src/frontend/tutorial002_py310.py"><code>docs_src/frontend/tutorial002_py310.py</code></a></td>
+                <td>The same call with <code>fallback="index.html"</code>.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs_src/frontend/tutorial003_py310.py"><code>docs_src/frontend/tutorial003_py310.py</code></a></td>
+                <td>The same call with <code>fallback="404.html"</code>.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs_src/frontend/tutorial004_py310.py"><code>docs_src/frontend/tutorial004_py310.py</code></a></td>
+                <td>A <code>router.frontend()</code> call included under the <code>/app</code> prefix.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs_src/frontend/tutorial005_py310.py"><code>docs_src/frontend/tutorial005_py310.py</code></a></td>
+                <td>The same call with <code>fallback=None</code>.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/docs_src/frontend/tutorial006_py310.py"><code>docs_src/frontend/tutorial006_py310.py</code></a></td>
+                <td>The same call with <code>check_dir=False</code>.</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
-
           <div class="quiz-question">
             <p class="q">
-              The change puts frontend mounts in a separate
-              <code>_low_priority_routes</code> list consulted after the normal
-              loop, rather than appending them to <code>routes</code>. What does
-              that ordering buy?
+              A React build in <code>dist</code> holds <code>index.html</code> and an <code>assets/</code> folder,
+              with no <code>404.html</code>, and is served by <code>app.frontend("/", directory="dist")</code>. No
+              path operation matches <code>/reports/2026</code>. A teammate runs
+              <code>curl http://localhost:8000/reports/2026</code>, which sends <code>Accept: */*</code>. What comes
+              back?
             </p>
-            <button class="quiz-option">
-              The frontend directory can be read lazily when a request arrives.
-            </button>
-            <button class="quiz-option" data-correct>
-              Every path operation keeps priority regardless of registration
-              order.
-            </button>
-            <button class="quiz-option">
-              Frontend files resolve faster because fewer routes are checked
-              first.
-            </button>
+            <button class="quiz-option" data-correct>The app's <code>index.html</code>, with status 200</button>
+            <button class="quiz-option">FastAPI's JSON <code>Not Found</code>, status 404</button>
+            <button class="quiz-option">A 307 redirect to <code>/reports/2026/</code></button>
+            <button class="quiz-option"><code>index.html</code>, but with status 404</button>
             <div class="quiz-feedback" role="status">
-              Appending to <code>routes</code> would make the outcome depend on
-              where in the file the mount was written, which is exactly the
-              failure mode of <code>app.mount("/", ...)</code>. A second list
-              removes the ordering question entirely, and the tests pin it by
-              including the frontend router first and still letting the API route
-              win. Deferring the directory read is what
-              <code>check_dir=False</code> does, and it is unrelated. Speed is not
-              affected: the low-priority list is consulted after the normal loop,
-              so a frontend request does strictly more work, not less.
+              The last segment, <code>2026</code>, has no extension, and a <code>*/*</code> with a nonzero
+              <code>q</code> counts as a navigation when no entry refused HTML. With no <code>404.html</code>, auto
+              mode falls back to the existing <code>index.html</code> at status 200, so curl gets the HTML page. The
+              JSON 404 is what a client gets by sending <code>Accept: application/json</code> or an empty header. A
+              307 needs <code>reports/2026</code> to be a directory holding its own <code>index.html</code>, and
+              <code>index.html</code> is never served with status 404.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              A build directory holds both <code>index.html</code> and
-              <code>404.html</code>. The app calls
-              <code>app.frontend("/", directory="dist")</code> with no
-              <code>fallback</code> argument. A browser requests
-              <code>/dashboard</code> with <code>Accept: text/html</code>. What
-              comes back?
+              A Vue app with client-side routing works under <code>app.frontend("/", directory="dist")</code> with
+              the default fallback: opening <code>/dashboard/settings</code> directly shows the app. Someone adds a
+              branded <code>404.html</code> to <code>dist</code>. What does a browser get now when it opens
+              <code>/dashboard/settings</code> directly?
             </p>
-            <button class="quiz-option">
-              200 carrying the contents of index.html.
-            </button>
-            <button class="quiz-option">
-              404 carrying the API's JSON detail body.
-            </button>
-            <button class="quiz-option" data-correct>
-              404 carrying the contents of 404.html.
-            </button>
+            <button class="quiz-option">The app's <code>index.html</code>, with status 200</button>
+            <button class="quiz-option">FastAPI's JSON <code>Not Found</code>, status 404</button>
+            <button class="quiz-option" data-correct>The <code>404.html</code> page, with status 404</button>
+            <button class="quiz-option">A 307 redirect to <code>/dashboard/settings/</code></button>
             <div class="quiz-feedback" role="status">
-              Under the default <code>fallback="auto"</code> the
-              <code>404.html</code> rung is tested before the
-              <code>index.html</code> rung, and it is not gated on the navigation
-              check. Shipping a <code>404.html</code> in the build therefore turns
-              off deep linking without any configuration change, which is the
-              trap: the app shell is present and never reached. Serving the shell
-              would require removing <code>404.html</code> or passing
-              <code>fallback="index.html"</code> explicitly. The JSON body appears
-              only when no fallback file applies at all.
+              Auto mode checks for <code>404.html</code> before it considers <code>index.html</code>, and the
+              <code>404.html</code> branch has no navigation check. Once the file exists, the deep link is just
+              another path with no file, so it gets the branded page with status 404 and the router inside the page
+              never loads. To keep
+              client-side routing, pass <code>fallback="index.html"</code> and draw the not-found screen inside the
+              app. The JSON 404 would need no usable fallback file, and a redirect would need a directory at
+              that path.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              Under <code>fallback="index.html"</code>, a browser navigates to
-              <code>/users/jane.doe</code> and sends
-              <code>Accept: text/html</code>. The shell is not served. Which fact
-              explains it?
+              An app serves its marketing site with <code>app.frontend("/", directory="site")</code>, and that build
+              has a <code>404.html</code>. An admin panel lives on a router, <code>admin.frontend("/",
+              directory="admin_dist")</code>, included with <code>app.include_router(admin, prefix="/admin")</code>.
+              No path operation matches <code>/admin/users</code>. Which build answers when a browser opens it?
             </p>
-            <button class="quiz-option" data-correct>
-              The dot in the last segment ends the check before Accept is read.
-            </button>
-            <button class="quiz-option">
-              The Accept header needs an explicit quality value for text/html
-              here.
-            </button>
-            <button class="quiz-option">
-              A two segment path cannot match a frontend mounted at the root.
-            </button>
+            <button class="quiz-option">The <code>admin_dist</code> build, with its <code>index.html</code></button>
+            <button class="quiz-option" data-correct>The <code>site</code> build, with its <code>404.html</code></button>
+            <button class="quiz-option">Whichever <code>frontend()</code> call ran last</button>
+            <button class="quiz-option">A 307 redirect to <code>/admin/users/</code></button>
             <div class="quiz-feedback" role="status">
-              <code>_is_frontend_navigation_request</code> runs
-              <code>os.path.splitext</code> on the final segment and returns
-              <code>False</code> the moment it finds an extension, before it ever
-              constructs the request or looks at headers. A bare
-              <code>text/html</code> is accepted elsewhere, so the header is not
-              the problem, and quality values are optional. Depth is not the
-              problem either: a mount at the root serves
-              <code>/dashboard/settings</code> happily. The consequence is that a
-              username, domain or version in the last segment defeats deep
-              linking.
+              The root router's own group comes first in <code>_iter_low_priority_routes</code>, and its
+              <code>/</code> route gives a FULL match for every GET. <code>_match_low_priority</code> keeps the
+              first FULL match it meets and drops later ones, so the included router's group never answers, and the site's lookup
+              of <code>admin/users</code> misses into its <code>404.html</code>. Longest-prefix choice happens only
+              inside one group, which is why two <code>frontend()</code> calls on the same router would pick the
+              admin build here. Call order does not matter, because the root's own list is always yielded first. No
+              test in the pull request covers this mix; running the head commit gives the site's
+              <code>404.html</code>.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              Delete the clause
-              <code>and _is_frontend_navigation_request(scope)</code> from the
-              <code>index.html</code> rung, leaving everything else intact. Which
-              request changes its answer?
+              Suppose <code>_FrontendStaticFiles</code> dropped its <code>get_path</code> override and used the one
+              it inherits from <code>StaticFiles</code>. A router serves <code>dist</code> with
+              <code>router.frontend("/", directory="dist")</code> and is included with <code>prefix="/app"</code>.
+              The file <code>dist/assets/app.js</code> exists, and the build has no <code>404.html</code>. What does
+              <code>GET /app/assets/app.js</code> return?
             </p>
-            <button class="quiz-option">
-              GET /dashboard starts returning a plain 404, not the shell.
-            </button>
-            <button class="quiz-option">
-              POST /dashboard starts returning 200 rather than a 405.
-            </button>
-            <button class="quiz-option" data-correct>
-              GET /assets/missing.js starts returning the shell with 200.
-            </button>
+            <button class="quiz-option">The file <code>dist/assets/app.js</code>, status 200</button>
+            <button class="quiz-option">The app's <code>index.html</code>, with status 200</button>
+            <button class="quiz-option">A 307 redirect to <code>/app/assets/app.js/</code></button>
+            <button class="quiz-option" data-correct>A 404, after looking up <code>app/assets/app.js</code></button>
             <div class="quiz-feedback" role="status">
-              The clause is what keeps missing assets out of the fallback. Without
-              it, any missing path reaches <code>index.html</code>, so a browser
-              asking for a JavaScript file receives HTML with status
-              <code>200</code> and reports a syntax error rather than a missing
-              file. A navigation request already passes the clause, so
-              <code>/dashboard</code> is unaffected. The method check sits earlier
-              in <code>get_response</code> and raises <code>405</code> before the
-              ladder runs, so a POST never reaches this line at all.
+              The route never moves its prefix into <code>root_path</code> the way a <code>Mount</code> does. It
+              leaves the remainder, <code>assets/app.js</code>, in <code>scope["fastapi"]["frontend_path"]</code>.
+              The inherited <code>get_path</code> reads <code>scope["path"]</code> minus <code>root_path</code>, which
+              is still <code>/app/assets/app.js</code>, so <code>lookup_path</code> looks for
+              <code>dist/app/assets/app.js</code> and misses. The <code>.js</code> extension then rules out
+              <code>index.html</code>, and with no <code>404.html</code> the answer is the plain 404. Nothing on the
+              path would redirect, because no directory was found.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              Setting aside frontends entirely, the shape of this change is a
-              general pattern. What is it an instance of?
+              Both <code>app.frontend("/", directory="dist")</code> and a <code>Mount</code> at <code>/</code> that
+              holds a <code>StaticFiles</code> app can serve a build. In which situation would the plain mount still
+              be the better fit?
             </p>
-            <button class="quiz-option">
-              A cache is checked first so repeated lookups skip the slow path.
-            </button>
-            <button class="quiz-option" data-correct>
-              A catch-all sits last so it cannot shadow a specific rule.
-            </button>
-            <button class="quiz-option">
-              A guard runs early so invalid input never reaches the real handler.
-            </button>
+            <button class="quiz-option">The API has many path operations under <code>/api</code></button>
+            <button class="quiz-option">A proxy in front of it sets <code>root_path</code></button>
+            <button class="quiz-option" data-correct>Its files are symlinks that point outside <code>dist</code></button>
+            <button class="quiz-option">The build must answer misses with its <code>404.html</code></button>
             <div class="quiz-feedback" role="status">
-              A frontend mounted at <code>/</code> matches almost everything, which
-              is the definition of a catch-all. The fix is not to make it match
-              less but to ask it last, which is the same reason a
-              <code>default</code> branch goes at the bottom of a dispatch table
-              and a wildcard route goes at the end of a routing file. Caching
-              describes an optimization this change does not make. A guard rejects
-              input early, whereas this arrangement accepts input late, which is
-              closer to the opposite arrangement.
+              <code>StaticFiles</code> accepts <code>follow_symlink=True</code>, which compares the joined path
+              without resolving links, so a link out of the directory is served.
+              <code>_FrontendStaticFiles</code> always passes <code>follow_symlink=False</code>, and
+              <code>frontend()</code> has no argument to change it, so such a file gets a 404
+              (<a class="srcref" href="https://github.com/fastapi/fastapi/blob/5bd3221f492738f5c413e9cc134096d5bd455251/tests/test_frontend.py#L676"><code>tests/test_frontend.py:676</code></a>).
+              Many path operations favor <code>frontend()</code>, which never competes with them. A proxy's
+              <code>root_path</code> is honored by both. A <code>404.html</code> for misses is something both serve
+              as well.
             </div>
           </div>
         </section>

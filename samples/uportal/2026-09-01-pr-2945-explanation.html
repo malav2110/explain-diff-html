@@ -245,6 +245,25 @@
       table.vals td.warn {
         background: var(--edge-soft);
       }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
       /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
@@ -617,17 +636,16 @@
 
       <main>
         <header>
-          <h1>A callback that never returned anything useful, typed to say so</h1>
+          <h1>PR 2945: each limiting tee's callback becomes a <code>Consumer</code></h1>
           <p class="lead">
-            <a href="https://github.com/uPortal-Project/uPortal/pull/2945">uPortal PR 2945</a>
-            changes the callback that uPortal's two limiting tees call when output
-            passes a size limit from Guava's <code>Function&lt;T, ?&gt;</code> to
-            Java's <code>Consumer&lt;T&gt;</code>, so the result that ErrorProne
-            asked about no longer exists and the workaround PR 2943 added comes
-            out.
+            The limit-reached callback in <code>LimitingTeeWriter</code> and
+            <code>LimitingTeeOutputStream</code> changes from Guava's
+            <code>Function</code> to <code>Consumer</code>, so firing it returns
+            nothing for ErrorProne's <code>CheckReturnValue</code> check to
+            flag.
           </p>
           <p class="provenance">
-            uPortal-Project/uPortal PR 2945 at a20fb52, explained 2026-10-22.
+            uPortal-Project/uPortal PR 2945 at a20fb52, explained 2026-11-16.
             References link to this commit.
           </p>
         </header>
@@ -639,364 +657,307 @@
               New to this area? Expand for the deeper background.
             </summary>
             <p>
-              uPortal is an open source enterprise portal framework built for
-              higher education. A portal page is assembled from portlets, small
-              applications that each render one fragment of the page. uPortal can
-              capture a portlet's output and reuse it for a later request instead
-              of rendering the portlet again.
+              A tee is named after the Unix <code>tee</code> command: it sends
+              one stream of output to two places. uPortal's
+              <code>TeeWriter</code> passes every write to its main writer,
+              <code>out</code>, and then repeats it on a second writer, the
+              <code>branch</code>
+              (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/TeeWriter.java#L63-L66"><code>uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/TeeWriter.java:63-66</code></a>).
+              <code>TeeOutputStream</code> does the same for bytes. The two
+              extend commons-io's <code>ProxyWriter</code> and
+              <code>ProxyOutputStream</code>, and those call a hook,
+              <code>beforeWrite(n)</code>, with the size of each write before
+              passing it on.
             </p>
             <p>
-              A tee, named after the Unix <code>tee</code> command, sends
-              everything written to it to two places. uPortal's
-              <code>TeeWriter</code>
-              (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/TeeWriter.java#L25"><code>TeeWriter.java:25</code></a>)
-              wraps a main writer, called <code>out</code>, and a second writer
-              called the branch. Each write goes to <code>out</code> first and to
-              the branch second. <code>TeeWriter</code> extends Apache Commons IO's
-              <code>ProxyWriter</code>, which calls a <code>beforeWrite(n)</code>
-              hook with the number of characters before they reach the main
-              writer. A subclass overrides that hook to watch the
-              traffic, and calls <code>setBranch</code>
-              (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/TeeWriter.java#L34"><code>TeeWriter.java:34</code></a>)
-              to swap the branch for another writer. <code>TeeOutputStream</code>
-              does the same job for bytes.
+              A Java lambda is an object that implements an interface with one
+              abstract method, and that interface decides whether the lambda
+              must return a value. Guava's
+              <code>com.google.common.base.Function&lt;F, T&gt;</code> declares
+              <code>T apply(F input)</code> and returns a value, while the JDK's
+              <code>java.util.function.Consumer&lt;T&gt;</code> declares
+              <code>void accept(T t)</code> and returns none.
             </p>
             <p>
-              Guava's <code>com.google.common.base.Function&lt;F, T&gt;</code> and
-              Java's <code>java.util.function.Consumer&lt;T&gt;</code> are both
-              functional interfaces: interfaces with a single abstract method, which
-              a lambda can implement. <code>Function</code> declares
-              <code>T apply(F input)</code>, so every call returns a value.
-              <code>Consumer</code> declares <code>void accept(T t)</code>, so a
-              call returns no value. A field typed <code>Function&lt;T, ?&gt;</code>
-              uses the wildcard <code>?</code> for the result: the callback returns
-              a value, and the field does not say what kind.
-            </p>
-            <p>
-              ErrorProne is a Google compiler plugin that adds checks to
-              <code>javac</code>. Its <code>CheckReturnValue</code> check reports a
-              call whose result is thrown away when the method, its class, or its
-              package is marked <code>@CheckReturnValue</code>. Guava marks its
-              whole <code>com.google.common.base</code> package that way
-              (<code data-bare="outside-repo">package-info.java:58</code> in Guava
-              v31.1), so a call that drops the result of
-              <code>Function.apply</code> is the kind the check looks for. A call
-              whose result is assigned to a variable is not dropped, and the check
-              leaves it alone. uPortal applies the ErrorProne plugin in its shared
-              build setup
+              ErrorProne is a compiler plugin that adds checks to
+              <code>javac</code>, and uPortal applies it to every subproject
               (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/build.gradle#L46"><code>build.gradle:46</code></a>).
+              Its <code>CheckReturnValue</code> check flags a call that throws
+              away the result of a method annotated
+              <code>@CheckReturnValue</code>, the marker a library puts on
+              methods whose result the caller must use. This pull request's body
+              calls the failure it avoids "the underlying Guava
+              <code>@CheckReturnValue</code> check".
             </p>
           </details>
 
           <p>
-            <code>CachingPortletOutputHandler</code>
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L30"><code>CachingPortletOutputHandler.java:30</code></a>)
-            captures a portlet's output for reuse. Its Javadoc
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L26-L29"><code>CachingPortletOutputHandler.java:26-29</code></a>)
-            says it caches up to <code>maximumSize</code> bytes or characters and
-            gives up caching past that. <code>PortletRendererImpl</code> builds the
-            handler with the portal's cache size threshold
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-web/src/main/java/org/apereo/portal/portlet/rendering/PortletRendererImpl.java#L434-L436"><code>PortletRendererImpl.java:434-436</code></a>).
-            That threshold, <code>cacheSizeThreshold</code>, defaults to 102400,
-            which the code comment calls 100 KB
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/PortletCacheControlServiceImpl.java#L73-L74"><code>PortletCacheControlServiceImpl.java:73-74</code></a>).
-            A portal operator can override it through the
-            <code>cacheSizeThreshold</code> property that sits commented out at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/main/resources/properties/portal.properties#L383"><code>portal.properties:383</code></a>.
+            A uPortal page is assembled from portlets, and uPortal can cache a
+            portlet's rendered output. For each render,
+            <code>PortletRendererImpl</code> builds a
+            <code>CachingPortletOutputHandler</code> with a size threshold
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-web/src/main/java/org/apereo/portal/portlet/rendering/PortletRendererImpl.java#L435-L436"><code>PortletRendererImpl.java:435-436</code></a>).
+            Its constructor stores that threshold as <code>maximumSize</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L45"><code>CachingPortletOutputHandler.java:45</code></a>).
+            <code>CachingPortletOutputHandler</code> gives the portlet a
+            character writer from <code>getPrintWriter()</code> or a byte
+            stream from <code>getOutputStream()</code>. Behind the writer sits a
+            <code>LimitingTeeWriter</code>, and behind the stream a
+            <code>LimitingTeeOutputStream</code>. These limiting tees extend
+            <code>TeeWriter</code> and <code>TeeOutputStream</code>, which send
+            each write to two places: <code>out</code>, the real response, and
+            <code>branch</code>, an in-memory copy for the cache.
           </p>
           <p>
-            The handler does its capturing with a tee. When the portlet asks for a
-            writer through <code>getPrintWriter</code>, the handler wraps the real
-            response writer in a <code>LimitingTeeWriter</code> and makes an
-            in-memory <code>StringBuilderWriter</code>, its
-            <code>cachingWriter</code>, the branch. A portlet that asks for bytes
-            through <code>getOutputStream</code> gets the same treatment from
-            <code>LimitingTeeOutputStream</code> and a
-            <code>ByteArrayOutputStream</code>. The limiting tee counts what passes
-            through. Once the count goes over the limit, it swaps the branch for
-            <code>NullWriter.NULL_WRITER</code>, a writer that discards everything,
-            and it calls a callback held in a field named
-            <code>limitReachedCallback</code>. The handler's callback empties the
-            partial copy through <code>clearCachedWriter()</code> or
-            <code>clearCachedStream()</code>. Later, the handler's
-            <code>getCachedPortletData</code> checks each tee's
-            <code>isLimitReached()</code> and returns nothing for a tee that hit
-            its limit.
+            Each limiting tee receives <code>maximumSize</code> as
+            <code>maximumCharacters</code> or <code>maximumBytes</code>. It
+            overrides <code>beforeWrite</code>, the hook commons-io calls with
+            the size of every write, to keep a running count. On the write that
+            takes the count past the maximum, the tee sets
+            <code>limitReached</code>, swaps the branch for a
+            <code>NullWriter</code> or <code>NullOutputStream</code> through
+            <code>setBranch</code>, and calls its
+            <code>limitReachedCallback</code>. The callback that
+            <code>CachingPortletOutputHandler</code> supplies runs
+            <code>clearCachedWriter()</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L179-L186"><code>CachingPortletOutputHandler.java:179-186</code></a>)
+            or <code>clearCachedStream()</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L195-L199"><code>CachingPortletOutputHandler.java:195-199</code></a>),
+            which empties the partial copy.
+            <code>getCachedPortletData</code> then returns <code>null</code>,
+            so the render is not cached
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L50-L54"><code>CachingPortletOutputHandler.java:50-54</code></a>).
+            The callback is optional: each tee's three-argument constructor
+            passes <code>null</code> in its place
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L36-L38"><code>LimitingTeeWriter.java:36-38</code></a>).
           </p>
+
+          <p class="flow-label">
+            With <code>maximumSize</code> 21, the 22nd character trips the limit
+          </p>
+          <div class="dataflow">
+            <div class="node terminal">Portlet writes</div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">21 chars, then "!"</span
+                ><span class="line"></span>
+              </div>
+              <div class="node"><code>beforeWrite</code> counts 22</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">22 &gt; 21</span><span class="line"></span>
+              </div>
+              <div class="node">branch becomes <code>NullWriter</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">callback(this)</span
+                ><span class="line"></span>
+              </div>
+              <div class="node"><code>clearCachedWriter</code> runs</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">null</span><span class="line"></span>
+              </div>
+              <div class="node terminal">nothing cached</div>
+            </div>
+          </div>
+
           <p>
-            That callback is what this change retypes. Before
+            Before this pull request, both tees typed the callback as Guava's
+            <code>Function&lt;LimitingTeeWriter, ?&gt;</code> or
+            <code>Function&lt;LimitingTeeOutputStream, ?&gt;</code>. The
+            <code>?</code> wildcard accepts a callback with any result type.
             <a href="https://github.com/uPortal-Project/uPortal/pull/2943">PR 2943</a>,
-            the tee called <code>this.limitReachedCallback.apply(this);</code> and
-            dropped the result. PR 2943, titled "Fixes for guava version bump",
-            assigned the result to a local variable named <code>unused</code>,
-            which its code comment says satisfies <code>CheckReturnValue</code>.
-            It also put <code>@SuppressWarnings("unused")</code> on that local, so
-            a variable nobody reads raises no warning of its own. PR 2945 removes
-            that workaround and changes the type instead. Its body calls the
-            <code>Consumer</code> version the cleaner design for the same problem.
+            titled "Fixes for guava version bump", kept that type and turned the
+            one line that fires the callback into four. That is what its merge
+            commit, 9ba420b, carries. PR 2943's body on GitHub now describes
+            this pull request's approach instead, because, per this pull
+            request's body, the merge "had already resolved against the
+            original <code>@SuppressWarnings</code> version". This pull
+            request's diff removes those four lines:
+          </p>
+          <p class="filename">Before, in both tees' <code>beforeWrite</code></p>
+          <pre> if (this.limitReachedCallback != null) {
+<span class="del">-    // Named 'unused' to satisfy ErrorProne's CheckReturnValue; the callback's</span>
+<span class="del">-    // signature is Function&lt;T,?&gt; but its return value is intentionally discarded.</span>
+<span class="del">-    @SuppressWarnings("unused")</span>
+<span class="del">-    Object unused = this.limitReachedCallback.apply(this);</span>
+ }</pre>
+          <p>
+            PR 2943's body says the check fires "when resource-server's newer
+            Guava transitively lands in the classpath". The build pins that
+            resource-server dependency through
+            <code>resourceServerVersion</code>, still 1.3.1 at this commit
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/gradle.properties#L98"><code>gradle.properties:98</code></a>).
+            That reads as though the check does not fire on this commit, though
+            this page did not build it to confirm. This pull request's body
+            reports that the <code>remove_fluid</code> Git branch behind
+            <a href="https://github.com/uPortal-Project/uPortal/pull/2915">PR 2915</a>,
+            which sets the version to 1.5.2, builds clean with these changes.
           </p>
           <p>
-            The PR body also says why the change arrived as a separate pull
-            request. According to the body, the <code>Consumer</code> version was
-            first written as commit <code>f2e3a459</code> on the
-            <code>remove_fluid</code> branch, the branch behind
-            <a href="https://github.com/uPortal-Project/uPortal/pull/2915">PR 2915</a>,
-            and reached PR 2943's branch only after PR 2943 had merged. PR 2943's
-            timeline shows its one commit, <code>adcfd74</code>, and the merge. A
-            merged pull request no longer follows its branch, so that timeline
-            cannot confirm the later push.
+            <code>PortalRawEventsAggregatorImplTest</code> also calls a Guava
+            <code>Function</code> and drops its result. The function belongs to
+            <code>IPortalEventDao.aggregatePortalEvents</code>, which reads the
+            stored portal events not yet aggregated in a time range and passes
+            each one, in order,
+            to a <code>Function&lt;PortalEvent, Boolean&gt;</code> handler.
+            <code>JpaPortalEventStore</code> implements
+            <code>IPortalEventDao</code>. The test replaces the DAO with a
+            Mockito mock whose <code>Answer</code>, the stub Mockito runs in
+            place of the real method, calls the handler once.
           </p>
-
-          <div class="callout">
-            <span class="label">Key concept</span>
-            A callback's return type is part of its contract.
-            <code>Function&lt;T, ?&gt;</code> tells every caller that a result comes
-            back and is theirs to handle. <code>Consumer&lt;T&gt;</code> tells them
-            nothing comes back. A check about ignored results can only fire where a
-            result exists.
-          </div>
-
-          <div class="callout edge">
-            <span class="label">Open question: what made the check fire</span>
-            Commit <code>8e350c7</code>, the main-branch commit just before PR 2943
-            merged, carried the plain <code>apply(this)</code> call with the same
-            Guava 31.1-jre pin this page's commit has
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/gradle.properties#L65"><code>gradle.properties:65</code></a>),
-            so the check was evidently not failing that build. The PR body places
-            the failure on <code>remove_fluid</code>, which pins the
-            resource-server dependency at 1.5.2, set in commit
-            <code>163e595</code>. This page's commit still pins 1.3.1
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/gradle.properties#L98"><code>gradle.properties:98</code></a>).
-            <a href="https://github.com/uPortal-Project/resource-server/tree/resource-server-1.5.2">resource-server 1.5.2</a>
-            declares Guava 32.0.0-android, so this page infers that the bump
-            brings a newer Guava in. Guava 31.1 already carries the annotation,
-            though, so the version alone does not explain it. The dependencies
-            Gradle resolves on <code>remove_fluid</code> would settle the
-            question, and this page did not read them.
-          </div>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
           <p>
-            The tee calls its callback for a side effect: empty the partial copy.
-            It never reads anything back. PR 2943 kept a type that promises a
-            result, then had to explain at the call site why the result was
-            dropped. PR 2945 changes the type to one that promises no result, and
-            the call site has nothing left to explain.
+            A callback's type tells the code that calls it whether there is a
+            result to use. Compare two toy callbacks:
+          </p>
+          <pre>Function&lt;String, Integer&gt; length = s -&gt; s.length();
+Integer n = length.apply("abc");     // n is 3, and the caller keeps it
+
+Consumer&lt;String&gt; print = s -&gt; System.out.println(s);
+print.accept("abc");                 // prints abc; there is no result</pre>
+          <p>
+            The limiting tees use their callback the way this code uses
+            <code>print</code>: they call it for its effect and never read a
+            result. Their field was typed like <code>length</code>, though, so
+            every <code>apply(this)</code> produced a value with nowhere to go.
+            Under the newer Guava, <code>CheckReturnValue</code> flags that
+            dropped value. PR 2943 gave the value somewhere to go: a local named
+            <code>unused</code>. That cost a local nobody reads, a
+            <code>@SuppressWarnings("unused")</code> annotation against
+            unused-variable warnings, and a two-line comment. The
+            <a href="https://github.com/uPortal-Project/uPortal/commit/a20fb52337392b5b3c0d60446ff70d152225afa8">commit message</a>
+            puts the case for the new type this way: "the callback's return was
+            always discarded (the <code>?</code> wildcard on Function was a
+            tell)".
           </p>
           <p>
-            Take a toy limit of 10 characters. A portlet writes
-            <code>Hello, </code>, which is 7 characters, and then
-            <code>portal!</code>, 7 more.
+            With <code>Consumer</code>, <code>accept(this)</code> returns
+            <code>void</code>. There is no value to keep or drop, so the call
+            needs no workaround.
           </p>
 
           <table class="vals">
+            <caption>
+              The line that fires the callback, in three stages
+            </caption>
             <thead>
               <tr>
-                <th>Write</th>
-                <th>Count after</th>
-                <th>Over 10?</th>
-                <th>Response gets</th>
-                <th>Cache copy holds</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>Hello, </code></td>
-                <td>7</td>
-                <td>no</td>
-                <td><code>Hello, </code></td>
-                <td class="yes"><code>Hello, </code></td>
-              </tr>
-              <tr>
-                <td><code>portal!</code></td>
-                <td>14</td>
-                <td>yes</td>
-                <td><code>portal!</code></td>
-                <td class="no">empty</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p>
-            On the second write, <code>beforeWrite</code> sees a count of 14. It
-            swaps the branch for the null writer before <code>portal!</code>
-            reaches the branch, then calls the callback, which empties the 7
-            characters already copied. The response gets all 14 characters. The
-            cache gets none, and <code>getCachedPortletData</code> returns null.
-          </p>
-
-          <p class="flow-label">The second write, after the limit trips</p>
-          <div class="dataflow">
-            <div class="node terminal">Portlet</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">"portal!"</span><span class="line"></span>
-              </div>
-              <div class="node">LimitingTeeWriter, count 14 &gt; 10</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">accept(this)</span><span class="line"></span>
-              </div>
-              <div class="node">clearCachedWriter()</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">emptied</span><span class="line"></span>
-              </div>
-              <div class="node terminal">Cache copy</div>
-            </div>
-          </div>
-
-          <p>
-            Nothing on that path uses a value coming back from the callback. The
-            three versions of the call site differ only in how they deal with a
-            value nobody wants:
-          </p>
-
-          <table class="vals">
-            <thead>
-              <tr>
-                <th>Version</th>
-                <th>Callback type</th>
-                <th>Call site</th>
-                <th>Workaround</th>
+                <th>Stage</th>
+                <th>The call</th>
+                <th>What <code>CheckReturnValue</code> sees</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>Before PR 2943</td>
-                <td><code>Function&lt;LimitingTeeWriter, ?&gt;</code></td>
-                <td><code>apply(this);</code> (result dropped)</td>
-                <td>none</td>
+                <td><code>limitReachedCallback.apply(this);</code></td>
+                <td class="no">
+                  A dropped result, flagged once the newer Guava is on the
+                  classpath, per PR 2943
+                </td>
               </tr>
               <tr>
                 <td>PR 2943</td>
-                <td><code>Function&lt;LimitingTeeWriter, ?&gt;</code></td>
-                <td><code>Object unused = ...apply(this);</code></td>
-                <td class="warn">a local named <code>unused</code>, plus <code>@SuppressWarnings("unused")</code></td>
+                <td>
+                  <code>Object unused = limitReachedCallback.apply(this);</code>
+                </td>
+                <td class="warn">A result kept in a local nobody reads</td>
               </tr>
               <tr>
-                <td>PR 2945</td>
-                <td><code>Consumer&lt;LimitingTeeWriter&gt;</code></td>
-                <td><code>accept(this);</code></td>
-                <td class="yes">none needed</td>
+                <td>This pull request</td>
+                <td><code>limitReachedCallback.accept(this);</code></td>
+                <td class="yes">No result at all</td>
               </tr>
             </tbody>
           </table>
 
-          <p>
-            The same reasoning explains the one <code>Function</code> the PR keeps.
-            The PR also edits <code>PortalRawEventsAggregatorImplTest</code>,
-            which drops a <code>Function.apply</code> result of its own. That
-            function is the per-event callback that
-            <code>IPortalEventDao.aggregatePortalEvents</code> takes, and its
-            <code>Boolean</code> result tells the event data-access object (DAO)
-            whether to keep going. That result means something, so the type keeps
-            returning one, and the test assigns the value it drops to a local
-            named <code>ignored</code> instead.
-          </p>
+          <div class="callout">
+            <span class="label">What stays the same</span>
+            The pull request body says "no behavior change". The callback still
+            runs once, on the write that crosses the limit, and still clears
+            the cached copy.
+          </div>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
           <p>
-            The path, end to end: <code>getPrintWriter</code> builds a
-            <code>LimitingTeeWriter</code> with a lambda, each write runs
-            <code>beforeWrite</code>, a write past the limit calls
-            <code>limitReachedCallback.accept(this)</code>,
-            <code>clearCachedWriter()</code> empties the copy, and
-            <code>getCachedPortletData</code> returns null.
+            Flow map: <code>getPrintWriter()</code> builds the callback &rarr;
+            <code>LimitingTeeWriter</code> stores it &rarr;
+            <code>beforeWrite</code> crosses the limit &rarr;
+            <code>accept(this)</code> &rarr; <code>clearCachedWriter()</code>,
+            and the byte path is the same.
           </p>
 
-          <h3>1. The handler passes a lambda</h3>
+          <h3 class="core-step">1. <code>CachingPortletOutputHandler</code> passes a lambda</h3>
           <p>
-            <code>getPrintWriter</code> builds the writer tee with the handler's
-            <code>maximumSize</code>, the real writer as <code>out</code>, the
-            in-memory <code>cachingWriter</code> as the branch, and the callback
-            last.
+            Each callback is built in <code>CachingPortletOutputHandler</code>.
+            Before,
+            <code>getPrintWriter()</code> passed an anonymous Guava
+            <code>Function</code> whose <code>apply</code> called
+            <code>clearCachedWriter()</code> and returned <code>null</code>.
+            Now it passes a one-line lambda:
           </p>
           <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L99-L104">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java:99-104</a>
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java"
+              >uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java</a
+            >, from the diff
           </p>
-          <pre>
-this.teeWriter =
-        new LimitingTeeWriter(
-                this.maximumSize,
-                delegateWriter,
-                this.cachingWriter,
-<span class="add">                input -&gt; clearCachedWriter());</span>
-</pre>
+          <pre>        this.cachingWriter,
+<span class="del">-       new Function&lt;LimitingTeeWriter, Object&gt;() {</span>
+<span class="del">-           @Override</span>
+<span class="del">-           public Object apply(LimitingTeeWriter input) {</span>
+<span class="del">-               // Limit hit, clear the cache</span>
+<span class="del">-               clearCachedWriter();</span>
+<span class="del">-               return null;</span>
+<span class="del">-           }</span>
+<span class="del">-       });</span>
+<span class="add">+       input -&gt; clearCachedWriter());</span></pre>
           <p>
-            Before the change, the last argument was an anonymous class. This is
-            the removed code, quoted from the diff:
-          </p>
-          <p class="filename">CachingPortletOutputHandler.java, removed lines</p>
-          <pre>
-<span class="del">new Function&lt;LimitingTeeWriter, Object&gt;() {</span>
-<span class="del">    @Override</span>
-<span class="del">    public Object apply(LimitingTeeWriter input) {</span>
-<span class="del">        // Limit hit, clear the cache</span>
-<span class="del">        clearCachedWriter();</span>
-<span class="del">        return null;</span>
-<span class="del">    }</span>
-<span class="del">});</span>
-</pre>
-          <p>
-            <code>getOutputStream</code> makes the same swap for the byte tee, with
-            <code>input -&gt; clearCachedStream()</code> at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L130"><code>CachingPortletOutputHandler.java:130</code></a>.
-            The handler's import of <code>com.google.common.base.Function</code>
-            goes, since nothing in the file uses it any more. The lambda ignores
-            its argument, the tee that hit the limit, because the handler already
-            holds its own reference to the copy it has to empty.
+            The new argument sits at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L104"><code>CachingPortletOutputHandler.java:104</code></a>.
+            <code>getOutputStream()</code> makes the same switch at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L130"><code>CachingPortletOutputHandler.java:130</code></a>,
+            passing <code>input -&gt; clearCachedStream()</code>. The lambda's
+            parameter, <code>input</code>, is the tee that hit its limit, and
+            the lambda ignores it. The removed anonymous class takes its comment
+            with it. The <code>com.google.common.base.Function</code> import
+            goes too, since nothing in the file uses it now.
           </p>
 
-          <h3>2. The tee stores a <code>Consumer</code></h3>
+          <h3 class="core-step">2. The tee stores a <code>Consumer</code> and calls <code>accept</code></h3>
           <p>
-            <code>LimitingTeeWriter</code> keeps the limit in
-            <code>maximumCharacters</code>, the original branch in
-            <code>branch</code>, the callback, a running count in
-            <code>characterCount</code>, and a flag, <code>limitReached</code>, for
-            whether the limit has been reached.
-          </p>
-          <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L29-L34">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java:29-34</a>
-          </p>
-          <pre>
-public class LimitingTeeWriter extends TeeWriter {
-    private final long maximumCharacters;
-    private final Writer branch;
-<span class="add">    private final Consumer&lt;LimitingTeeWriter&gt; limitReachedCallback;</span>
-    private long characterCount = 0;
-    private boolean limitReached = false;
-</pre>
-          <p>
-            The field was
-            <code>private final Function&lt;LimitingTeeWriter, ?&gt; limitReachedCallback;</code>.
-            The matching parameter of the four-argument constructor changes the
-            same way
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L44"><code>LimitingTeeWriter.java:44</code></a>),
-            the import becomes <code>java.util.function.Consumer</code>
+            On the receiving side, <code>LimitingTeeWriter</code> retypes its
+            field, and the matching parameter of its four-argument constructor,
+            as <code>Consumer&lt;LimitingTeeWriter&gt;</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L32"><code>LimitingTeeWriter.java:32</code></a>
+            and
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L44"><code>LimitingTeeWriter.java:44</code></a>).
+            An import of <code>java.util.function.Consumer</code> replaces
+            Guava's
             (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L19"><code>LimitingTeeWriter.java:19</code></a>),
-            and the class Javadoc now names a callback <code>{@link Consumer}</code>
+            and the class Javadoc now links <code>Consumer</code>
             (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L27"><code>LimitingTeeWriter.java:27</code></a>).
-            <code>LimitingTeeOutputStream</code> gets the identical edits, with its
-            field at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java#L32"><code>LimitingTeeOutputStream.java:32</code></a>.
-          </p>
-
-          <h3>3. The tee fires it once</h3>
-          <p>
-            <code>beforeWrite</code> adds each write to the count, then checks the
-            limit.
+            The call itself is the last statement of the hook:
           </p>
           <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L75-L88">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java:75-88</a>
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L74-L89"
+              >uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java:74-89</a
+            >
           </p>
-          <pre>
+          <pre>@Override
 protected void beforeWrite(int n) throws IOException {
     this.characterCount += n;
 
@@ -1011,137 +972,55 @@ protected void beforeWrite(int n) throws IOException {
 <span class="add">            this.limitReachedCallback.accept(this);</span>
         }
     }
-</pre>
+}</pre>
           <p>
-            <code>!this.limitReached</code> keeps the block from running a second
-            time. The callback runs after the branch
-            swap, so by the time the handler empties the copy, nothing more can
-            land in it. These are the lines PR 2945 removes from the same spot,
-            quoted from the diff:
+            The four removed lines shown in Background become the single
+            <code>accept(this)</code> call at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L86"><code>LimitingTeeWriter.java:86</code></a>.
+            That call runs the lambda from step 1. The null guard around it is
+            unchanged.
           </p>
-          <p class="filename">LimitingTeeWriter.java, removed lines</p>
-          <pre>
-<span class="del">// Named 'unused' to satisfy ErrorProne's CheckReturnValue; the callback's</span>
-<span class="del">// signature is Function&lt;T,?&gt; but its return value is intentionally discarded.</span>
-<span class="del">@SuppressWarnings("unused")</span>
-<span class="del">Object unused = this.limitReachedCallback.apply(this);</span>
-</pre>
           <p>
-            <code>LimitingTeeOutputStream</code> counts bytes instead of characters
-            and swaps in <code>NullOutputStream.NULL_OUTPUT_STREAM</code>. Its call
-            is at
+            <code>LimitingTeeOutputStream</code> gets the same edit and counts
+            bytes instead of characters. Its field is at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java#L32"><code>uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java:32</code></a>,
+            its parameter at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java#L44"><code>LimitingTeeOutputStream.java:44</code></a>,
+            and its call at
             <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStream.java#L84"><code>LimitingTeeOutputStream.java:84</code></a>.
           </p>
 
-          <h3>4. What the callback does, and what the handler returns</h3>
-          <p>
-            The lambda from step 1 calls <code>clearCachedWriter</code>, which
-            deletes everything the copy holds. PR 2945 does not change it.
-          </p>
-          <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L179-L186">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java:179-186</a>
-          </p>
-          <pre>
-private void clearCachedWriter() {
-    if (this.cachingWriter != null) {
-        final StringBuilder builder = this.cachingWriter.getBuilder();
-        if (builder.length() &gt; 0) {
-            builder.delete(0, builder.length());
-        }
-    }
-}
-</pre>
-          <p>
-            When the portal later asks for the captured output, the handler checks
-            the tee's flag first.
-          </p>
-          <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L50-L53">uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java:50-53</a>
-          </p>
-          <pre>
-if ((this.teeWriter != null &amp;&amp; this.teeWriter.isLimitReached())
-        || (this.teeStream != null &amp;&amp; this.teeStream.isLimitReached())) {
-    // Hit the caching limit, nothing to return
-    return null;
-</pre>
-          <p>
-            So the callback and the flag split the work. The flag keeps an
-            oversized copy from being cached. The callback empties the partial
-            copy as soon as the limit trips, while the portlet is still writing.
-          </p>
+          <div class="callout edge">
+            <span class="label">Edge case</span>
+            Both four-argument constructors are public. Code outside this
+            repository that passes a Guava <code>Function</code> object, such
+            as an anonymous class or a variable, stops compiling against them.
+            A lambda whose body is a single method call still compiles, because
+            <code>Consumer</code> accepts it too. A search of
+            <code>src/main</code> at this commit finds no caller of either tee
+            other than <code>CachingPortletOutputHandler</code>.
+          </div>
 
-          <h3>5. The tests switch to lambdas</h3>
           <p>
-            Each tee's test class has a <code>testContentExceedsClearBuffer</code>
-            case that passes a callback, sets the limit one below the content's
-            length, and checks that the branch is empty after the limit trips. The
-            writer test's anonymous class becomes a block lambda.
+            <code>PortalRawEventsAggregatorImplTest</code> meets the same check
+            where the type cannot change. Its mock's <code>Answer</code> used to
+            call the DAO's handler and drop the result. That handler's type is
+            declared by <code>IPortalEventDao</code>, as
+            <code>Function&lt;PortalEvent, Boolean&gt; handler</code> at
+            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-events/src/main/java/org/apereo/portal/events/handlers/db/IPortalEventDao.java#L77"><code>IPortalEventDao.java:77</code></a>.
+            The pull request body says the function "comes from the
+            code-under-test's own API, not our types". So the test keeps Guava's
+            <code>Function</code> and stores the result in a local named
+            <code>ignored</code>:
           </p>
           <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriterTest.java#L59-L65">uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriterTest.java:59-65</a>
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/events/aggr/PortalRawEventsAggregatorImplTest.java#L178-L186"
+              >uPortal-webapp/src/test/java/org/apereo/portal/events/aggr/PortalRawEventsAggregatorImplTest.java:178-186</a
+            >
           </p>
-          <pre>
-content.length() - 1,
-NullWriter.NULL_WRITER,
-stringWriter,
-<span class="add">input -&gt; {</span>
-<span class="add">    final StringBuilder builder = stringWriter.getBuilder();</span>
-<span class="add">    builder.delete(0, builder.length());</span>
-});
-</pre>
-          <p>
-            The stream test does the same with
-            <code>input -&gt; byteStream.reset()</code>
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStreamTest.java#L68"><code>LimitingTeeOutputStreamTest.java:68</code></a>),
-            and both files drop their Guava <code>Function</code> import.
-          </p>
-
-          <h3>6. The one <code>Function</code> that stays</h3>
-          <p>
-            <code>PortalRawEventsAggregatorImplTest</code> uses Mockito to stand in
-            for the event DAO. The stand-in's answer takes the per-event callback
-            from the call's arguments and runs it on a mock event. That callback
-            is the last parameter of
-            <code>IPortalEventDao.aggregatePortalEvents</code>, and its type is
-            Guava's <code>Function</code>, imported at
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-events/src/main/java/org/apereo/portal/events/handlers/db/IPortalEventDao.java#L17"><code>IPortalEventDao.java:17</code></a>.
-          </p>
-          <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-events/src/main/java/org/apereo/portal/events/handlers/db/IPortalEventDao.java#L73-L77">uPortal-events/src/main/java/org/apereo/portal/events/handlers/db/IPortalEventDao.java:73-77</a>
-          </p>
-          <pre>
-boolean aggregatePortalEvents(
-        DateTime startTime,
-        DateTime endTime,
-        int maxEvents,
-        Function&lt;PortalEvent, Boolean&gt; handler);
-</pre>
-          <p>
-            The Javadoc above it
-            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-events/src/main/java/org/apereo/portal/events/handlers/db/IPortalEventDao.java#L62-L64"><code>IPortalEventDao.java:62-64</code></a>)
-            says the callback returns false to stop aggregation. The result
-            carries a decision, so <code>Consumer</code> would throw that decision
-            away. Before the change, the test called <code>apply</code> and
-            dropped the result. These are the removed lines, quoted from the diff:
-          </p>
-          <p class="filename">PortalRawEventsAggregatorImplTest.java, removed lines</p>
-          <pre>
-<span class="del">((Function&lt;PortalEvent, Boolean&gt;) invocation.getArguments()[3])</span>
-<span class="del">        .apply(</span>
-<span class="del">                new MockPortalEvent(</span>
-<span class="del">                        this,</span>
-<span class="del">                        "serverName",</span>
-<span class="del">                        "eventSessionId",</span>
-<span class="del">                        person));</span>
-</pre>
-          <p>
-            The test keeps the type and assigns the result to a local instead.
-          </p>
-          <p class="filename">
-            <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/events/aggr/PortalRawEventsAggregatorImplTest.java#L178-L186">uPortal-webapp/src/test/java/org/apereo/portal/events/aggr/PortalRawEventsAggregatorImplTest.java:178-186</a>
-          </p>
-          <pre>
-<span class="add">Boolean ignored =</span>
+          <pre><span class="add">Boolean ignored =</span>
 <span class="add">        ((Function&lt;PortalEvent, Boolean&gt;)</span>
 <span class="add">                        invocation.getArguments()[3])</span>
 <span class="add">                .apply(</span>
@@ -1149,163 +1028,168 @@ boolean aggregatePortalEvents(
 <span class="add">                                this,</span>
 <span class="add">                                "serverName",</span>
 <span class="add">                                "eventSessionId",</span>
-<span class="add">                                person));</span>
-</pre>
+<span class="add">                                person));</span></pre>
+          <p>
+            Apart from <code>Boolean ignored =</code>, these lines are the
+            removed call, re-wrapped and indented under the new assignment. Unlike PR 2943's <code>Object unused</code>, the
+            local carries no annotation and no comment. The pull request body
+            says this shape "aligns with the ErrorProne convention for the cases
+            where the type genuinely can't be changed".
+          </p>
 
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            The test's answer returns <code>false</code> right after this call
-            and never reads <code>ignored</code>. The local exists only so the
-            call no longer drops its result, which is all
-            <code>CheckReturnValue</code> asks. The PR body says naming it this way
-            follows ErrorProne's convention where the type cannot change.
-          </div>
+          <table class="vals also-changed">
+            <caption>
+              Every other changed file (2 of 6)
+            </caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <a
+                    class="srcref"
+                    href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriterTest.java"
+                    ><code>uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriterTest.java</code></a
+                  >
+                </td>
+                <td>
+                  Its <code>testContentExceedsClearBuffer</code> passes a block
+                  lambda in place of an
+                  anonymous <code>Function</code>, and the unused Guava import
+                  goes.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <a
+                    class="srcref"
+                    href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStreamTest.java"
+                    ><code>uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeOutputStreamTest.java</code></a
+                  >
+                </td>
+                <td>
+                  Its <code>testContentExceedsClearBuffer</code> passes
+                  <code>input -&gt; byteStream.reset()</code> in place of an
+                  anonymous <code>Function</code>, and the unused Guava import
+                  goes.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
-
           <div class="quiz-question">
             <p class="q">
-              The aggregator test keeps Guava's <code>Function</code> and names the
-              result it drops. For the tee's <code>limitReachedCallback</code>,
-              which situation would have made keeping a <code>Function</code> the
-              right type?
+              Suppose this pull request had kept the tee's parameter as Guava's
+              <code>Function&lt;LimitingTeeWriter, ?&gt;</code> and changed
+              only the caller to <code>input -&gt; clearCachedWriter()</code>.
+              What happens at build time?
             </p>
             <button class="quiz-option">
-              The callback ran on a different thread from the writer
+              It compiles, and the lambda returns <code>null</code> to satisfy
+              the wildcard
             </button>
             <button class="quiz-option" data-correct>
-              The tee used the result to decide when to stop
+              The caller fails to compile, since a <code>void</code> call
+              returns no value
             </button>
             <button class="quiz-option">
-              The callback needed a reference to the tee that called it
+              It compiles, but ErrorProne flags the result the lambda drops
             </button>
             <button class="quiz-option">
-              ErrorProne checked only the test sources, never the main ones
+              It compiles, with Java inferring <code>Void</code> as the result
+              type
             </button>
             <div class="quiz-feedback" role="status">
-              A result type earns its place when the caller reads the result, as
-              <code>aggregatePortalEvents</code> reads the per-event callback's
-              <code>Boolean</code>. A callback on another thread still has nothing
-              useful to return. <code>Consumer&lt;LimitingTeeWriter&gt;</code>
-              already receives the tee as its argument, so needing the tee is no
-              reason to keep <code>Function</code>. Where ErrorProne runs changes
-              whether a warning shows up, not which type states the contract.
+              <code>clearCachedWriter()</code> is declared <code>void</code>
+              (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/CachingPortletOutputHandler.java#L179"><code>CachingPortletOutputHandler.java:179</code></a>).
+              A lambda aimed at <code>Function&lt;LimitingTeeWriter, ?&gt;</code>
+              has to produce an <code>Object</code> for <code>apply</code> to
+              return, and a call to a <code>void</code> method produces none,
+              so <code>javac</code> rejects it. Java never adds a
+              <code>return null</code> for you, and the wildcard does not become
+              <code>Void</code>. That is why the old anonymous classes ended
+              with an explicit <code>return null;</code>, and why the short
+              lambda depends on the type change in step 2.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              A handler is built with a <code>maximumSize</code> of 10. The portlet
-              writes <code>abcdefghij</code> and then <code>k</code>. When does the
-              callback fire, and what is left in the cache copy?
+              <code>JpaPortalEventStore</code> passes each stored event to the
+              <code>Function&lt;PortalEvent, Boolean&gt;</code> handler that
+              <code>IPortalEventDao.aggregatePortalEvents</code> takes. Suppose
+              someone retyped that handler as
+              <code>Consumer&lt;PortalEvent&gt;</code>, the way this pull
+              request retyped the tee's callback. What would the store lose?
             </p>
             <button class="quiz-option">
-              It fires on the first write, and the copy ends empty
+              Nothing, since it drops the handler's result just as the tee did
             </button>
             <button class="quiz-option">
-              It never fires, and the copy holds eleven characters
+              The order in which it hands the events to the handler
             </button>
             <button class="quiz-option">
-              It fires on k, and the copy keeps ten characters
+              Its way to confirm each event in the range reached the handler
             </button>
             <button class="quiz-option" data-correct>
-              It fires on k, and the copy ends empty
+              The handler's only way to tell it to stop the batch
             </button>
             <div class="quiz-feedback" role="status">
-              The check is <code>characterCount &gt; maximumCharacters</code>.
-              After <code>abcdefghij</code> the count is 10, which is not over 10,
-              so the copy keeps all ten characters. The <code>k</code> takes the
-              count to 11. The tee swaps in the null writer before <code>k</code>
-              reaches the branch, and the handler's lambda empties the ten
-              characters already copied. The response still gets all eleven.
+              The <code>Boolean</code> is a result the store reads.
+              <a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-events/src/main/java/org/apereo/portal/events/handlers/db/JpaPortalEventStore.java#L287-L292"><code>JpaPortalEventStore.java:287-292</code></a>
+              keeps it as <code>eventHandled</code> and returns
+              <code>false</code>, ending the batch, when the handler returns
+              <code>false</code>. The interface's Javadoc asks handlers to do
+              exactly that when aggregation should stop
+              (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-events/src/main/java/org/apereo/portal/events/handlers/db/IPortalEventDao.java#L62-L64"><code>IPortalEventDao.java:62-64</code></a>).
+              A <code>Consumer</code> has no result to give. The tee's
+              <code>?</code> wildcard was the opposite case: nothing read the
+              result, so there was no result type worth keeping.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              Suppose a <code>CachingPortletOutputHandler</code> were built with a
-              <code>maximumSize</code> of 0. What happens to the portlet's output?
-            </p>
-            <button class="quiz-option" data-correct>
-              Every output is copied in full, however large it is
-            </button>
-            <button class="quiz-option">
-              No output is cached, because every write passes the limit
-            </button>
-            <button class="quiz-option">
-              The callback fires on the first write and empties the copy
-            </button>
-            <button class="quiz-option">
-              The handler rejects the value and switches caching off
-            </button>
-            <div class="quiz-feedback" role="status">
-              The check in <code>beforeWrite</code> opens with
-              <code>this.maximumCharacters &gt; 0</code>, so a limit of 0 never
-              trips. The tee copies everything, the callback never runs, and
-              <code>getCachedPortletData</code> returns the full copy. A
-              <code>maximumSize</code> of 0 removes the limit; it does not turn
-              caching off.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              Suppose the field had stayed
-              <code>Function&lt;LimitingTeeWriter, ?&gt;</code>, but the handler
-              still passed <code>input -&gt; clearCachedWriter()</code>. What
-              happens?
+              The <code>if (this.limitReachedCallback != null)</code> guard in
+              <code>LimitingTeeWriter.beforeWrite</code> survived this change.
+              What would fail if it were deleted?
             </p>
             <button class="quiz-option">
-              It compiles, and the lambda quietly returns null instead
+              Nothing, because a field typed as <code>Consumer</code> can never
+              hold <code>null</code>
             </button>
             <button class="quiz-option">
-              It compiles, but ErrorProne reports the lambda as unused
+              The callback would run again on every write after the limit
             </button>
             <button class="quiz-option" data-correct>
-              It fails to compile, because the lambda returns no value
+              A writer built without a callback throws once output passes the
+              limit
             </button>
             <button class="quiz-option">
-              It compiles, and the call site no longer needs suppressing
+              The compiler would reject <code>accept</code> on a field that may
+              be <code>null</code>
             </button>
             <div class="quiz-feedback" role="status">
-              <code>clearCachedWriter()</code> returns <code>void</code>, so
-              <code>input -&gt; clearCachedWriter()</code> has no value to hand
-              back. A <code>Function</code> must return one, so
-              <code>javac</code> rejects that lambda for a
-              <code>Function&lt;LimitingTeeWriter, ?&gt;</code>. That is why the
-              old anonymous classes ended with <code>return null;</code>. A
-              <code>Consumer</code> expects no value, so the short lambda fits it.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              Suppose the <code>this.setBranch(NullWriter.NULL_WRITER)</code> line
-              in <code>beforeWrite</code> were deleted, and nothing else changed.
-              What happens once the output passes the limit?
-            </p>
-            <button class="quiz-option">
-              The cached copy is served with its first part missing
-            </button>
-            <button class="quiz-option" data-correct>
-              Nothing is cached, but the copy keeps growing in memory
-            </button>
-            <button class="quiz-option">
-              The portlet output to the response stops at the limit
-            </button>
-            <button class="quiz-option">
-              The callback fires again on every later write
-            </button>
-            <div class="quiz-feedback" role="status">
-              The callback still empties the copy once. The branch stays the
-              caching writer, though, so the write that crossed the limit and
-              every write after it land in the copy again.
-              <code>getCachedPortletData</code> still returns null, because
-              <code>isLimitReached()</code> is true, so nothing stale is served.
-              The <code>!this.limitReached</code> guard keeps the callback to a
-              single call, and the response never depended on the branch.
+              The three-argument constructor stores <code>null</code> as the
+              callback
+              (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-rendering/src/main/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriter.java#L36-L38"><code>LimitingTeeWriter.java:36-38</code></a>),
+              and <code>testContentExceedsThreshold</code> builds one that
+              crosses the limit
+              (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/a20fb52337392b5b3c0d60446ff70d152225afa8/uPortal-webapp/src/test/java/org/apereo/portal/portlet/container/cache/LimitingTeeWriterTest.java#L42-L43"><code>LimitingTeeWriterTest.java:42-43</code></a>).
+              Without the guard, the write that crosses the limit calls
+              <code>accept</code> on <code>null</code> and throws a
+              <code>NullPointerException</code>. Any reference type can hold
+              <code>null</code>, a <code>Consumer</code> included, and
+              <code>javac</code> accepts the call. Repeat calls are prevented by
+              a different condition, <code>!this.limitReached</code>, which
+              <code>beforeWrite</code> tests before it reaches the callback.
             </div>
           </div>
         </section>
