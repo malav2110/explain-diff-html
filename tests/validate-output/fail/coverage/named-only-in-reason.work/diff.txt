@@ -1,0 +1,18 @@
+diff --git a/a.py b/a.py
+--- a/a.py
++++ b/a.py
+@@ -9 +9 @@
+-    return 0
++    return None
+diff --git a/docs/notes.md b/docs/notes.md
+--- a/docs/notes.md
++++ b/docs/notes.md
+@@ -1 +1 @@
+-Zero.
++None.
+diff --git a/src/b.py b/src/b.py
+--- a/src/b.py
++++ b/src/b.py
+@@ -1 +1 @@
+-DEFAULT = 0
++DEFAULT = None

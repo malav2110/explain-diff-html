@@ -159,6 +159,7 @@
       li {
         margin: 0.3rem 0;
       }
+      /* Code blocks: white-space set here so a filled-in block cannot collapse. */
       pre,
       .code-block {
         white-space: pre-wrap;
@@ -191,6 +192,7 @@
         background: var(--surface);
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
+        overflow-wrap: anywhere;
       }
       /* A file:line reference linked to the code it names. Wraps a <code> span
          in prose, or the bare text of a .filename label. */
@@ -205,12 +207,15 @@
       a.srcref:hover code {
         background: var(--accent-soft);
       }
+      /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
         font-family: ui-monospace, monospace;
         margin: 1.5rem 0 0.3rem;
+        overflow-wrap: anywhere;
       }
+      /* Comparison table: one row per case, .yes / .no / .warn on outcome cells. */
       table.vals {
         border-collapse: collapse;
         margin: 1.5rem 0;
@@ -240,6 +245,26 @@
       table.vals td.warn {
         background: var(--edge-soft);
       }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
+      /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
         border-left: 3px solid var(--accent);
@@ -264,6 +289,7 @@
       .callout.edge .label {
         color: var(--edge);
       }
+      /* Skippable deep-background block. */
       details.skippable {
         border: 1px solid var(--border-strong);
         border-radius: 8px;
@@ -279,6 +305,7 @@
       details.skippable[open] > summary {
         margin-bottom: 0.75rem;
       }
+      /* Diagram family 1: simplified app UI mockup. */
       .ui-mockup {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -307,6 +334,7 @@
         margin: 0.3rem 0 0;
         max-width: var(--measure);
       }
+      /* Diagram family 2: data flow between components, example data on the arrows. */
       .dataflow {
         display: flex;
         flex-wrap: wrap;
@@ -379,6 +407,9 @@
         font-weight: 600;
         margin: 1.25rem 0 0.25rem;
       }
+      /* A numbered sequence with one marked position: call stacks, retry
+         counts, any ranked list. Not one of the numbered families; reach for
+         it when a step in an ordered list is the point. */
       .frames {
         list-style: none;
         padding: 0;
@@ -403,6 +434,66 @@
         min-width: 2.2em;
         color: var(--muted);
       }
+      /* Diagram family 3: node/recursion tree (ASTs, nesting, recursion) */
+      .tree {
+        margin: 1.5rem 0;
+        font:
+          0.82rem/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .tnode {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        margin: 0.3rem 0;
+        background: var(--surface);
+        display: inline-block;
+      }
+      .tnode.leaf {
+        background: var(--bg);
+      }
+      .tnode.kept {
+        border-color: var(--ok);
+        background: var(--ok-soft);
+      }
+      .tnode.skipped {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      .tchildren {
+        margin-left: 1.4rem;
+        border-left: 2px dotted var(--border);
+        padding-left: 0.9rem;
+      }
+      .tnote {
+        color: var(--muted);
+        font-size: 0.75rem;
+        margin-left: 0.4rem;
+      }
+
+      /* Optional tabular body for .ui-mockup, when the mocked UI is a table. */
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .mock-table th,
+      .mock-table td {
+        border: 1px solid var(--border);
+        padding: 0.35rem 0.5rem;
+        text-align: left;
+      }
+      .mock-table th {
+        background: var(--surface);
+        font-weight: 600;
+      }
+      .mock-table .col-highlight {
+        background: var(--accent-soft);
+      }
+
       .mermaid {
         margin: 1.75rem 0;
         background: var(--surface);
@@ -422,6 +513,7 @@
         background: var(--surface) !important;
         color: var(--text) !important;
       }
+      /* Quiz */
       .quiz-question {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -522,10 +614,15 @@
         main > header h1 {
           font-size: 1.6rem;
         }
+        table.vals {
+          display: block;
+          overflow-x: auto;
+          max-width: 100%;
+        }
       }
     </style>
   </head>
-    <body>
+  <body>
     <div class="layout">
       <nav class="toc">
         <strong>Contents</strong>
@@ -539,796 +636,717 @@
 
       <main>
         <header>
-          <h1>A bookmark outlives the thing it points at</h1>
+          <h1>uPortal PR 2924: a stale portlet URL no longer fails the page</h1>
           <p class="lead">
-            uPortal
-            <a href="https://github.com/uPortal-Project/uPortal/pull/2924"
-              >pull request 2924</a
-            >
-            wraps one call in a <code>try</code>/<code>catch</code> so a stale
-            URL stops returning a 500. It also deletes an
-            <code>@Ignore</code> that had been skipping 30 tests, which reaches
-            further than the fix that prompted it.
+            This pull request stops a stale or bookmarked URL that names a deleted
+            portlet from failing the whole page with a 500, by catching the
+            <code>IllegalArgumentException</code> that the portlet window lookup
+            throws while <code>UrlSyntaxProviderImpl</code> parses
+            <code>pP_</code> parameters.
           </p>
           <p class="provenance">
-            uPortal-Project/uPortal PR 2924 at dc19c65, explained 2026-09-01. References link to this commit.
+            uPortal-Project/uPortal PR 2924 at dc19c65, explained 2026-11-16.
+            References link to this commit.
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
-
           <details class="skippable">
             <summary>
-              New to uPortal or to portlets? Expand for the deeper background.
+              New to this area? Expand for the deeper background.
             </summary>
             <p>
-              uPortal is a campus portal. A signed-in student sees one page
-              assembled from many small independent applications: a course list,
-              a calendar, an announcements feed. Each of those is a
-              <em>portlet</em>, and the portal composes them into a layout that
-              each user can rearrange.
+              uPortal is a web portal: one page that shows several small
+              applications side by side. Each application is a portlet. uPortal
+              keeps three objects for each portlet:
+            </p>
+            <ul>
+              <li>
+                A portlet definition is the published portlet, such as a news
+                reader. It has a numeric id.
+              </li>
+              <li>
+                A portlet entity is one user's subscription to a definition. It
+                sits at a node in that user's layout, the saved arrangement of
+                their page.
+              </li>
+              <li>
+                A portlet window is what uPortal renders for an entity. When a
+                URL says which portlet a parameter is for, it names a window.
+              </li>
+            </ul>
+            <p>
+              Several portlets share one page, so uPortal writes each portlet's
+              state into the query string, with prefixes that say which portlet
+              a parameter belongs to. A bookmark keeps that query string exactly
+              as it was.
             </p>
             <p>
-              A <em>portlet definition</em> is the installed application, the
-              thing an administrator adds or removes for the whole institution. A
-              <em>portlet entity</em> is one user's placed instance of it, at one
-              spot in that user's layout. So one definition has many entities.
+              A servlet filter wraps a request on its way in and out. When code
+              beneath it throws an exception that nothing catches, the exception
+              climbs out through the filters and the servlet container answers
+              with HTTP status 500.
             </p>
             <p>
-              A <em>portlet window</em> is the third of these, and the one this
-              change returns. It is an entity as it exists during a single
-              request, carrying the state that belongs to this render: which mode
-              the portlet is in, whether it is maximized, and the parameters
-              aimed at it. Turning an id from the URL into a window is the lookup
-              that fails here.
+              In Java, <code>IllegalArgumentException</code> is an unchecked
+              exception. A method may throw it without declaring it, and no
+              caller is forced to catch it.
             </p>
             <p>
-              One request can involve several windows. The one the user is acting
-              on is the <em>targeted</em> window, and the others are
-              <em>delegates</em>. That distinction matters twice later, so it is
-              worth holding onto.
+              uPortal logs through SLF4J. A call such as
+              <code>logger.warn("id '{}': {}", a, b)</code> fills each
+              <code>{}</code> with the next argument. When the last argument is
+              an exception with no <code>{}</code> left for it, SLF4J prints that
+              exception's stack trace after the message.
             </p>
             <p>
-              An entity is named by a string built from three parts joined with
-              underscores:
-            </p>
-            <pre>portletDefinitionId + "_" + layoutNodeId + "_" + userId</pre>
-            <p>
-              Which makes <code>27_ctf9_142032</code> readable: portlet
-              definition <code>27</code>, at layout node <code>ctf9</code>, for
-              user <code>142032</code>.
-            </p>
-            <p>
-              Those entity ids travel in the URL. When a portlet needs its own
-              parameters in a shared page, the portal prefixes them so they
-              cannot collide with anything else:
-            </p>
-            <pre>?pCa=27_ctf9_142032&amp;pP_27_ctf9_142032_implicitModel=...</pre>
-            <p>
-              <code>pCa</code> lists the entity ids present in this request, and
-              each <code>pP_</code> parameter carries an id followed by the real
-              parameter name. Here that real name is
-              <code>implicitModel</code>, a parameter one portlet reads;
-              everything before it is addressing. Turning these strings back into
-              objects is URL parsing, and it happens on the way in, before
-              anything renders.
+              The tests use JUnit 4 and Mockito. <code>@Ignore</code> on a test
+              class makes JUnit skip every test in it.
+              <code>@RunWith(MockitoJUnitRunner.class)</code> creates the
+              <code>@Mock</code> fields before each test. It also fails the class
+              when a test sets up a stub with <code>when(...)</code> that the
+              test never uses. <code>MockitoJUnitRunner.Silent</code> does the
+              same setup without that unused-stub check. A stub written
+              <code>when(call).thenThrow(exception)</code> makes the mock throw
+              when the code under test makes that call.
             </p>
           </details>
 
           <p>
-            The method that does that parsing is
-            <code>parsePortletParameterName</code>. It takes a raw parameter
-            name, and the set of entity ids the request declared, and returns a
-            pair: the real parameter name, and the window the parameter belongs
-            to. uPortal calls that pair a <code>Tuple</code>, whose fields are
-            named <code>first</code> and <code>second</code>.
+            The pull request body gives the case: a URL carrying
+            <code>pCa=27_ctf9_142032</code> after portlet definition 27 was
+            deleted. It carries the fix from
+            <a href="https://github.com/uPortal-Project/uPortal/pull/2916">PR 2916</a>,
+            made on <code>rel-5-17-patches</code>, forward to
+            <code>master</code>.
           </p>
 
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L894">uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:894</a></p>
-          <pre>protected Tuple&lt;String, IPortletWindowId&gt; parsePortletParameterName(
-        HttpServletRequest request, String name, Set&lt;String&gt; additionalPortletIds) {</pre>
-
           <p>
-            Resolving the second value means turning
-            <code>27_ctf9_142032</code> into a live window. That runs through two
-            registries: a window registry, which asks an entity registry to
-            resolve the id first. The entity registry splits the string, looks up
-            the definition, and if the definition is not there, it throws.
+            The class that reads these URLs is <code>UrlSyntaxProviderImpl</code>.
+            It uses a few strings from <code>PortalConstants</code>: the
+            separator <code>_</code> as <code>SEPARATOR</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-url/src/main/java/org/apereo/portal/url/PortalConstants.java#L4"><code>PortalConstants.java:4</code></a>),
+            the portlet-parameter prefix <code>pP_</code> as
+            <code>PORTLET_PARAM_PREFIX</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-url/src/main/java/org/apereo/portal/url/PortalConstants.java#L8"><code>PortalConstants.java:8</code></a>),
+            <code>pCa</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-url/src/main/java/org/apereo/portal/url/PortalConstants.java#L11"><code>PortalConstants.java:11</code></a>),
+            and <code>pCs</code>, the window-state parameter
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-url/src/main/java/org/apereo/portal/url/PortalConstants.java#L15"><code>PortalConstants.java:15</code></a>).
+            The values of <code>pCa</code> are, in the class's own comment, "the
+            set of portlet window ids that also have parameters on the url".
+            <code>pCs</code> is one of the control parameters: names under the
+            <code>pC</code> prefix that set something about a window, such as
+            its state, and may end in that window's id.
           </p>
 
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/portlet/registry/PortletEntityRegistryImpl.java#L757">uPortal-rendering/src/main/java/org/apereo/portal/portlet/registry/PortletEntityRegistryImpl.java:757</a></p>
-          <pre>if (portletDefinition == null) {
-    throw new IllegalArgumentException(
-            "No parent IPortletDefinition found for "
-                    + portletDefinitionIdString
-                    + " from entity id string: "
-                    + consistentEntityIdString);
-}</pre>
+          <p>
+            A window id string such as <code>27_ctf9_142032</code> has three
+            parts joined by underscores
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-content/uPortal-content-portlet/src/main/java/org/apereo/portal/portlet/registry/PortletEntityIdStringUtils.java#L55-L58"><code>PortletEntityIdStringUtils.java:55-58</code></a>).
+            The registry reads the same string as a portlet entity id, which is
+            why the new tests call it <code>staleEntityId</code>.
+          </p>
+          <div class="tree">
+            <div class="tnode">27_ctf9_142032</div>
+            <div class="tchildren">
+              <div class="tnode leaf">
+                27<span class="tnote">portlet definition id, the one that was deleted</span>
+              </div>
+              <div class="tnode leaf">
+                ctf9<span class="tnote">layout node id</span>
+              </div>
+              <div class="tnode leaf">
+                142032<span class="tnote">user id</span>
+              </div>
+            </div>
+          </div>
+          <p>
+            The first new test builds its input from these pieces, so a URL
+            shaped like it carries <code>pCa=27_ctf9_142032</code> and a
+            parameter named <code>pP_27_ctf9_142032_implicitModel</code>. That
+            name reads: a portlet parameter, for window
+            <code>27_ctf9_142032</code>, called <code>implicitModel</code>.
+          </p>
 
           <p>
-            <code>IllegalArgumentException</code> is unchecked, so Java does not
-            require any caller to handle it, and nothing did. It traveled up
-            through URL parsing, out of the rendering pipeline, and into the
-            filter that sits across every request.
+            The entry point is <code>getPortalRequestInfo</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L279"><code>UrlSyntaxProviderImpl.java:279</code></a>).
+            It collects the <code>pCa</code> values into a set of strings,
+            <code>additionalPortletIds</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L551-L556"><code>UrlSyntaxProviderImpl.java:551-556</code></a>).
+            Then the parameter loop walks every remaining query parameter
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L565-L678"><code>UrlSyntaxProviderImpl.java:565-678</code></a>).
+            A name that starts with <code>pP_</code> goes to
+            <code>parsePortletParameterName</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L587-L589"><code>UrlSyntaxProviderImpl.java:587-589</code></a>).
+            A control parameter such as <code>pCs_27_ctf9_142032</code> goes to
+            <code>parsePortletWindowIdSuffix</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L652-L654"><code>UrlSyntaxProviderImpl.java:652-654</code></a>).
+            Both helpers ask <code>portletWindowRegistry.getPortletWindowId</code>
+            to turn a window id string into an <code>IPortletWindowId</code>,
+            the typed id of a portlet window.
+          </p>
+
+          <p>
+            <code>parsePortletParameterName</code> returns a
+            <code>Tuple&lt;String, IPortletWindowId&gt;</code>, uPortal's pair
+            type. Its <code>first</code> is the parameter name the portlet will
+            see. Its <code>second</code> is the window the parameter belongs
+            to, or null when the name holds no window id the parser
+            recognizes. To the caller, null means "for the targeted portlet":
+            the portlet the URL path names, whose request data the parameter
+            loop holds in <code>targetedPortletRequestInfo</code>. The helper
+            <code>safeSubstringAfter</code> returns everything after a prefix.
           </p>
 
           <div class="callout">
             <span class="label">Key concept</span>
-            A URL is user-supplied input that outlives the data it names. A
-            bookmark, a browser's restored session, a link in an old email, or a
-            search engine's index can all send you an entity id for a portlet an
-            administrator removed last term. Parsing has to survive that, because
-            the person holding the stale link did nothing wrong.
+            An id in <code>pCa</code> is only a string. The parser uses it to
+            find a window id inside a parameter name. Nothing checks that the
+            id still resolves until the registry lookup runs.
           </div>
+
+          <p>
+            That lookup is where a stale id fails.
+            <code>PortletWindowRegistryImpl.getPortletWindowId</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/portlet/registry/PortletWindowRegistryImpl.java#L293"><code>PortletWindowRegistryImpl.java:293</code></a>)
+            passes the id to <code>PortletEntityRegistryImpl</code>, whose
+            <code>parseConsistentPortletEntityId</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/portlet/registry/PortletEntityRegistryImpl.java#L733"><code>PortletEntityRegistryImpl.java:733</code></a>)
+            checks each part and throws <code>IllegalArgumentException</code>
+            when one does not resolve. For a deleted definition the message
+            reads "No parent IPortletDefinition found for 27 from entity id
+            string: 27_ctf9_142032"
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/portlet/registry/PortletEntityRegistryImpl.java#L758-L762"><code>PortletEntityRegistryImpl.java:758-762</code></a>).
+            The interface's javadoc lists that exception only for a null id
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-content/uPortal-content-portlet/src/main/java/org/apereo/portal/portlet/registry/IPortletWindowRegistry.java#L119-L126"><code>IPortletWindowRegistry.java:119-126</code></a>),
+            so a caller reading only the interface gets no warning of this case.
+          </p>
+
+          <p>
+            <code>getPortalRequestInfo</code> has no <code>catch</code>, so an
+            exception from the parameter loop reaches
+            <code>ExceptionLoggingFilter</code>, which every URL passes through.
+            The filter logs it at ERROR with the URL and rethrows it
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-web/src/main/java/org/apereo/portal/web/ExceptionLoggingFilter.java#L60-L67"><code>ExceptionLoggingFilter.java:60-67</code></a>).
+          </p>
+
+          <p>
+            The diff leaves two other catches of this exception unchanged: one
+            in <code>parsePortletWindowIdSuffix</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L945-L953"><code>UrlSyntaxProviderImpl.java:945-953</code></a>),
+            and one in the handler for the delegate-parent parameter
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L116-L129"><code>UrlSyntaxProviderImpl.java:116-129</code></a>).
+            With the new one, they are the three places the parameter loop
+            calls <code>getPortletWindowId</code> to turn an id string into a
+            window id. The call for <code>pP_</code> names was the one without
+            a catch.
+          </p>
+
+          <p>
+            The pull request also lowers two log lines outside URL parsing.
+            <code>ClassicMaxInactiveStrategy.calcMaxInactive</code> works out a
+            user's session timeout from <code>MAX_INACTIVE</code> permissions,
+            and <code>MaxInactiveFilter</code> calls it.
+            <code>PersonalizerImpl.createTokenMappingForPerson</code> builds a
+            map with one token per person attribute, for substitution into
+            personalized text.
+          </p>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
-
           <p>
-            Before the change, one missing portlet definition cost the whole
-            page. The user asked for their layout, and got an error page,
-            because a parameter belonging to one removed portlet could not be
-            resolved.
+            A URL is written while its portlets exist and replayed later, maybe
+            after the portlet definition it names is deleted. A parser that
+            meets an id it can no longer resolve can fail the request, or it can
+            drop the window id from that one parameter and carry on. Before this
+            change, <code>parsePortletParameterName</code> had no catch, so the
+            registry's exception went straight through it.
           </p>
-
-          <div class="ui-mockup">
-            <div class="bar">Before: a bookmarked URL after portlet 27 is removed</div>
-            <div class="body">HTTP 500
-
-uPortal: unhandled exception 'No parent IPortletDefinition found
-for 27 from entity id string: 27_ctf9_142032'</div>
-          </div>
-          <p class="mock-caption">
-            The whole layout is gone, not just the missing portlet. Nothing on
-            the page told the user their bookmark was the problem.
-          </p>
-
-          <div class="ui-mockup">
-            <div class="bar">After: the same URL</div>
-            <div class="body">HTTP 200
-
-[ Courses ]  [ Calendar ]  [ Announcements ]
-
-portal log: WARN Failed to resolve portlet window id for parameter
-'pP_27_ctf9_142032_implicitModel': No parent IPortletDefinition
-found for 27. The parameter will be ignored.</div>
-          </div>
-          <p class="mock-caption">
-            The layout renders without the removed portlet, and the operator
-            gets a warning naming the parameter. The user sees a working page.
-          </p>
-
-          <h3>The shape of the fix</h3>
-
           <p>
-            The method already had an answer for "this parameter does not belong
-            to any known window": return the parameter name with a null window
-            id. That path existed for the case where none of the declared ids
-            appear in the parameter name at all.
+            The method already had an answer for a name whose window id it
+            could not use. When the id in the name is not listed in
+            <code>pCa</code>, it returns the name with a null window id and lets
+            the caller decide. The fix sends a failed lookup to that same
+            answer. The first two rows below come from the existing test
+            <code>testParsePortletParameterName</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L1012"><code>UrlSyntaxProviderImplTest.java:1012</code></a>),
+            and the third is the input of the first new test:
           </p>
+          <table class="vals">
+            <thead>
+              <tr>
+                <th>Parameter name</th>
+                <th><code style="text-transform: none">pCa</code> lists</th>
+                <th>Registry lookup</th>
+                <th>Returned pair</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>pP_pw2_foo</code></td>
+                <td><code>pw2</code></td>
+                <td class="yes">window <code>pw2</code></td>
+                <td><code>("foo", pw2)</code></td>
+              </tr>
+              <tr>
+                <td><code>pP_pw1_foo</code></td>
+                <td><code>pw2</code></td>
+                <td>not asked</td>
+                <td><code>("pw1_foo", null)</code></td>
+              </tr>
+              <tr>
+                <td><code>pP_27_ctf9_142032_implicitModel</code></td>
+                <td><code>27_ctf9_142032</code></td>
+                <td class="no">throws</td>
+                <td>
+                  Before: the exception escapes. After: a warning, then the
+                  fallback in the row above.
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-          <p>
-            So the fix does not invent a new outcome. It catches the exception,
-            logs it, and lets control reach that existing fallback.
-          </p>
-
-          <p>
-            The diagram below shows the simple case, where one id fails and the
-            method falls through. The catch actually sits inside a loop over
-            every declared id, so a failure is not always the end of the attempt.
-            Step 3 of the walkthrough follows that, and it is where the detail
-            lives.
-          </p>
-
-          <p class="flow-label">What the caller receives</p>
+          <p class="flow-label">Before</p>
           <div class="dataflow">
-            <div class="node terminal">stale id in URL</div>
+            <div class="node terminal">Bookmarked URL</div>
             <div class="step">
               <div class="arrow">
-                <span class="data">27_ctf9_142032</span
+                <span class="data">pP_27_ctf9_142032_…</span
                 ><span class="line"></span>
               </div>
-              <div class="node">registry lookup</div>
+              <div class="node">parsePortletParameterName</div>
             </div>
             <div class="step">
               <div class="arrow">
-                <span class="data">throws</span><span class="line"></span>
+                <span class="data">"27_ctf9_142032"</span
+                ><span class="line"></span>
               </div>
-              <div class="node fail">caught. warn logged</div>
+              <div class="node">getPortletWindowId</div>
             </div>
             <div class="step">
               <div class="arrow">
-                <span class="data">falls through</span
+                <span class="data">IllegalArgumentException</span
                 ><span class="line"></span>
               </div>
-              <div class="node pass">Tuple with null second</div>
+              <div class="node">ExceptionLoggingFilter, ERROR</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">rethrown</span><span class="line"></span>
+              </div>
+              <div class="node fail">500 page</div>
             </div>
           </div>
 
+          <p class="flow-label">After</p>
+          <div class="dataflow">
+            <div class="node terminal">Same URL</div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">pP_27_ctf9_142032_…</span
+                ><span class="line"></span>
+              </div>
+              <div class="node">parsePortletParameterName</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">"27_ctf9_142032"</span
+                ><span class="line"></span>
+              </div>
+              <div class="node">getPortletWindowId</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">IllegalArgumentException</span
+                ><span class="line"></span>
+              </div>
+              <div class="node">new catch, WARN</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">window id null</span
+                ><span class="line"></span>
+              </div>
+              <div class="node pass">parsing continues</div>
+            </div>
+          </div>
           <p>
-            The same story with the timing made explicit, and both outcomes side
-            by side.
+            Only that one parameter changes route. The pull request body
+            describes the result as the page rendering without the stale
+            portlet reference. One exception, covered at the end of the first
+            walkthrough step, is a request that targets no portlet.
           </p>
-
-          <pre class="mermaid">sequenceDiagram
-    autonumber
-    actor U as Browser
-    participant G as getPortalRequestInfo
-    participant S as parsePortletParameterName
-    participant R as portletWindowRegistry
-    participant E as PortletEntityRegistryImpl
-    participant F as ExceptionLoggingFilter
-
-    U-&gt;&gt;G: GET with pCa=27_ctf9_142032
-    G-&gt;&gt;S: name = pP_27_ctf9_142032_implicitModel
-    S-&gt;&gt;R: getPortletWindowId(request. "27_ctf9_142032")
-    R-&gt;&gt;E: getPortletEntity for definition 27
-    E--)R: IllegalArgumentException. no definition 27
-    R--)S: propagates unchanged
-
-    rect rgb(251, 231, 233)
-    Note over S,F: before. nothing catches it
-    S--)G: propagates
-    G--)F: propagates
-    F-&gt;&gt;F: logger.error. then rethrow
-    F-&gt;&gt;U: HTTP 500 via /500.html
-    end
-
-    rect rgb(228, 243, 234)
-    Note over S,G: after. the catch logs and the loop moves on
-    S-&gt;&gt;S: logger.warn at line 913
-    S-&gt;&gt;S: no more ids match. fall to line 922
-    S--&gt;&gt;G: Tuple("27_ctf9_142032_implicitModel". null)
-    G-&gt;&gt;G: null window id. drop or reattribute the parameter
-    G-&gt;&gt;U: HTTP 200. layout without the deleted portlet
-    end</pre>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            Look at the string in that second-to-last arrow. The success path
-            computes the parameter name at line 903, stripping the prefix
-            <em>and</em> the entity id, which yields
-            <code>implicitModel</code>. The fallback at line 922 strips only the
-            <code>pP_</code> prefix, so it yields
-            <code>27_ctf9_142032_implicitModel</code>, entity id still attached.
-            The fallback only handles parameters with no id in them, so it has no
-            id to strip. Reaching it from the catch means the parameter survives
-            under a name nothing downstream reads. No portlet acts on it. The two
-            paths still compute the name differently, and step 3 shows where that
-            surfaces.
-          </div>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
-
           <p>
-            The flow, end to end. A browser sends a stale entity id.
-            <code>getPortalRequestInfo</code>, the method that turns a request
-            into parsed information, hands each prefixed parameter to
-            <code>parsePortletParameterName</code>. That method asks the window
-            registry, which asks the entity registry, which throws. What happens
-            next is the change.
+            Flow: the parameter loop in <code>getPortalRequestInfo</code>, then
+            <code>parsePortletParameterName</code>, then the registry lookup,
+            the new catch, the method's fallback return, and the caller's
+            branch for a null window id.
           </p>
 
+          <h3 class="core-step">
+            Catch the failed lookup inside <code>parsePortletParameterName</code>
+          </h3>
           <p>
-            Four files: one fix, one test file, and two log lines in other
-            modules.
+            Here is the whole method at commit dc19c65. Lines marked
+            <code>+</code> are the ones the pull request added:
           </p>
-
-          <h3>1. Where the exception is born</h3>
-
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L894-L924"
+              >uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:894-924</a
+            >
+          </p>
+<pre>  protected Tuple&lt;String, IPortletWindowId&gt; parsePortletParameterName(
+          HttpServletRequest request, String name, Set&lt;String&gt; additionalPortletIds) {
+      // Look for a 2nd separator which might indicate a portlet window id
+      for (final String additionalPortletId : additionalPortletIds) {
+          final int windowIdIdx = name.indexOf(additionalPortletId);
+          if (windowIdIdx == -1) {
+              continue;
+          }
+  
+          final String paramName =
+                  name.substring(
+                          PORTLET_PARAM_PREFIX.length()
+                                  + additionalPortletId.length()
+                                  + SEPARATOR.length());
+<span class="add">+         try {</span>
+<span class="add">+             final IPortletWindowId portletWindowId =</span>
+<span class="add">+                     this.portletWindowRegistry.getPortletWindowId(request, additionalPortletId);</span>
+<span class="add">+             return new Tuple&lt;String, IPortletWindowId&gt;(paramName, portletWindowId);</span>
+<span class="add">+         } catch (IllegalArgumentException e) {</span>
+<span class="add">+             this.logger.warn(</span>
+<span class="add">+                     "Failed to resolve portlet window id for parameter '{}': {}."</span>
+<span class="add">+                             + " This may be caused by a stale URL referencing a"</span>
+<span class="add">+                             + " removed portlet. The parameter will be ignored.",</span>
+<span class="add">+                     name,</span>
+<span class="add">+                     e.getMessage());</span>
+<span class="add">+         }</span>
+      }
+  
+      final String paramName = this.safeSubstringAfter(PORTLET_PARAM_PREFIX, name);
+      return new Tuple&lt;String, IPortletWindowId&gt;(paramName, null);
+  }</pre>
+          <p class="filename">The removed lines, quoted from the diff</p>
+<pre><span class="del">- final IPortletWindowId portletWindowId =
+-         this.portletWindowRegistry.getPortletWindowId(request, additionalPortletId);
+- return new Tuple&lt;String, IPortletWindowId&gt;(paramName, portletWindowId);</span></pre>
           <p>
-            The entity id has three parts, and the throw quoted in Background is
-            what happens when the first of them, the definition id, does not
-            resolve. That is the failure this change is about. Two details matter
-            for reading the log.
+            The method's own loop runs over <code>additionalPortletIds</code>
+            and looks for each id inside the name. For
+            <code>pP_27_ctf9_142032_implicitModel</code> it finds
+            <code>27_ctf9_142032</code>, and <code>paramName</code> becomes
+            <code>implicitModel</code>, the text after <code>pP_</code>, the id,
+            and the separator. Before the change, the lookup and the return sat
+            straight in that loop's body, so the registry's exception left the
+            method.
           </p>
-
           <p>
-            First, a deleted portlet is not the only cause. The same lookup
-            returns null, and so raises the same exception with the same message,
-            when the definition exists but the user is not permitted to render
-            it. A warning naming definition <code>27</code> does not by itself
-            tell an operator which of the two happened.
+            Now the lookup and the success return sit inside
+            <code>try</code>. The <code>catch</code> logs a warning and does not
+            return, so the method's loop moves on to the next listed id. When no
+            other id matches, control reaches the fallback at the end of the
+            method
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L922-L923"><code>UrlSyntaxProviderImpl.java:922-923</code></a>).
+            That fallback is the second row of the Intuition table: strip only
+            <code>pP_</code> and return a null window id. The
+            <code>implicitModel</code> value of <code>paramName</code> is
+            thrown away.
           </p>
-
           <p>
-            Second, successful parses are cached, and failures are not. So a
-            stale id pays the full lookup on every request that carries it, and
-            logs a warning every time.
+            The warning puts <code>e.getMessage()</code> into a
+            <code>{}</code> placeholder, so the log line carries the registry's
+            message and no stack trace. The older catch in
+            <code>parsePortletWindowIdSuffix</code> passes the exception itself
+            as the last argument
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L948-L952"><code>UrlSyntaxProviderImpl.java:948-952</code></a>),
+            so its warning prints the trace.
           </p>
-
-          <h3>2. The 500 path, before</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-web/src/main/java/org/apereo/portal/web/ExceptionLoggingFilter.java#L46">uPortal-web/src/main/java/org/apereo/portal/web/ExceptionLoggingFilter.java:46</a></p>
-          <pre>try {
-    chain.doFilter(request, response);
-} catch (Throwable t) {
-    // ... builds a message with the URL, query string, user and IP
-    this.logger.error(
-            "uPortal: unhandled exception '" + t.getMessage() + "' " + msg.toString(), t);
-    // ...
-    if (t instanceof RuntimeException) {
-        throw (RuntimeException) t;
-    }</pre>
-
           <p>
-            This filter is mapped to <code>/*</code>, so it saw the exception,
-            and its name says what it does with it: it logs. Then it rethrows
-            unchanged, the container turns an uncaught exception into a 500, and
-            <code>web.xml</code> maps 500 to <code>/500.html</code>. Nothing in
-            that chain was ever going to produce a partial page, because nothing
-            in it knows that one parameter out of many is the problem. The only
-            place with enough context to make that call is the parser.
+            The warning also says "The parameter will be ignored." The method
+            itself only drops the window id. What happens to the parameter is
+            decided back in the parameter loop of
+            <code>getPortalRequestInfo</code>:
           </p>
-
-          <h3>3. The fix, and where control actually goes</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L908">uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:908</a></p>
-          <pre><span class="add">+            try {</span>
-                 final IPortletWindowId portletWindowId =
-                         this.portletWindowRegistry.getPortletWindowId(request, additionalPortletId);
-                 return new Tuple&lt;String, IPortletWindowId&gt;(paramName, portletWindowId);
-<span class="add">+            } catch (IllegalArgumentException e) {</span>
-<span class="add">+                this.logger.warn(</span>
-<span class="add">+                        "Failed to resolve portlet window id for parameter '{}': {}."</span>
-<span class="add">+                                + " This may be caused by a stale URL referencing a"</span>
-<span class="add">+                                + " removed portlet. The parameter will be ignored.",</span>
-<span class="add">+                        name,</span>
-<span class="add">+                        e.getMessage());</span>
-             }</pre>
-
-          <p>
-            Read what the catch block does not contain. No
-            <code>return</code>, no <code>break</code>, no
-            <code>continue</code>, no rethrow. It logs, and then control reaches
-            the end of the loop body.
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L595-L613"
+              >uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:595-613</a
+            >
           </p>
-
-          <p>
-            That matters, because this code sits inside a
-            <code>for</code> loop over every entity id the request declared. So
-            a failure is not the end of the attempt. The loop advances to the
-            next id, and if a later one both matches the parameter name and
-            resolves, line 911 returns a real window after all. Only when no
-            iteration returns does control leave the loop and reach the
-            fallback.
-          </p>
-
-          <table class="vals">
-            <tr>
-              <th>Situation</th>
-              <th>Returns from</th>
-              <th>Tuple first</th>
-              <th>Tuple second</th>
-            </tr>
-            <tr>
-              <td>An id matches and resolves</td>
-              <td>line 911</td>
-              <td><code>implicitModel</code></td>
-              <td class="yes">the window id</td>
-            </tr>
-            <tr>
-              <td>An id matches, resolution throws, no other id resolves</td>
-              <td>line 923</td>
-              <td class="warn"><code>27_ctf9_142032_implicitModel</code></td>
-              <td class="warn"><code>null</code></td>
-            </tr>
-            <tr>
-              <td>No declared id appears in the name</td>
-              <td>line 923</td>
-              <td><code>implicitModel</code></td>
-              <td><code>null</code></td>
-            </tr>
-          </table>
-
-          <p>
-            Row three is the case the fallback handles on its own, and there the
-            two strings agree, because a parameter with no id in it loses nothing
-            when only the prefix is stripped. Row two reaches the same line with
-            a name that does contain an id. That is the edge case from Intuition,
-            seen from the code side.
-          </p>
-
-          <h3>4. The pattern it says it matches</h3>
-
-          <p>
-            The pull request describes the new catch as matching an existing one
-            in the same class. That existing catch is real, and it is worth
-            comparing precisely.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L945">uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java:945</a></p>
-          <pre>            try {
-                return this.portletWindowRegistry.getPortletWindowId(request, portletWindowIdStr);
-            } catch (IllegalArgumentException e) {
-                this.logger.warn(
-                        "Failed to parse portlet window id: "
-                                + portletWindowIdStr
-                                + " null will be returned",
-                        e);
-            }
+<pre>    if (portletWindowId == null) {
+        if (targetedPortletRequestInfo == null) {
+            this.logger.warn(
+                    "Parameter "
+                            + name
+                            + " is for the targeted portlet but no portlet is targeted by the request. The parameter will be ignored. Value: "
+                            + values);
+            parameterEntryItr.remove();
+            break;
         }
 
-        return null;</pre>
+        portletParameters = targetedPortletRequestInfo.getPortletParameters();
+    } else {
+        final PortletRequestInfoImpl portletRequestInfoImpl =
+                portalRequestInfo.getPortletRequestInfo(portletWindowId);
+        portletParameters = portletRequestInfoImpl.getPortletParameters();
+    }
 
+    portletParameters.put(paramName, values);</pre>
           <p>
-            Same shape: try the registry call, catch the same exception type, log
-            at warn, fall through to a no-window result. Three differences a
-            reader should see.
+            A null window id sends the value to the targeted portlet's
+            parameters, keyed by the name the method returned. When the request
+            targets no portlet, the caller logs a second warning, removes the
+            parameter, and stops. Neither branch throws, so the request no
+            longer takes the path to the 500.
           </p>
-
-          <p>
-            The older one is single-shot, guarded by a
-            <code>contains</code> check rather than sitting in a loop, so it can
-            log at most once. The newer one is inside the loop, so one parameter
-            with several declared ids can log several times.
-          </p>
-
-          <p>
-            The older one returns a bare <code>null</code>. The newer one returns
-            a non-null <code>Tuple</code> whose <code>second</code> is null,
-            which is why the caller has a null check rather than a null result to
-            handle.
-          </p>
-
-          <p>
-            The older one passes the exception object <code>e</code> to the
-            logger, so the stack trace is recorded. The newer one passes
-            <code>e.getMessage()</code>, so the log carries the message without
-            the trace. That is the difference between knowing what failed and
-            knowing where.
-          </p>
-
-          <h3>5. What the caller does with a null window</h3>
-
-          <p>
-            Grepping the repository for <code>parsePortletParameterName</code>
-            finds one production caller, <code>getPortalRequestInfo</code> in the
-            same class, plus the new test. When <code>second</code> comes back
-            null the caller takes one of two paths, and neither one throws.
-          </p>
-
-          <p>
-            If no portlet is targeted by the request, it logs its own warning,
-            saying the parameter will be ignored, removes the parameter, and
-            breaks. If a portlet is targeted, the parameter is attributed to that
-            portlet under the name in <code>first</code>. For the stale case that
-            name still carries the entity id, so the targeted portlet is handed a
-            parameter it does not read.
-          </p>
-
-          <p>
-            Either way, parsing completes, rendering proceeds, and the user gets
-            their layout minus the removed portlet.
-          </p>
-
-          <h3>6. The tests, and what they cover</h3>
-
-          <p>
-            Two tests are added. Both stub the registry to throw the real
-            message, and both assert that <code>second</code> is null rather than
-            that an exception escapes.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L1059">uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java:1059</a></p>
-          <pre>    public void testParsePortletParameterNameWithInvalidPortletEntity() {</pre>
-
-          <p>
-            That one covers the new catch. The second, at line 1088, exercises
-            <code>parsePortletWindowIdSuffix</code>, the sibling method whose
-            catch already existed and which this diff does not touch. It changes
-            no behavior; it records the reference the new code was written to
-            match.
-          </p>
-
-          <p>
-            Note what the first test asserts and what it does not. It asserts
-            that <code>second</code> is null. It does not assert the value of
-            <code>first</code>, so the difference between
-            <code>implicitModel</code> and
-            <code>27_ctf9_142032_implicitModel</code> from step 3 is not pinned
-            by a test.
-          </p>
-
-          <h3>7. Thirty tests that were not running</h3>
-
-          <p>
-            The pull request describes itself in three bullets: the try/catch,
-            the two log lines, and "Existing
-            <code>UrlSyntaxProviderImplTest</code> updated with test for stale
-            portlet entity IDs". The words <code>@Ignore</code>,
-            <code>MockitoJUnitRunner</code>, and <code>Silent</code> do not
-            appear in it. So the two lines below are in the diff without being in
-            the description.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L53">uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java:53</a></p>
-          <pre><span class="del">-@Ignore // Breaks on move to Gradle</span>
-<span class="del">-@RunWith(MockitoJUnitRunner.class)</span>
-<span class="add">+@RunWith(MockitoJUnitRunner.Silent.class)</span>
- public class UrlSyntaxProviderImplTest {</pre>
-
-          <p>
-            <code>@Ignore</code> on a JUnit 4 class skips the entire class. Not
-            one method ran, and the setup methods did not run either. The class
-            holds 32 <code>@Test</code> methods at this commit, two of them new,
-            so 30 tests had been reporting as skipped rather than passing. A
-            green build said nothing about this file.
-          </p>
-
-          <p>
-            The comment gives the reason as
-            <code>// Breaks on move to Gradle</code>, which names a build
-            migration and not a defect in the code under test. When the
-            annotation landed is not something this page can tell you, because
-            the checkout it was written from holds a single commit.
-          </p>
-
-          <p>
-            The runner change is what switching them back on required. Plain
-            <code>MockitoJUnitRunner</code> is an alias for
-            <code>MockitoJUnitRunner.Strict</code>: after the class runs, Mockito
-            collects any <code>when(...)</code> stubbing that was never actually
-            called and fails the class with
-            <code>UnnecessaryStubbingException</code>. <code>Silent</code> runs
-            with lenient strictness, which switches off that detection and leaves
-            <code>verify</code> behavior untouched. This project pins Mockito
-            4.11.0 and JUnit 4.13.2.
-          </p>
-
-          <p>
-            The file shows what that detection would have caught. In one
-            URL-generation test, three stubbings sit together on
-            <code>portletWindow2</code>, which stands in for a delegate window:
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L421-L423">uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java:421-423</a></p>
-          <pre>        when(portletWindow2.getPortletEntity()).thenReturn(portletEntity2);
-        when(portletWindow2.getDelegationParentId()).thenReturn(portletWindowId1);
-        when(portletEntity2.getLayoutNodeId()).thenReturn(subscribeId2);</pre>
-
-          <p>
-            The middle one is used: <code>generateUrl</code> reads
-            <code>getDelegationParentId()</code> for a non-targeted window. The
-            other two are not. <code>generateUrl</code> reads
-            <code>getPortletEntity()</code> and <code>getLayoutNodeId()</code>
-            only inside its <code>targetedPortletWindowId != null</code> branch,
-            and <code>portletWindow2</code> is not the targeted window here. So
-            two of the three stubbings are never realized, and strict mode fails
-            the whole class on them, not the one test. The same two appear again
-            in another generation test at line 546.
-          </p>
-
           <div class="callout edge">
-            <span class="label">What the runner line does</span>
-            <code>Silent</code> is what lets the 30 tests run at all, and it
-            switches off unused-stub detection for every test in this class,
-            including ones added later whose stubs stop matching. Both follow
-            from the one line. Which of the two weighs more is a question for
-            this project's maintainers; what the page can do is make sure you saw
-            the line.
+            <span class="label">Edge case</span>
+            In the branch for a request that targets no portlet, the
+            <code>break</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L603"><code>UrlSyntaxProviderImpl.java:603</code></a>)
+            leaves the whole parameter loop, not just this parameter. Parameters
+            the loop has not reached yet skip the portlet parsing. The block
+            after the loop then hands them on as unparsed parameters, which with
+            no portlet targeted usually means the portal's own parameter map,
+            where <code>u_</code> parameters go
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-rendering/src/main/java/org/apereo/portal/url/UrlSyntaxProviderImpl.java#L681-L719"><code>UrlSyntaxProviderImpl.java:681-719</code></a>).
+            That <code>break</code> predates this pull request. A stale
+            <code>pP_</code> parameter can now reach it.
           </div>
 
-          <h3>8. Two log lines in other modules</h3>
-
+          <h3 class="core-step">
+            Turn the test class back on and pin the stale id
+          </h3>
+          <p class="filename">
+            uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java,
+            before and after, quoted from the diff
+          </p>
+<pre><span class="del">- import org.junit.Ignore;</span>
+  // elided: the unchanged imports and the class javadoc
+<span class="del">- @Ignore // Breaks on move to Gradle
+- @RunWith(MockitoJUnitRunner.class)</span>
+<span class="add">+ @RunWith(MockitoJUnitRunner.Silent.class)</span></pre>
           <p>
-            The remaining two files are unrelated to stale URLs. Each lowers one
-            log level. The frequencies below say how often each line fires, which
-            is the fact you need to judge the edits.
+            <code>@Ignore</code> had switched off the whole class, with the
+            comment "Breaks on move to Gradle", so none of its 30 tests ran
+            before this pull request. The class now runs those 30 and 2 new
+            ones.
+          </p>
+          <p>
+            The runner changes too, to <code>MockitoJUnitRunner.Silent</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L53"><code>UrlSyntaxProviderImplTest.java:53</code></a>).
+            Neither the commit message nor a comment says why. My inference is
+            that some of the older tests set up stubs they never use, which the
+            default runner would fail, but I have not run the suite to confirm
+            it.
+          </p>
+          <p>
+            The first new test,
+            <code>testParsePortletParameterNameWithInvalidPortletEntity</code>,
+            exercises the new catch:
+          </p>
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L1065-L1084"
+              >uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java:1065-1084</a
+            >
+          </p>
+<pre>when(this.portletWindowRegistry.getPortletWindowId(request, staleEntityId))
+        .thenThrow(
+                new IllegalArgumentException(
+                        "No parent IPortletDefinition found for 27 from entity id string: "
+                                + staleEntityId));
+
+// Should not throw; should gracefully return the full param name with null window id
+final Tuple&lt;String, IPortletWindowId&gt; portletParameterInfo =
+        this.urlSyntaxProvider.parsePortletParameterName(
+                request,
+                PortalConstants.PORTLET_PARAM_PREFIX
+                        + staleEntityId
+                        + PortalConstants.SEPARATOR
+                        + "implicitModel",
+                ids);
+
+assertNotNull(portletParameterInfo);
+assertNull(
+        "Window id should be null when the portlet entity cannot be resolved",
+        portletParameterInfo.second);</pre>
+          <p>
+            The stub makes the mocked registry throw the message the real one
+            throws for a deleted definition. The test then asserts that the
+            method returns a pair and that the pair's window id is null.
+          </p>
+          <p>
+            The second new test,
+            <code>testParsePortletWindowIdSuffixWithInvalidPortletEntity</code>
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-webapp/src/test/java/org/apereo/portal/url/UrlSyntaxProviderImplTest.java#L1087-L1113"><code>UrlSyntaxProviderImplTest.java:1087-1113</code></a>),
+            gives <code>parsePortletWindowIdSuffix</code> the same stale id
+            behind <code>pCs_</code> and asserts a null window id. At the base
+            commit the class has no <code>thenThrow</code> stub, so this older
+            catch had no test.
+          </p>
+          <p>
+            The pull request's test plan ticks the unit-test item. It leaves
+            "Verify stale portlet URLs no longer produce 500 errors in a running
+            portal" unticked, so the claim that the page renders rests on these
+            unit tests and the code path above.
           </p>
 
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/ClassicMaxInactiveStrategy.java#L47">uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/ClassicMaxInactiveStrategy.java:47</a></p>
-          <pre><span class="del">-            log.info(</span>
-<span class="add">+            log.debug(</span>
-                     "No {} permissions apply to user '{}'",</pre>
-
+          <h3>Two log lines move to debug</h3>
           <p>
-            This runs in a filter mapped to the portal's main servlets, and the
-            filter re-checks at most once every five minutes per session. The
-            branch it sits in is the state of any deployment that never grants
-            the permission. At INFO, such a deployment logs this line once per
-            authenticated session per five minutes.
+            The pull request's other commit lowers two log lines that its body
+            calls verbose. Neither touches URL parsing.
           </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/personalize/PersonalizerImpl.java#L110">uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/personalize/PersonalizerImpl.java:110</a></p>
-          <pre><span class="del">-                log.warn("Person attribute value is not a string!! : [{}]", key);</span>
-<span class="add">+                log.debug("Person attribute value is not a string : [{}]", key);</span></pre>
-
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/ClassicMaxInactiveStrategy.java#L47-L50"
+              >uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/ClassicMaxInactiveStrategy.java:47-50</a
+            >
+          </p>
+<pre><span class="add">+ log.debug(</span>
+          "No {} permissions apply to user '{}'",
+          MAX_INACTIVE_ATTR,
+          person.getAttribute(IPerson.USERNAME));</pre>
           <p>
-            This one sits in the else branch of a loop over every attribute of a
-            person, so it repeats per attribute, not per event. One call site
-            passes no session, which skips the cache and re-runs the whole loop,
-            re-logging it, for every personalized string. It was at WARN, so it
-            appeared among genuine faults.
+            This call was <code>log.info</code>. It runs each time
+            <code>calcMaxInactive</code> finds no <code>MAX_INACTIVE</code>
+            permission for a user. <code>MaxInactiveFilter</code> calls it
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/MaxInactiveFilter.java#L117"><code>MaxInactiveFilter.java:117</code></a>)
+            about once every 5 minutes for each signed-in session, the
+            interval <code>REFRESH_MINUTES</code> sets
+            (<a class="srcref" href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-security/uPortal-security-mvc/src/main/java/org/apereo/portal/url/MaxInactiveFilter.java#L54"><code>MaxInactiveFilter.java:54</code></a>).
           </p>
-
+          <p class="filename">
+            <a
+              class="srcref"
+              href="https://github.com/uPortal-Project/uPortal/blob/dc19c65bf90635ed12085c6181dbdb5d582cf05a/uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/personalize/PersonalizerImpl.java#L110"
+              >uPortal-utils/uPortal-utils-core/src/main/java/org/apereo/portal/utils/personalize/PersonalizerImpl.java:110</a
+            >
+          </p>
+<pre><span class="add">+ log.debug("Person attribute value is not a string : [{}]", key);</span></pre>
           <p>
-            Two smaller things in the same hunk. The message text changed: the
-            doubled exclamation marks are gone. And the pull request describes
-            both log edits as going "from info to debug", which is right for
-            <code>ClassicMaxInactiveStrategy</code> and not for this one, which
-            was at WARN. Worth knowing if you are reading the description rather
-            than the diff.
+            This call was <code>log.warn</code>, with the text "is not a
+            string!!". <code>createTokenMappingForPerson</code> reaches it for
+            each person attribute whose value is neither a
+            <code>String</code> nor a <code>String[]</code>. The pull request
+            body describes both changes as info to debug, and the diff shows
+            this one was a warn.
           </p>
-
-          <p>
-            One piece of context a reader of this repository should have. uPortal
-            keeps a file called <code>AGENTS.md</code> at its root, holding the
-            conventions it expects contributors and coding agents to follow. Its
-            surgical-changes section says "Touch only what the task requires. Do
-            not 'improve' adjacent code, comments, or formatting" and "Every
-            changed line must trace directly back to the task at hand". Its
-            boundaries section lists "A change would affect more than one module"
-            under when to always stop and ask. These two edits are in two modules
-            that have nothing to do with stale URLs. Whether that reads as
-            welcome cleanup or as unrelated scope is a call for this project's
-            reviewers; the page's job is to make sure you noticed the edits are
-            there.
-          </p>
-
-          <div class="callout">
-            <span class="label">The transferable part</span>
-            When you make a fix by falling through to an existing path, check
-            what that path computes, not only what it returns. Here the fallback
-            produces a correct null window and a differently-derived parameter
-            name, because it only ever had to handle names with no id in them.
-            And when you read a diff, read the annotations as carefully as the
-            statements: a deleted <code>@Ignore</code> and a changed runner moved
-            30 tests from skipped to running, which changes what a green build
-            tells you about this file.
-          </div>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
 
-          <p>
-            Five questions about why the change is shaped the way it is. Click an
-            option to see the answer.
-          </p>
-
           <div class="quiz-question">
             <p class="q">
-              1. After the new catch fires for
-              <code>pP_27_ctf9_142032_implicitModel</code>, and no other declared
-              id resolves, what <code>Tuple</code> does the method return?
+              A bookmarked URL targets a working portlet and also carries
+              <code>pCa=27_ctf9_142032</code> and
+              <code>pP_27_ctf9_142032_implicitModel=true</code>. Definition 27
+              has been deleted. After this pull request, what does the targeted
+              portlet receive?
             </p>
             <button class="quiz-option">
-              <code>first</code> is <code>implicitModel</code> and
-              <code>second</code> is null, the same as the success path.
-            </button>
-            <button class="quiz-option" data-correct>
-              <code>first</code> is the full
-              <code>27_ctf9_142032_implicitModel</code> string and
-              <code>second</code> is null.
+              A parameter named <code>implicitModel</code> set to
+              <code>true</code>
             </button>
             <button class="quiz-option">
-              <code>null</code>, since the catch logged and there is nothing
-              meaningful to return.
+              No parameter; the stale one is discarded
+            </button>
+            <button class="quiz-option" data-correct>
+              A parameter named <code>27_ctf9_142032_implicitModel</code> set to
+              <code>true</code>
+            </button>
+            <button class="quiz-option">
+              A parameter named <code>pP_27_ctf9_142032_implicitModel</code> set
+              to <code>true</code>
             </button>
             <div class="quiz-feedback" role="status">
-              The fallback at line 922 strips only the <code>pP_</code> prefix,
-              which is all a parameter with no entity id in it needs. The success
-              path at line 903 strips the prefix, the id, and the separator. Each
-              is correct for the case that reaches it directly;
-              the catch routes one case into the other's code.
+              The catch logs and lets the loop finish, so the method reaches its
+              fallback, which strips only <code>pP_</code> and returns a null
+              window id. The caller reads null as "for the targeted portlet" and
+              stores the value under the returned name, stale id included.
+              Getting <code>implicitModel</code> would need the id stripped as
+              well, which only the success path does. The warning says the
+              parameter will be ignored, yet the caller still stores it, because
+              the method dropped only the window id.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              2. The diff deletes
-              <code>@Ignore // Breaks on move to Gradle</code> from the test
-              class. How many tests were running in that file before this pull
-              request?
+              The new catch names <code>IllegalArgumentException</code> instead
+              of <code>RuntimeException</code>. Why does the narrower type
+              matter?
             </p>
-            <button class="quiz-option">
-              All 30, since <code>@Ignore</code> on a class suppresses only the
-              class-level setup.
-            </button>
-            <button class="quiz-option">
-              Only the ones without their own annotations, which the runner still
-              collects.
-            </button>
             <button class="quiz-option" data-correct>
-              None. <code>@Ignore</code> on a JUnit 4 class skips every method in
-              it.
+              Unrelated runtime faults still fail the request instead of hiding
+            </button>
+            <button class="quiz-option">
+              IllegalArgumentException is checked, so the compiler demands this
+              exact catch
+            </button>
+            <button class="quiz-option">
+              A RuntimeException catch would also swallow the filter's 500
+              response
+            </button>
+            <button class="quiz-option">
+              Only IllegalArgumentException carries the registry's message for
+              the warning
             </button>
             <div class="quiz-feedback" role="status">
-              A skipped test is not a failing test, so a green build said nothing
-              about this file either way. The pull request description does not
-              mention this part of the change.
+              Each registry throw site for an id that does not resolve uses
+              <code>IllegalArgumentException</code>, so the catch covers the
+              stale-URL case. A bug inside the lookup, such as a
+              <code>NullPointerException</code>, still escapes to
+              <code>ExceptionLoggingFilter</code> and is logged at ERROR with its
+              stack trace. The exception is unchecked, so the compiler demands no
+              catch at all. The filter runs outside this method, so no catch here
+              could touch its response. Every exception has
+              <code>getMessage()</code>.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              3. Why would re-enabling a long-ignored Mockito test class
-              plausibly require switching to
-              <code>MockitoJUnitRunner.Silent</code>?
-            </p>
-            <button class="quiz-option" data-correct>
-              The strict runner fails the whole class when any stubbing goes
-              unused by the code.
-            </button>
-            <button class="quiz-option">
-              <code>Silent</code> suppresses the console output that an ignored
-              class would otherwise flood the build log with.
-            </button>
-            <button class="quiz-option">
-              The strict runner requires every mock to be verified, and thirty
-              tests would need <code>verify</code> calls.
-            </button>
-            <div class="quiz-feedback" role="status">
-              The file carries the evidence: two stubbings on a delegate window
-              describe calls the parser makes only for the targeted window, so
-              they are never realized. Strict mode reports
-              <code>UnnecessaryStubbingException</code> for the class, not the
-              method, which is why one dead stub can block the whole file.
-              <code>Silent</code> changes nothing about verification.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              4. The pre-existing catch logs with
-              <code>logger.warn(message, e)</code>. The new one logs with
-              <code>logger.warn(template, name, e.getMessage())</code>. What does
-              an operator lose?
+              Which rewrite of the new catch block would still pass both new
+              tests?
             </p>
             <button class="quiz-option">
-              Nothing. Passing the message is equivalent, and it keeps the log
-              line shorter.
+              Rethrow the exception from the catch after logging
             </button>
             <button class="quiz-option">
-              The exception type, so the log cannot distinguish an
-              <code>IllegalArgumentException</code> from any other failure.
+              Return <code>null</code> instead of a <code>Tuple</code> from the
+              catch
+            </button>
+            <button class="quiz-option">
+              Return a <code>Tuple</code> holding a placeholder window id
             </button>
             <button class="quiz-option" data-correct>
-              The stack trace, so the log cannot show the path that produced the
-              failure.
+              Return <code>new Tuple&lt;&gt;(paramName, null)</code> from inside
+              the catch
             </button>
             <div class="quiz-feedback" role="status">
-              SLF4J treats a trailing <code>Throwable</code> specially and prints
-              its trace; a <code>String</code> argument fills a placeholder
-              instead. The new line does add something the old one lacks, the
-              offending parameter name, so this is a trade rather than a straight
-              loss. Worth knowing which half you have when reading the log.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              5. The catch sits inside a <code>for</code> loop over the declared
-              entity ids, and it does not <code>break</code> or
-              <code>return</code>. What behavior does that produce which
-              <code>return new Tuple&lt;&gt;(paramName, null)</code> inside the
-              catch would not?
-            </p>
-            <button class="quiz-option">
-              None, because a parameter name can only ever contain one entity id,
-              so the loop cannot reach a second match.
-            </button>
-            <button class="quiz-option" data-correct>
-              A later id can still resolve and return a real window, and one
-              parameter can warn twice.
-            </button>
-            <button class="quiz-option">
-              The exception is rethrown once the loop ends, since a catch without
-              a return falls through to the default propagation.
-            </button>
-            <div class="quiz-feedback" role="status">
-              Falling through keeps the loop's original intent, which is to try
-              every declared id. Returning from the catch would abandon the
-              search on the first failure. The cost is the repeated warning, and
-              the returned name in the failure case, which the immediate return
-              would have computed at line 903 instead. A catch that logs and
-              continues is easy to skim past; what it continues into is the part
-              worth reading.
+              The tests assert only that a pair comes back and that its window id
+              is null. Returning <code>(paramName, null)</code> satisfies both,
+              yet <code>paramName</code> already has the stale id cut off, so the
+              targeted portlet would receive <code>implicitModel</code> instead
+              of <code>27_ctf9_142032_implicitModel</code>. A rethrow fails
+              because the call must not throw, a null return fails
+              <code>assertNotNull</code>, and a placeholder window id fails
+              <code>assertNull</code>.
             </div>
           </div>
         </section>

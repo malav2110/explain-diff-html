@@ -1,14 +1,23 @@
 // Runs the validator on every page in this folder. A page in pass/ must pass
 // every check. A page in fail/<check id>/ must fail that check and no other.
-// To add a case, add a page; this file needs no edit.
+// To add a case, add a page; this file needs no edit. A case that needs a diff
+// adds a <page name>.work/diff.txt beside the page.
 
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
-import { checks, parsePage, validate } from "../../src/validate-output.ts";
+import { checks, parsePage, readDiff, validate } from "../../src/validate-output.ts";
 
 // The bundle is what the skill ships, so the command-line tests run it.
 const script = fileURLToPath(
@@ -17,9 +26,16 @@ const script = fileURLToPath(
 // Every case page links at 0123456789abcdef0123456789abcdef01234567.
 const sha = "0123456";
 
+// The page's work directory as a command-line argument, or none.
+function getWork(path: string): string[] {
+  const work = path.replace(/\.html$/, ".work");
+  return existsSync(work) ? [work] : [];
+}
+
 function getFailedCheckIds(path: string): string[] {
   const document = parsePage(readFileSync(path, "utf8"));
-  return validate({ document, sha })
+  const [work] = getWork(path);
+  return validate({ document, sha, diff: work ? readDiff(work) : undefined })
     .filter(({ result }) => result.isFailed)
     .map(({ id }) => id);
 }
@@ -41,7 +57,7 @@ const passFolder = join(import.meta.dirname, "pass");
 for (const path of getPages(passFolder)) {
   test(`pass/${basename(path)}`, () => {
     expect(getFailedCheckIds(path)).toEqual([]);
-    const { status, stdout } = runScript(path, sha);
+    const { status, stdout } = runScript(path, sha, ...getWork(path));
     expect(status).toBe(0);
     expect(stdout).toMatch(/^pass: /m);
     expect(stdout).not.toMatch(/^FAIL: /m);
@@ -62,7 +78,7 @@ for (const checkId of checkIds) {
   for (const path of getPages(join(failFolder, checkId))) {
     test(`fail/${checkId}/${basename(path)}`, () => {
       expect(getFailedCheckIds(path)).toEqual([checkId]);
-      const { status, stdout } = runScript(path, sha);
+      const { status, stdout } = runScript(path, sha, ...getWork(path));
       expect(status).toBe(1);
       expect(stdout).toMatch(/^FAIL: /m);
     });
@@ -74,6 +90,33 @@ test("an unlinked reference is listed by its text", () => {
   const document = parsePage(readFileSync(path, "utf8"));
   const unlinked = validate({ document, sha }).find(({ id }) => id === "unlinked-reference");
   expect(unlinked?.result.isFailed ? unlinked.result.findings : []).toEqual(["b.py:9"]);
+});
+
+// Background is 8 words: the arrow, the <pre>, and the <style> count for nothing.
+test("the words line counts the prose in each section", () => {
+  const { stdout } = runScript(join(passFolder, "words-per-section.html"), sha);
+  expect(stdout.split("\n")).toContain("words: background 8  quiz 32  total 40");
+});
+
+test("a page with a quiz prints a pass line for it", () => {
+  const { stdout } = runScript(join(passFolder, "baseline.html"), sha);
+  expect(stdout).toMatch(/^pass: quiz section found$/m);
+});
+
+test("a run without a work directory skips the coverage check", () => {
+  const { status, stdout } = runScript(join(passFolder, "baseline.html"), sha);
+  expect(status).toBe(0);
+  expect(stdout).toMatch(/^skip: coverage, no work directory given$/m);
+});
+
+test("a changed file the page never names is listed by its path", () => {
+  const path = join(failFolder, "coverage", "missing-file.html");
+  const [work] = getWork(path);
+  const document = parsePage(readFileSync(path, "utf8"));
+  const coverage = validate({ document, sha, diff: work ? readDiff(work) : undefined }).find(
+    ({ id }) => id === "coverage",
+  );
+  expect(coverage?.result.isFailed ? coverage.result.findings : []).toEqual(["b.py"]);
 });
 
 test("missing arguments print a usage line and exit 2", () => {
@@ -109,6 +152,19 @@ test("a short commit over 40 characters prints a usage line and exits 2", () => 
 
 test("a run prints the advisory block", () => {
   expect(runScript(join(passFolder, "baseline.html"), sha).stdout).toMatch(/^advisory: /m);
+});
+
+// Background is 8 words and Code 7.
+test("Background longer than Code prints an advisory with the excess", () => {
+  const { stdout } = runScript(join(passFolder, "background-past-code.html"), sha);
+  expect(stdout).toMatch(/^advisory: Background runs 1 word past Code; /m);
+});
+
+// Background and Code are 8 words each.
+test("Background as long as Code prints no length advisory", () => {
+  const { stdout } = runScript(join(passFolder, "background-as-long-as-code.html"), sha);
+  expect(stdout).toMatch(/^words: background 8  code 8  /m);
+  expect(stdout).not.toMatch(/^advisory: Background/m);
 });
 
 test("the advisory lists each ordinal with the rest of its sentence", () => {

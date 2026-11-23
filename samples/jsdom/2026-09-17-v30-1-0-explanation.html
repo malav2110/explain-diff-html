@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>jsdom v30.1.0: replacing the tree under the DOM</title>
+    <title>jsdom 30.1.0 explained</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -244,6 +244,25 @@
       }
       table.vals td.warn {
         background: var(--edge-soft);
+      }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
       }
       /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
@@ -617,15 +636,16 @@
 
       <main>
         <header>
-          <h1>jsdom v30.1.0: replacing the tree under the DOM</h1>
+          <h1>jsdom 30.1.0: the tree, its caches, and closed documents</h1>
           <p class="lead">
-            jsdom stopped storing its document tree in a general-purpose
-            library and wrote one that knows it is holding a DOM, which is why
-            a release whose notes read as a list of small fixes moved 127 files
-            under <code>lib/</code>.
+            jsdom 30.1.0 stores tree links on each node in place of the
+            <code>symbol-tree</code> library, runs node insertion in the DOM
+            Standard's order, and ties cached queries, queued tasks, and requests to
+            the tree and document lifetimes they depend on.
           </p>
           <p class="provenance">
-            jsdom/jsdom v30.0.1..v30.1.0 at 556b11fc, explained 2026-09-17. References link to this commit.
+            jsdom/jsdom v30.0.1..v30.1.0 at 556b11fc, explained 2026-11-16.
+            References link to this commit.
           </p>
         </header>
 
@@ -633,612 +653,1456 @@
           <h2>Background</h2>
           <details class="skippable">
             <summary>
-              New to this area? Expand for the deeper background.
+              New to jsdom's internals? Expand for the deeper background.
             </summary>
             <p>
-              jsdom is a DOM and HTML implementation written in JavaScript. It
-              is what runs when a Node.js test creates a document, queries it,
-              dispatches an event, or reads a computed style, without a browser
-              anywhere.
+              jsdom implements the DOM and HTML standards in JavaScript, so code
+              written for browsers can run in Node.js, most often inside a test
+              runner. Each object a page script touches, such as a
+              <code>Node</code> or the <code>Window</code>, is a wrapper generated
+              from a Web IDL file such as <code>Document.webidl</code>. The wrapper
+              forwards every call to an implementation object, called an impl, under
+              <code>lib/jsdom/living/</code>. <code>NodeImpl</code> is the impl base
+              class for all nodes, and <code>DocumentImpl</code> extends it. Names
+              that start with an underscore, like <code>_insert()</code>, are
+              internal to jsdom; page scripts never see them.
             </p>
             <p>
-              To do that it has to store a tree, and a DOM tree is asked
-              unusual questions. What are this node's children, but also what is
-              its position among its siblings, what is the nearest ancestor two
-              nodes share, and give me a list of children that stays correct as
-              the tree changes underneath it. Those questions sit on the paths a
-              test exercises most: <code>node.appendChild()</code>,
-              <code>range.cloneContents()</code>, and event dispatch walking
-              from target to root.
+              The DOM Standard writes each operation as an algorithm with numbered
+              steps. Its insert algorithm places nodes in the tree and calls hooks
+              that other standards fill in:
+            </p>
+            <ul>
+              <li>
+                The insertion steps run for each inserted node while the insertion is
+                still under way. They must not run page scripts.
+              </li>
+              <li>
+                The children changed steps run on a parent after its child list
+                changes. The children inserted steps, proposed in
+                <a href="https://github.com/whatwg/dom/pull/1460">whatwg/dom pull request 1460</a>,
+                run only after an insertion.
+              </li>
+              <li>
+                The post-connection steps run once every node of the insertion is in
+                place. HTML uses them to prepare a <code>&lt;script&gt;</code>, which
+                means running its prepare-the-script algorithm to decide whether and
+                when the script runs, and to start loading an
+                <code>&lt;iframe&gt;</code>.
+              </li>
+            </ul>
+            <p>
+              A live collection, such as <code>node.childNodes</code> or the result of
+              <code>getElementsByTagName()</code>, shows the current tree each time it
+              is read. A <code>Range</code> marks a span of the document with two
+              boundary points, each a node and an offset, and the offset inside an
+              element is a child index. A named property lets a script reach an
+              element by its <code>name</code> or <code>id</code> attribute, as in
+              <code>window.myFrame</code>. A task is work queued to run later on the
+              event loop; HTML ties each task to a document and never runs a task
+              whose document has been destroyed.
             </p>
             <p>
-              Until v30.1.0 jsdom kept the tree in
-              <code>symbol-tree</code>, a general-purpose npm package for
-              holding a tree in objects you do not own. It is a reasonable
-              choice. It is also a library that has no idea it is storing a
-              document, so it cannot assume anything a DOM guarantees.
+              A <code>WeakRef</code> points at an object without keeping it alive.
+              Its <code>deref()</code> returns <code>undefined</code> once the garbage
+              collector has reclaimed the object. A <code>FinalizationRegistry</code>
+              runs a callback some time after a registered object is reclaimed.
+            </p>
+            <p>
+              jsdom measures itself against the web platform tests, the shared suite
+              browsers run. Tests written in this repository for later submission
+              upstream live under <code>test/web-platform-tests/to-upstream/</code>.
             </p>
           </details>
+
           <p>
-            That last point is where the cost showed up. Four examples, all
-            visible in the v30.0.1 source:
+            Version 30.1.0 bundles 94 commits, so this page groups them by theme. The
+            <a href="https://github.com/jsdom/jsdom/releases/tag/v30.1.0">release notes</a>
+            describe performance work on tree mutation, collections, styles, events,
+            and memory, and correctness issues fixed "along the way". The larger
+            commits carry long messages that state their reasons, and the page takes
+            the why from those messages, naming each commit where it does.
           </p>
-          <ul>
-            <li>
-              Every node paid for tree bookkeeping at construction.
-              <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L120"><code>Node-impl.js:120</code></a> called
-              <code>domSymbolTree.initialize(this)</code> and
-              <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L128"><code>Node-impl.js:128</code></a> allocated
-              <code>this._memoizedQueries = {}</code>, for every node, including
-              <code>Attr</code> nodes that inherit from <code>Node</code> and
-              never join a tree.
-            </li>
-            <li>
-              Asking a node its index walked its siblings, so the answer cost
-              time proportional to how far along it sat.
-            </li>
-            <li>
-              Live child collections rebuilt themselves after every mutation,
-              whether or not anything read them. The commit says only that they
-              rebuilt; that appending <code>N</code> children therefore costs
-              time proportional to <code>N</code> squared is my reading of what
-              rebuilding each time implies, not a figure jsdom publishes.
-            </li>
-            <li>
-              Operations that needed an ancestor chain each walked it
-              themselves. <code>compareDocumentPosition</code>, a range's
-              common ancestor, boundary comparison, and
-              <code>range.surroundContents()</code> repeated the same search,
-              and event dispatch re-walked to the document for every connected
-              parent.
-            </li>
-          </ul>
+          <p>
+            In 30.0.1 no node stored its own parent or children. One shared instance of
+            the <code>symbol-tree</code> package, exported as
+            <code>domSymbolTree</code>, held every link, and each node asked it for its
+            position:
+          </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/living/helpers/internal-constants.js</code></p>
+<pre><span class="del">"use strict";</span>
+<span class="del">const SymbolTree = require("symbol-tree");</span>
+<span class="del"></span>
+<span class="del">exports.cloningSteps = Symbol("cloning steps");</span>
+<span class="del"></span>
+<span class="del">// TODO: the many underscore-prefixed hooks should move here</span>
+<span class="del">// E.g. _attrModified (which maybe should be split into its per-spec variants)</span>
+<span class="del"></span>
+<span class="del">/**</span>
+<span class="del"> * This SymbolTree is used to build the tree for all Node in a document</span>
+<span class="del"> */</span>
+<span class="del">exports.domSymbolTree = new SymbolTree("DOM SymbolTree");</span></pre>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/living/nodes/Node-impl.js</code></p>
+<pre>  get parentNode() {
+<span class="del">    return domSymbolTree.parent(this);</span>
+  }</pre>
+          <p>
+            The release removes 256 lines that reference <code>domSymbolTree</code>, so
+            most files in the first theme below change only by swapping those calls.
+          </p>
+          <p>
+            Insertion side effects ran through hooks jsdom had named for itself.
+            <code>_attach()</code> walked a subtree newly inserted into the document
+            tree and set an <code>_attached</code> flag on each node. Element classes overrode it, and
+            <code>HTMLScriptElement</code> started its script there.
+          </p>
+          <p>
+            Child list changes ran a second hook. A memoized query is a stored result of
+            a call such as <code>getElementsByTagName("li")</code>, so a second call
+            with the same argument returns the same live collection. A generic wrapper,
+            <code>memoizeQuery</code> in <code>lib/jsdom/utils.js</code>, kept those
+            results in a <code>_memoizedQueries</code> object that every node created
+            in its constructor. After every child list change, <code>_modified()</code>
+            bumped a <code>_version</code> counter on the node and on each ancestor,
+            rebuilt the node's <code>childNodes</code> and <code>children</code> lists
+            on the spot, and replaced the memoized queries up the ancestor chain. Each
+            live collection stores the <code>_version</code> it last saw and rebuilds
+            when its owner node's number is higher.
+          </p>
+          <p>
+            Closing a window took the document apart. <code>window.close()</code>
+            emptied <code>document.body</code>, called <code>document.close()</code>,
+            and deleted <code>window._document</code>. Internal tasks, such as firing
+            <code>message</code> after <code>postMessage()</code>, were bare Node.js
+            <code>setTimeout()</code> or <code>setImmediate()</code> calls that no
+            document tracked.
+          </p>
+          <p>
+            Resource loads go through undici, the HTTP client package jsdom depends on.
+            undici sends each request through a dispatcher, here
+            <code>JSDOMDispatcher</code>, and reports its progress to a handler object.
+            A redirected request is a chain of hops, and each hop has its own transport
+            controller, the object that can abort that hop. Tests can also answer
+            requests themselves through <code>requestInterceptor()</code>, a helper
+            jsdom exports.
+          </p>
+          <p>
+            The Code walkthrough's flow map starts where a page script changes the tree,
+            at <code>appendChild()</code> or <code>insertBefore()</code>. Both reach
+            <code>NodeImpl._preInsert()</code>, which validates the call and hands the
+            node to <code>_insert()</code>, jsdom's version of the DOM Standard's insert
+            algorithm.
+          </p>
 
           <div class="callout">
             <span class="label">Key concept</span>
-            A <em>live</em> collection is one that reflects later changes to the
-            tree. <code>element.children</code> is live: append a child and the
-            collection you are already holding grows. That is what makes it
-            expensive, because something has to decide when the stored answer
-            stopped being true.
-          </div>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            The change underneath most of this release's performance work has
-            no release-note bullet of its own. jsdom's
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/MAINTAINERS.md?plain=1#L29"><code>MAINTAINERS.md:29</code></a> style guide says to leave out
-            "commits that have no user-facing impact, e.g. test rolls,
-            refactorings, benchmark additions". Replacing the tree is a
-            refactoring, so the notes record its effects under
-            "Improved performance of DOM construction, tree mutations, range
-            operations, and live collection access" and never name the cause.
-            Reading that omission as the style guide working rather than as an
-            oversight is my inference; no maintainer says so about this
-            release.
+            In the document tree is not the same as connected. A node is in the
+            document tree when following parents alone reaches the document. It is
+            connected when that walk may also jump from a shadow root to its host. A
+            node inside a shadow tree attached to the document is therefore connected
+            but not in the document tree. This release renames the cached flag
+            <code>_attached</code> to <code>_isInDocumentTree</code>; its commit,
+            <a href="https://github.com/jsdom/jsdom/commit/1337f63a918cfb2c959395700430ad8deb91e2e2">1337f63a</a>, says the new name keeps callers from confusing it
+            with connectedness.
           </div>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
           <p>
-            A general-purpose tree library has to assume the worst. It cannot
-            know that appending a child leaves every existing child's position
-            untouched, because in its world a "tree" is any tree and a caller
-            might do anything. So it recomputes.
+            One idea runs through the release: do work once what it depends on is
+            settled, and check a cached answer against what can make it wrong when the
+            answer is used. That framing is this page's summary, not a phrase from the
+            release notes.
           </p>
           <p>
-            A tree that knows it is holding a DOM can assume more. jsdom's
-            replacement keeps a small record next to each node, the
-            <code>Links</code> class at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L13"><code>dom-tree.js:13</code></a>, holding the parent, the siblings, the
-            first and last child, a running <code>childCount</code>, and a
-            cached index. The record is not allocated until a node joins a tree
-            or gains children, so an <code>Attr</code> carries one null field
-            instead of a tree structure it will never use.
+            Sibling indexes show the cache half. A script fills a
+            <code>&lt;ul&gt;</code> with six <code>&lt;li&gt;</code> elements, a
+            through f, by calling <code>appendChild()</code> six times. Each append
+            records the new child's index, 0 through 5, because appending never moves
+            an existing child. Then the script inserts x before c. Every index from c
+            onward is now one too small, so the parent marks its index cache as stale
+            and does nothing more.
           </p>
           <p>
-            The idea that makes the cache work is that mutations differ in how
-            much they disturb. Take a parent with five children:
-          </p>
-          <ul>
-            <li>
-              Append a sixth. Children 0 to 4 keep their positions, and the new
-              child takes index 5. Nothing needs recomputing, ever.
-            </li>
-            <li>
-              Insert at position 2. Children 0 and 1 are still right; 2 onward
-              are not. The old library would discard the lot. jsdom
-              <em>truncates</em> the cached list at the insertion point and
-              keeps the valid prefix.
-            </li>
-          </ul>
-          <p>
-            Truncating rather than discarding is what lets the cache survive a
-            mutation at all. Dropping the tail also drops the references it held
-            to the removed subtrees, though whether that was a goal or a
-            consequence the code does not say.
-          </p>
-
-          <p class="flow-label">Before, at v30.0.1</p>
-          <div class="dataflow">
-            <div class="node terminal">node.index()</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">walk back through siblings</span
-                ><span class="line"></span>
-              </div>
-              <div class="node">count them</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">one step per sibling</span
-                ><span class="line"></span>
-              </div>
-              <div class="node terminal">index</div>
-            </div>
-          </div>
-
-          <p class="flow-label">After, at v30.1.0</p>
-          <div class="dataflow">
-            <div class="node terminal">treeIndex(node)</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">first or last child?</span
-                ><span class="line"></span>
-              </div>
-              <div class="node pass">answer directly</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">otherwise, cachedIndex</span
-                ><span class="line"></span>
-              </div>
-              <div class="node terminal">index</div>
-            </div>
-          </div>
-
-          <p>
-            The tree below shows the state after inserting a new child at
-            position 2. The prefix that survives is kept; the rest is dropped
-            and rebuilt only if something asks for it.
+            Later a <code>Range</code> needs e's index. jsdom does not trust e's stored
+            4. It walks from the first child, records a, b, x, c, and d, reaches e at 5,
+            and stops there:
           </p>
           <div class="tree">
-            <div class="tnode">parent, childCount 6</div>
+            <div class="tnode">ul, cache marked stale by the insert</div>
             <div class="tchildren">
-              <div class="tnode leaf kept">
-                child<span class="tnote">index 0, still valid</span>
-              </div>
-              <div class="tnode leaf kept">
-                child<span class="tnote">index 1, still valid</span>
-              </div>
-              <div class="tnode leaf skipped">
-                inserted<span class="tnote">prefix truncated here</span>
-              </div>
-              <div class="tnode leaf skipped">
-                child<span class="tnote">index recomputed on demand</span>
-              </div>
+              <div class="tnode leaf kept">a<span class="tnote">0, recorded on the walk</span></div><br />
+              <div class="tnode leaf kept">b<span class="tnote">1, recorded</span></div><br />
+              <div class="tnode leaf kept">x<span class="tnote">2, recorded</span></div><br />
+              <div class="tnode leaf kept">c<span class="tnote">3, recorded</span></div><br />
+              <div class="tnode leaf kept">d<span class="tnote">4, recorded</span></div><br />
+              <div class="tnode leaf kept">e<span class="tnote">5, the index asked for</span></div><br />
+              <div class="tnode leaf skipped">f<span class="tnote">never walked: the walk stops at e</span></div>
             </div>
           </div>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            A cached index cannot be trusted on its own, because a node that
-            moved can still be carrying a stale one. So the cache is read
-            through an identity check, at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L271-L276"><code>dom-tree.js:271-276</code></a>:
-            <pre>  const cached = parentData.cachedChildren ||= [];
-  // A shifted node can retain an old index inside the rebuilt prefix. Check
-  // identity as well as the index before using it.
-  if (cached[data.cachedIndex] === node) {
-    return data.cachedIndex;
-  }</pre>
-            Without that comparison the whole scheme would hand back stale
-            positions after any move.
-          </div>
-
-          <!-- Diagram family 4: Mermaid, for a state machine, ER, or sequence (interaction
-           over time). Validate the source with `npx -y @probelabs/maid --strict <file.mmd>`
-           before pasting. The loader at the end of <body> renders it; delete this block
-           if the page has no Mermaid diagram. -->
           <p>
-            Put together, reading an index now takes one of four paths, and
-            only the last one touches more than a couple of fields.
+            Script timing shows the other half. A script appends a fragment that holds
+            an inline <code>&lt;script&gt;</code> followed by
+            <code>&lt;p id="x"&gt;</code>. In 30.0.1 the per-node loop in
+            <code>_insert()</code> called <code>_attach()</code> on each node as it went
+            in. jsdom's script queue ran an inline script immediately when no earlier
+            script was waiting, so the script ran before the <code>&lt;p&gt;</code> was in
+            the tree, and <code>document.getElementById("x")</code> inside it returned
+            <code>null</code>. In 30.1.0 the per-node loop only places nodes and runs
+            insertion steps. The script runs in a post-connection step after both nodes
+            are in, and only if it is still connected then, so it finds the
+            <code>&lt;p&gt;</code>.
           </p>
-          <pre
-            class="mermaid"
-          >flowchart TD
-    A["treeIndex(node)"] --&gt; B{"is it the first child"}
-    B --&gt;|yes| C["return 0"]
-    B --&gt;|no| D{"is it the last child"}
-    D --&gt;|yes| E["return childCount minus 1"]
-    D --&gt;|no| F{"is cachedIndex still trusted"}
-    F --&gt;|yes| G["return cachedIndex"]
-    F --&gt;|no| H["walk children and fill the prefix array"]
-    H --&gt; I["store cachedIndex and return"]
-    classDef fast fill:#e4f3ea,stroke:#1a7f47,color:#16181b
-    classDef slow fill:#fbefe1,stroke:#b5620a,color:#16181b
-    classDef entry fill:#e8eefc,stroke:#3b6cf6,color:#16181b
-    class C,E,G fast
-    class H,I slow
-    class A entry</pre>
+          <p>
+            Child lists and memoized queries follow the cache half. A mutation calls
+            <code>_invalidateCaches()</code>, which replaces <code>_modified()</code>
+            and clears what the mutation affects. Rebuilding waits for whoever reads
+            next:
+          </p>
+          <p class="flow-label">Appending one item to a list that a script holds as ul.children</p>
+          <div class="dataflow">
+            <div class="node terminal">ul.appendChild(li)</div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">[li]</span><span class="line"></span>
+              </div>
+              <div class="node">_insert() links li</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">ul</span><span class="line"></span>
+              </div>
+              <div class="node">_invalidateCaches() bumps _version on ul and its ancestors</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">list emptied</span><span class="line"></span>
+              </div>
+              <div class="node">ul.children holds nothing until read</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">length read</span><span class="line"></span>
+              </div>
+              <div class="node pass">one rebuild, on demand</div>
+            </div>
+          </div>
+          <p>
+            <code>window.close()</code> works the same way. It no longer empties the
+            document; it sets <code>_isDestroyed</code> on it, and every task queued for
+            that document checks the flag when its turn comes and does nothing.
+            Requests follow suit: cancellation belongs to the request, not to whichever
+            redirect hop is in flight, so a hop that starts after
+            <code>window.stop()</code> is aborted as soon as it begins.
+          </p>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
           <p>
-            The path: a node is created, joins a tree, the tree indexes it,
-            readers ask for its position or its ancestors, and mutations decide
-            what stays valid. Styles, document lifetime, and the new features
-            hang off that path rather than running down it.
+            Flow, summarized at theme level: <code>appendChild()</code> → tree links in
+            <code>dom-tree.js</code> → <code>_insert()</code> with its insertion and
+            post-connection steps → the caches a mutation clears. Later themes cover
+            computed styles, closed documents, request cancellation, and smaller fixes.
           </p>
 
-          <h3>1. Creating a node costs nothing now</h3>
+          <h3 class="core-step">Tree links live on each node</h3>
+          <details class="skippable">
+            <summary>The 25 paths this theme covers</summary>
+            <ul>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/package.json"><code>package.json</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js"><code>lib/jsdom/living/helpers/dom-tree.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js"><code>lib/jsdom/living/nodes/Node-impl.js</code></a></li>
+              <li><code>lib/jsdom/living/helpers/internal-constants.js</code> (deleted)</li>
+              <li><code>lib/jsdom/living/helpers/node.js</code> (deleted)</li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/utils.js"><code>lib/jsdom/utils.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/range/Range-impl.js"><code>lib/jsdom/living/range/Range-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/range/boundary-point.js"><code>lib/jsdom/living/range/boundary-point.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/selection/Selection-impl.js"><code>lib/jsdom/living/selection/Selection-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/CharacterData-impl.js"><code>lib/jsdom/living/nodes/CharacterData-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Text-impl.js"><code>lib/jsdom/living/nodes/Text-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/traversal/NodeIterator-impl.js"><code>lib/jsdom/living/traversal/NodeIterator-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/shadow-dom.js"><code>lib/jsdom/living/helpers/shadow-dom.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/traversal.js"><code>lib/jsdom/living/helpers/traversal.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/text.js"><code>lib/jsdom/living/helpers/text.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/by-id-cache.js"><code>lib/jsdom/living/helpers/by-id-cache.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/domparsing/serialization.js"><code>lib/jsdom/living/domparsing/serialization.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/domparsing/parse5-adapter-serialization.js"><code>lib/jsdom/living/domparsing/parse5-adapter-serialization.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/NonDocumentTypeChildNode-impl.js"><code>lib/jsdom/living/nodes/NonDocumentTypeChildNode-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/DocumentOrShadowRoot-impl.js"><code>lib/jsdom/living/nodes/DocumentOrShadowRoot-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/ShadowRoot-impl.js"><code>lib/jsdom/living/nodes/ShadowRoot-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/SVGSVGElement-impl.js"><code>lib/jsdom/living/nodes/SVGSVGElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLTableElement-impl.js"><code>lib/jsdom/living/nodes/HTMLTableElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLTableRowElement-impl.js"><code>lib/jsdom/living/nodes/HTMLTableRowElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/custom-elements/CustomElementRegistry-impl.js"><code>lib/jsdom/living/custom-elements/CustomElementRegistry-impl.js</code></a></li>
+            </ul>
+          </details>
+          <h4 class="core-edit">A <code>Links</code> object and a lazily rebuilt index cache</h4>
           <p>
-            The old constructor set up tree bookkeeping and a query cache for
-            every node ever built. The new one sets a null.
+            Commit <a href="https://github.com/jsdom/jsdom/commit/d555e61fb5a3725709434468130c46faaea0d1fe">d555e61f</a> adds
+            <code>lib/jsdom/living/helpers/dom-tree.js</code> in place of the
+            <code>symbol-tree</code> package, which <code>package.json</code> drops. A
+            node gets a <code>Links</code> object on <code>node._links</code> the first
+            time it joins a tree or gains a child. It holds the parent, the siblings,
+            the first and last child, the child count, and the index-cache fields:
           </p>
-          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L170">lib/jsdom/living/nodes/Node-impl.js:170</a></p>
-          <pre><span class="del">-    domSymbolTree.initialize(this);</span>
-<span class="del">-    this._memoizedQueries = {};</span>
-<span class="add">+    this._links = null;</span></pre>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L13-L24">lib/jsdom/living/helpers/dom-tree.js:13-24</a></p>
+<pre><span class="add">class Links {</span>
+<span class="add">  parent = null;</span>
+<span class="add">  previousSibling = null;</span>
+<span class="add">  nextSibling = null;</span>
+<span class="add">  firstChild = null;</span>
+<span class="add">  lastChild = null;</span>
+<span class="add">  childCount = 0;</span>
+<span class="add">  // null: append-time indexes are valid; undefined: they need rebuilding;</span>
+<span class="add">  // array: a lazily indexed prefix of the children.</span>
+<span class="add">  cachedChildren = null;</span>
+<span class="add">  cachedIndex = -1;</span>
+<span class="add">}</span></pre>
           <p>
-            The commit says why in plain terms: "Attributes inherit from Node
-            but usually don't need tree bookkeeping." The same lazy treatment
-            reached event listeners, which start null at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/events/EventTarget-impl.js#L24"><code>EventTarget-impl.js:24</code></a>, the <code>on*</code> handler
-            storage, the set of ranges pointing into a node, and the
-            mutation-observer list.
+            The getters on <code>NodeImpl</code> read those fields directly. A node that
+            was never inserted answers from the <code>?? null</code> fallback without
+            allocating anything:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L280-L286">lib/jsdom/living/nodes/Node-impl.js:280-286</a></p>
+<pre>  get parentNode() {
+<span class="add">    return this._links?.parent ?? null;</span>
+<span class="add">  }</span>
+<span class="add"></span>
+<span class="add">  _treeIndex() {</span>
+<span class="add">    return treeHelpers.treeIndex(this);</span>
+<span class="add">  }</span></pre>
+          <p>
+            Each child's <code>cachedIndex</code> is the index it got when appended. The
+            parent's <code>cachedChildren</code> holds one of three values.
+            <code>null</code> means every child's <code>cachedIndex</code> is still
+            right, and the helper <code>appendChild()</code> in
+            <code>dom-tree.js</code> keeps that value by giving the new child the next
+            index. <code>undefined</code> means a middle insertion or removal made the
+            indexes stale; the helper <code>insertBefore()</code> sets it. An array
+            holds the first children in order, rebuilt only as far as someone has asked.
+            The append and insert code is at
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L299-L300"><code>lib/jsdom/living/helpers/dom-tree.js:299-300</code></a> and
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L318-L324"><code>lib/jsdom/living/helpers/dom-tree.js:318-324</code></a>.
+            <code>treeIndex()</code>, which returns a node's position among its siblings,
+            reads the cache:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L268-L286">lib/jsdom/living/helpers/dom-tree.js:268-286</a></p>
+<pre><span class="add">  if (parentData.cachedChildren === null) {</span>
+<span class="add">    return data.cachedIndex;</span>
+<span class="add">  }</span>
+<span class="add">  const cached = parentData.cachedChildren ||= [];</span>
+<span class="add">  // A shifted node can retain an old index inside the rebuilt prefix. Check</span>
+<span class="add">  // identity as well as the index before using it.</span>
+<span class="add">  if (cached[data.cachedIndex] === node) {</span>
+<span class="add">    return data.cachedIndex;</span>
+<span class="add">  }</span>
+<span class="add">  let child = cached.length === 0 ? parentData.firstChild : cached.at(-1).nextSibling;</span>
+<span class="add">  while (child !== node) {</span>
+<span class="add">    child._links.cachedIndex = cached.length;</span>
+<span class="add">    cached.push(child);</span>
+<span class="add">    child = child.nextSibling;</span>
+<span class="add">  }</span>
+<span class="add">  data.cachedIndex = cached.length;</span>
+<span class="add">  cached.push(node);</span>
+<span class="add">  return data.cachedIndex;</span>
+<span class="add">}</span></pre>
+          <p>
+            The check <code>cached[data.cachedIndex] === node</code> refuses a stored
+            index unless the rebuilt prefix holds this very node at that position. In
+            the Intuition example the prefix starts empty, so e's stored 4 is refused and
+            the walk runs. The helper <code>remove()</code> truncates the array, which
+            also drops the cache's references to a removed subtree, so a parent that
+            stays alive does not keep removed children alive; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L345-L351"><code>lib/jsdom/living/helpers/dom-tree.js:345-351</code></a>.
+          </p>
+          <p>
+            The same file supplies the tree iterators. Its
+            <code>ShadowIncludingIterator</code> replaces recursive generators in
+            <code>shadow-dom.js</code> with an explicit stack. Per the commit message,
+            that keeps the traversal order and stops insertion steps from repeating
+            when a callback inserts light children during the walk; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L109-L137"><code>lib/jsdom/living/helpers/dom-tree.js:109-137</code></a>.
+          </p>
+          <p>
+            <code>Range</code> operations now share one helper. Comparing two positions
+            and finding a range's container both need the common ancestor of two nodes
+            and that ancestor's child on each path, and
+            <code>commonAncestorInfo()</code> returns all three in one walk;
+            <code>Range-impl.js</code> uses it, as at
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/range/Range-impl.js#L201"><code>lib/jsdom/living/range/Range-impl.js:201</code></a>. The commit message lists
+            fixes that came with the rewrite:
+          </p>
+          <ul>
+            <li>A CDATA section has the length of its text, because <code>CharacterDataImpl</code> overrides the new <code>_length</code> getter; before, range boundaries counted its children and saw zero. See <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/CharacterData-impl.js#L28-L30"><code>lib/jsdom/living/nodes/CharacterData-impl.js:28-30</code></a>.</li>
+            <li><code>normalize()</code> merges only descendant text nodes, so calling it on a text node no longer removes the node or merges its siblings. See <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L503"><code>lib/jsdom/living/nodes/Node-impl.js:503</code></a>.</li>
+          </ul>
+          <p>
+            Two smaller fixes sit in this theme. <code>NodeIterator</code> follows the
+            latest version of its standard, per commit <a href="https://github.com/jsdom/jsdom/commit/abaedd239b24eeaa94140668279ad692c8f96322">abaedd23</a>, and the
+            release notes say a filter that removes nodes no longer breaks its
+            traversal. HTML
+            serialization treats a CDATA section as text, so one adopted into an HTML
+            document serializes as text. The other files swap a
+            <code>domSymbolTree</code> call for the matching node method, such as
+            <code>domSymbolTree.childrenToArray(node)</code> for
+            <code>node._childrenToArray()</code>.
           </p>
 
-          <h3>2. Joining a tree, and why append is the easy case</h3>
+          <h3 class="core-step">Insertion runs in the DOM Standard's order</h3>
+          <details class="skippable">
+            <summary>The 27 paths this theme covers</summary>
+            <ul>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/parser/html.js"><code>lib/jsdom/browser/parser/html.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/parser/xml.js"><code>lib/jsdom/browser/parser/xml.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLScriptElement-impl.js"><code>lib/jsdom/living/nodes/HTMLScriptElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/ParentNode-impl.js"><code>lib/jsdom/living/nodes/ParentNode-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Element-impl.js"><code>lib/jsdom/living/nodes/Element-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/attributes.js"><code>lib/jsdom/living/attributes.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/node.js"><code>lib/jsdom/living/node.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/custom-elements.js"><code>lib/jsdom/living/helpers/custom-elements.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLElement-impl.js"><code>lib/jsdom/living/nodes/HTMLElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLAnchorElement-impl.js"><code>lib/jsdom/living/nodes/HTMLAnchorElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLAreaElement-impl.js"><code>lib/jsdom/living/nodes/HTMLAreaElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLBaseElement-impl.js"><code>lib/jsdom/living/nodes/HTMLBaseElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLCanvasElement-impl.js"><code>lib/jsdom/living/nodes/HTMLCanvasElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLDetailsElement-impl.js"><code>lib/jsdom/living/nodes/HTMLDetailsElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLFormElement-impl.js"><code>lib/jsdom/living/nodes/HTMLFormElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLFrameElement-impl.js"><code>lib/jsdom/living/nodes/HTMLFrameElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLImageElement-impl.js"><code>lib/jsdom/living/nodes/HTMLImageElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLInputElement-impl.js"><code>lib/jsdom/living/nodes/HTMLInputElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLLinkElement-impl.js"><code>lib/jsdom/living/nodes/HTMLLinkElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLOptionElement-impl.js"><code>lib/jsdom/living/nodes/HTMLOptionElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLOutputElement-impl.js"><code>lib/jsdom/living/nodes/HTMLOutputElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLSelectElement-impl.js"><code>lib/jsdom/living/nodes/HTMLSelectElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLSlotElement-impl.js"><code>lib/jsdom/living/nodes/HTMLSlotElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLStyleElement-impl.js"><code>lib/jsdom/living/nodes/HTMLStyleElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLTemplateElement-impl.js"><code>lib/jsdom/living/nodes/HTMLTemplateElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLTextAreaElement-impl.js"><code>lib/jsdom/living/nodes/HTMLTextAreaElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/SVGElement-impl.js"><code>lib/jsdom/living/nodes/SVGElement-impl.js</code></a></li>
+            </ul>
+          </details>
+          <h4 class="core-edit"><code>_insert()</code> runs post-connection steps after every node is in</h4>
           <p>
-            <code>ensureLinks</code> at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L26"><code>dom-tree.js:26</code></a> allocates the record on first need.
-            Appending then writes one field and increments a counter, with the
-            reasoning stated in a comment rather than left to be worked out.
+            Commit <a href="https://github.com/jsdom/jsdom/commit/9430158146b1de15525c1de4f53afe4a4ff615a4">94301581</a> brings <code>_insert()</code> to the
+            standard's phases, in this order:
           </p>
-          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L299-L300">lib/jsdom/living/helpers/dom-tree.js:299-300</a></p>
-          <pre>  // Appending preserves every existing child's index.
-  childData.cachedIndex = data.childCount++;</pre>
+          <ol class="frames">
+            <li><span class="n">1</span>Take a fragment's children out of the fragment, and queue the record a <code>MutationObserver</code> on the fragment receives.</li>
+            <li><span class="n">2</span>Shift live ranges that sit after the insertion point.</li>
+            <li><span class="n">3</span>For each node, in the per-node loop: adopt it, link it, clear caches, add it to the document's id and name caches, and run insertion steps and custom element callbacks on it and every descendant, including inside shadow trees.</li>
+            <li><span class="n">4</span>Queue the parent's mutation record, then run the parent's children inserted steps.</li>
+            <li class="target"><span class="n">5</span>Collect every descendant that has post-connection steps, then run them for each one still connected.</li>
+          </ol>
+          <p>The call to the children inserted steps and the last phase are new:</p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L1084-L1105">lib/jsdom/living/nodes/Node-impl.js:1084-1105</a></p>
+<pre>    if (!suppressObservers) {
+      queueTreeMutationRecord(this, nodesImpl, [], previousChildImpl, childImpl);
+    }
+<span class="add"></span>
+<span class="add">    this._childrenInsertedSteps();</span>
+<span class="add"></span>
+<span class="add">    for (const node of nodesImpl) {</span>
+<span class="add">      for (const inclusiveDescendant of node._shadowIncludingInclusiveDescendants()) {</span>
+<span class="add">        if (inclusiveDescendant._postConnectionSteps) {</span>
+<span class="add">          postConnectionNodes ||= [];</span>
+<span class="add">          postConnectionNodes.push(inclusiveDescendant);</span>
+<span class="add">        }</span>
+<span class="add">      }</span>
+<span class="add">    }</span>
+<span class="add"></span>
+<span class="add">    if (postConnectionNodes) {</span>
+<span class="add">      for (const node of postConnectionNodes) {</span>
+<span class="add">        if (node.isConnected) {</span>
+<span class="add">          node._postConnectionSteps();</span>
+<span class="add">        }</span>
+<span class="add">      }</span>
+<span class="add">    }</span></pre>
+          <p>
+            In 30.0.1, element side effects ran inside the per-node loop instead:
+          </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/living/nodes/Node-impl.js</code></p>
+<pre><span class="del">      if (this._attached &amp;&amp; nodeImpl._attach) {</span>
+<span class="del">        node._attach();</span>
+      }
 
-          <h3>3. Reading an index</h3>
-          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L256-L270">lib/jsdom/living/helpers/dom-tree.js:256-270</a></p>
-          <pre>function treeIndex(node) {
-  const data = node._links;
-  if (data === null || data.parent === null) {
-    return -1;
-  }
-  const parentData = data.parent._links;
-  if (data.previousSibling === null) {
-    return 0;
-  }
-  if (data.nextSibling === null) {
-    return parentData.childCount - 1;
-  }
-  if (parentData.cachedChildren === null) {
-    return data.cachedIndex;
+<span class="del">      this._descendantAdded(this, node);</span>
+
+<span class="del">      if (isConnected === undefined) {</span>
+<span class="del">        isConnected = node.isConnected;</span>
+<span class="del">      }</span>
+
+<span class="del">      if (isConnected) {</span>
+<span class="del">        for (const inclusiveDescendant of shadowIncludingInclusiveDescendantsIterator(node)) {</span>
+          if (inclusiveDescendant._ceState === "custom") {
+            enqueueCECallbackReaction(inclusiveDescendant, "connectedCallback", []);
+          } else {</pre>
+          <p>
+            <code>_insert()</code> now collects every node before it runs any
+            post-connection step, as the standard does, so a script that inserts or
+            removes nodes cannot change which nodes get those steps. The <code>if (node.isConnected)</code> test is the
+            standard's own condition, and it skips a node that an earlier step
+            disconnected. A hook appears only on classes that need it, and
+            <code>_insert()</code> tests for its presence, as the comment at
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L468-L471"><code>lib/jsdom/living/nodes/Node-impl.js:468-471</code></a> explains.
+          </p>
+          <p>
+            <code>HTMLScriptElement</code> uses both new hooks. Its
+            <code>_postConnectionSteps()</code> prepares the script; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLScriptElement-impl.js#L41-L48"><code>lib/jsdom/living/nodes/HTMLScriptElement-impl.js:41-48</code></a>. Its
+            children inserted steps, added by commit <a href="https://github.com/jsdom/jsdom/commit/4f374b997af73172836917d45f9abf3ed0fcf08b">4f374b99</a>, cover a
+            connected script that starts empty and then receives text:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLScriptElement-impl.js#L50-L62">lib/jsdom/living/nodes/HTMLScriptElement-impl.js:50-62</a></p>
+<pre><span class="add">  // https://html.spec.whatwg.org/multipage/scripting.html#script-processing-model, moved from the</span>
+<span class="add">  // children changed steps to the children inserted steps in</span>
+<span class="add">  // https://github.com/whatwg/html/pull/12282. Being inserted-only is what keeps a removal or a</span>
+<span class="add">  // character data change from running the script.</span>
+<span class="add">  _childrenInsertedSteps() {</span>
+<span class="add">    super._childrenInsertedSteps();</span>
+<span class="add"></span>
+<span class="add">    if (!this.isConnected) {</span>
+<span class="add">      return;</span>
+<span class="add">    }</span>
+<span class="add"></span>
+<span class="add">    this._postConnectionSteps();</span>
+<span class="add">  }</span></pre>
+          <p>
+            The comment links the HTML change behind this and says that running only on
+            insertion is what keeps a removal, or an edit to the script's text, from
+            running the script.
+          </p>
+          <p>
+            The rest of this theme renames hooks and makes the fixes below, according to
+            commit <a href="https://github.com/jsdom/jsdom/commit/af483ae2d01b5ce7de503761b9ef1fa7ef43448f">af483ae2</a> and its neighbors. The element classes replace
+            <code>_attach()</code> and <code>_detach()</code> with the standard's
+            insertion steps and removing steps. They replace
+            <code>_attrModified()</code> with attribute change steps, which now receive
+            the attribute's namespace and run after the attribute's value is stored. The
+            HTML parser's path for inserting text before a node now calls
+            <code>_insert()</code> with that reference node, and the XML parser prepares a
+            script once its contents are parsed.
+          </p>
+          <ul>
+            <li><code>replaceChildren()</code> checks validity while ignoring the children it is about to remove. So <code>document.replaceChildren(document.createElement("html"))</code> on a document that already has a root element no longer throws; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/ParentNode-impl.js#L55"><code>lib/jsdom/living/nodes/ParentNode-impl.js:55</code></a>.</li>
+            <li>Removing a focused element, or its ancestor, moves focus back to the document, including inside shadow trees.</li>
+            <li>Radio groups are defined by tree, form owner, and a non-empty name.</li>
+            <li>A canceled click restores the previous radio only if it is still in the group.</li>
+            <li>A <code>&lt;select&gt;</code> updates its selection when an option's nearest select changes, and stops resetting it when unrelated descendants change.</li>
+            <li>Cloning appends each clone before cloning its children, and a cloned <code>&lt;input&gt;</code> keeps <code>indeterminate</code>.</li>
+            <li>Adding or changing a connected script's <code>src</code> goes through script preparation, so a non-JavaScript or already-started script does not run.</li>
+            <li>A script honors its <code>type</code> attribute and the legacy <code>for</code> and <code>event</code> attributes, and <code>document.currentScript</code> survives nested scripts.</li>
+            <li>Frames connect at the same point as iframes.</li>
+            <li>Stylesheet loading and frame source updates use <code>isConnected</code>, and removing a shadow host unregisters the stylesheets in its shadow tree.</li>
+            <li><code>node.lookupNamespaceURI()</code> returns the fixed namespaces for the <code>xml</code> and <code>xmlns</code> prefixes.</li>
+            <li><code>element.translate</code> handles an empty attribute and a missing parent.</li>
+          </ul>
+
+          <h3 class="core-step">Caches are cleared by the mutation that stales them</h3>
+          <details class="skippable">
+            <summary>The 10 paths this theme covers</summary>
+            <ul>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLCollection-impl.js"><code>lib/jsdom/living/nodes/HTMLCollection-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/NodeList-impl.js"><code>lib/jsdom/living/nodes/NodeList-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/html-collections.js"><code>lib/jsdom/living/helpers/html-collections.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js"><code>lib/jsdom/living/nodes/Document-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document.webidl"><code>lib/jsdom/living/nodes/Document.webidl</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/weak-value-map.js"><code>lib/jsdom/living/helpers/weak-value-map.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/window-properties.js"><code>lib/jsdom/living/window-properties.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/form-controls.js"><code>lib/jsdom/living/helpers/form-controls.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLLabelElement-impl.js"><code>lib/jsdom/living/nodes/HTMLLabelElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/level3/xpath.js"><code>lib/jsdom/level3/xpath.js</code></a></li>
+            </ul>
+          </details>
+          <h4 class="core-edit">One memoized-query object per node, and collections that refresh on read</h4>
+          <p>
+            Every insertion and removal calls <code>_invalidateCaches()</code> on the
+            parent:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L452-L465">lib/jsdom/living/nodes/Node-impl.js:452-465</a></p>
+<pre><span class="add">  // Call this before running element-specific steps, so collection and style reads reflect the mutation.</span>
+<span class="add">  _invalidateCaches() {</span>
+    this._version++;
+<span class="add">    this.#memoizedQueries = null;</span>
+<span class="add">    for (let ancestor = this; ancestor !== null; ancestor = ancestor.parentNode) {</span>
+      ancestor._version++;
+<span class="add">      ancestor.#memoizedQueries = null;</span>
+    }
+
+<span class="add">    this._childrenList?._invalidate();</span>
+<span class="add">    this._childNodesList?._invalidate();</span>
+<span class="add">    if (this.isConnected) {</span>
+      this._ownerDocument._clearStyleCache();
+    }</pre>
+          <p>
+            The old <code>_modified()</code> rebuilt both child lists at once, even when
+            no script held them:
+          </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/living/nodes/Node-impl.js</code></p>
+<pre><span class="del">  _modified() {</span>
+    this._version++;
+<span class="del">    for (const ancestor of domSymbolTree.ancestorsIterator(this)) {</span>
+      ancestor._version++;
+    }
+
+<span class="del">    if (this._childrenList) {</span>
+<span class="del">      this._childrenList._update();</span>
+<span class="del">    }</span>
+<span class="del">    if (this._childNodesList) {</span>
+<span class="del">      this._childNodesList._update();</span>
+<span class="del">    }</span>
+<span class="del">    this._clearMemoizedQueries();</span>
+<span class="del">    if (this._attached) {</span>
+<span class="del">      this._ownerDocument._clearStyleCache();</span>
+<span class="del">    }</span>
+<span class="del">  }</span></pre>
+          <p>
+            The new <code>_invalidate()</code> only empties the stored list. The
+            collection rebuilds when read, if its owner node's <code>_version</code> has
+            moved past the one it last saw:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLCollection-impl.js#L43-L56">lib/jsdom/living/nodes/HTMLCollection-impl.js:43-56</a></p>
+<pre><span class="add">  _invalidate() {</span>
+<span class="add">    // Drop stale nodes without rebuilding the collection so removed subtrees can be collected.</span>
+<span class="add">    this._list.length = 0;</span>
+<span class="add">  }</span>
+  _update() {
+    if (this._version &lt; this._element._version) {
+      const snapshot = this._query();
+      for (let i = 0; i &lt; snapshot.length; i++) {
+        this._list[i] = snapshot[i];
+      }
+      this._list.length = snapshot.length;
+      this._version = this._element._version;
+    }
   }</pre>
           <p>
-            Three fields carry the state, and the meaning of
-            <code>cachedChildren</code> is a tri-state the code documents at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L20-L22"><code>dom-tree.js:20-22</code></a>: <code>null</code> means append-time
-            indexes are still valid, <code>undefined</code> means they need
-            rebuilding, and an array is a lazily indexed prefix.
-            <code>cachedIndex</code> uses <code>-1</code> for a node with no
-            parent.
+            Per the comment inside <code>_invalidate()</code>, emptying the list lets a
+            removed subtree be garbage-collected even while a script still holds the
+            collection. <code>NodeList-impl.js</code> gains the same method.
+          </p>
+          <p>
+            Commit <a href="https://github.com/jsdom/jsdom/commit/904cc9cd2464e959b739910cb046afe57f7a1922">904cc9cd</a> moves memoized queries into
+            <code>NodeImpl</code>. In 30.0.1 every node built an empty object at
+            construction, and each mutation built new ones up the ancestor chain. Now a
+            node holds its object in the private field <code>#memoizedQueries</code>,
+            created on first use by <code>_getMemoizedQueries()</code> and set to
+            <code>null</code> by a mutation:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L104-L112">lib/jsdom/living/nodes/Node-impl.js:104-112</a></p>
+<pre><span class="add">function createMemoizedQueries() {</span>
+<span class="add">  // These all derive from a node's subtree and are discarded together after any tree or attribute mutation.</span>
+<span class="add">  return {</span>
+<span class="add">    collectionsByClassNames: null,</span>
+<span class="add">    collectionsByQualifiedName: null,</span>
+<span class="add">    collectionsByNamespaceAndLocalName: null,</span>
+<span class="add">    labelAssociations: null</span>
+<span class="add">  };</span>
+<span class="add">}</span></pre>
+          <p>
+            The old wrapper keyed results by string arguments only, so
+            <code>getElementsByTagNameNS(null, "li")</code> was never cached:
+          </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/utils.js</code></p>
+<pre><span class="del">    let key;</span>
+<span class="del">    if (args.length === 1 &amp;&amp; typeof args[0] === "string") {</span>
+<span class="del">      key = args[0];</span>
+<span class="del">    } else if (args.length === 2 &amp;&amp; typeof args[0] === "string" &amp;&amp; typeof args[1] === "string") {</span>
+<span class="del">      key = args[0] + "::" + args[1];</span>
+<span class="del">    } else {</span>
+<span class="del">      return fn.apply(this, args);</span>
+<span class="del">    }</span>
+<span class="del"></span>
+<span class="del">    if (!(key in this._memoizedQueries[type])) {</span>
+<span class="del">      this._memoizedQueries[type][key] = fn.apply(this, args);</span>
+<span class="del">    }</span>
+<span class="del">    return this._memoizedQueries[type][key];</span></pre>
+          <p>
+            The new <code>getElementsByTagNameNS()</code> keys a <code>Map</code> by the
+            namespace value itself, <code>null</code> included. Adoption into another
+            document also clears the object, because a collection from
+            <code>getElementsByTagName()</code> keeps the case rules of the document it
+            was made in; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L1093-L1096"><code>lib/jsdom/living/nodes/Document-impl.js:1093-1096</code></a>.
+            The map from each form control to its labels is cached in the object of the
+            tree's root, so repeated reads of <code>input.labels</code> scan the tree once
+            until it changes.
+          </p>
+          <p>
+            XPath results reuse the version counter. In 30.0.1 the invalidation code was
+            commented out, so an iterator result never reported itself invalid. Commit
+            <a href="https://github.com/jsdom/jsdom/commit/2ba228b7669ba208d38a3dd08a5bd6f5ef169e64">2ba228b7</a> has the result record the document's
+            <code>_version</code> and report itself invalid once that number moves; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/level3/xpath.js#L1757"><code>lib/jsdom/level3/xpath.js:1757</code></a> and
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/level3/xpath.js#L1811"><code>lib/jsdom/level3/xpath.js:1811</code></a>.
           </p>
 
-          <div class="callout">
-            <span class="label">Key concept</span>
-            <code>cachedChildren</code> carries three meanings in one field,
-            which is what the code above is branching on.
-            <code>null</code> means every index was assigned at append time and
-            is still correct. <code>undefined</code> means a mutation
-            invalidated them. An array means jsdom has indexed a prefix of the
-            children and has not looked at the rest. None of the three is a
-            tuning knob: there is no size limit and no threshold anywhere in
-            this file.
-          </div>
+          <h4 class="core-edit">Named properties on <code>document</code> and <code>window</code></h4>
+          <p>
+            <code>document.myForm</code> is new in this release, from commit
+            <a href="https://github.com/jsdom/jsdom/commit/5f9518340c250220224e88a2361f41ea268269b6">5f951834</a>. <code>Document.webidl</code> enables the named getter,
+            and <code>DocumentImpl</code> answers it. The elements that can contribute
+            are <code>embed</code>, <code>form</code>, <code>iframe</code>,
+            <code>img</code>, and <code>object</code>; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L86"><code>lib/jsdom/living/nodes/Document-impl.js:86</code></a>. A private map holds
+            each name and its elements. Any insertion or removal in the document tree
+            discards the map, and an attribute change discards it only when the change
+            can alter the map. A lone iframe answers with its window; several matches
+            answer with a collection:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L738-L750">lib/jsdom/living/nodes/Document-impl.js:738-750</a></p>
+<pre><span class="add">    // Collections are per name and outlive the cache above, since the standard hands out the same</span>
+<span class="add">    // collection each time. The query reads the current map, so the collection stays live.</span>
+<span class="add">    this.#namedPropertyCollections ??= new WeakValueMap();</span>
+<span class="add">    let collection = this.#namedPropertyCollections.get(name);</span>
+<span class="add">    if (collection === undefined) {</span>
+<span class="add">      collection = HTMLCollection.createImpl(this._globalObject, [], {</span>
+<span class="add">        element: this,</span>
+<span class="add">        query: () =&gt; this.#namedPropertyElements.get(name) ?? []</span>
+<span class="add">      });</span>
+<span class="add">      this.#namedPropertyCollections.set(name, collection);</span>
+<span class="add">    }</span>
+<span class="add"></span>
+<span class="add">    return collection;</span></pre>
+          <p>
+            The standard requires the same collection object each time, so the
+            collection must outlive the map, which is rebuilt after mutations.
+            <code>WeakValueMap</code>, new in <code>helpers/weak-value-map.js</code>,
+            holds each collection through a <code>WeakRef</code>, and a
+            <code>FinalizationRegistry</code> removes the entry after the collection is
+            reclaimed. A script that keeps the collection gets the same object back, and
+            an unused one can be garbage-collected.
+          </p>
+          <p>
+            <code>window</code> named properties already existed, and commit
+            <a href="https://github.com/jsdom/jsdom/commit/ef9562059566d599b2f7d1ebcf7d146a92de4217">ef956205</a> and its neighbors fix them in three ways:
+          </p>
+          <ul>
+            <li>Elements count only when they belong to the window's own document, so elements in a <code>DOMParser</code> document no longer appear on <code>window</code>. The test is <code>inAssociatedDocument()</code>; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/window-properties.js#L13-L16"><code>lib/jsdom/living/window-properties.js:13-16</code></a>.</li>
+            <li>The tracker that maps each name to its elements is created with the first contributing element and deleted with the last, so a window with no named elements holds none; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/window-properties.js#L149-L151"><code>lib/jsdom/living/window-properties.js:149-151</code></a>.</li>
+            <li>Empty and namespaced <code>id</code> and <code>name</code> attributes no longer count.</li>
+          </ul>
 
-          <h3>4. Mutating, and invalidating only what moved</h3>
+          <h3 class="core-step">Computed styles stop reparsing their own cache</h3>
+          <details class="skippable">
+            <summary>The 25 paths this theme covers</summary>
+            <ul>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/computed-style.js"><code>lib/jsdom/living/css/helpers/computed-style.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js"><code>lib/jsdom/living/css/CSSStyleDeclaration-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleProperties-impl.js"><code>lib/jsdom/living/css/CSSStyleProperties-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/StyleSheetList-impl.js"><code>lib/jsdom/living/css/StyleSheetList-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/stylesheets.js"><code>lib/jsdom/living/css/helpers/stylesheets.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/css-values.js"><code>lib/jsdom/living/css/helpers/css-values.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/font-sizes.js"><code>lib/jsdom/living/css/helpers/font-sizes.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/line-widths.js"><code>lib/jsdom/living/css/helpers/line-widths.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/shorthand-properties.js"><code>lib/jsdom/living/css/helpers/shorthand-properties.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/background.js"><code>lib/jsdom/living/css/properties/background.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/border.js"><code>lib/jsdom/living/css/properties/border.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderBottom.js"><code>lib/jsdom/living/css/properties/borderBottom.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderBottomWidth.js"><code>lib/jsdom/living/css/properties/borderBottomWidth.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderColor.js"><code>lib/jsdom/living/css/properties/borderColor.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderLeft.js"><code>lib/jsdom/living/css/properties/borderLeft.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderLeftWidth.js"><code>lib/jsdom/living/css/properties/borderLeftWidth.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderRight.js"><code>lib/jsdom/living/css/properties/borderRight.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderRightWidth.js"><code>lib/jsdom/living/css/properties/borderRightWidth.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderStyle.js"><code>lib/jsdom/living/css/properties/borderStyle.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderTop.js"><code>lib/jsdom/living/css/properties/borderTop.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderTopWidth.js"><code>lib/jsdom/living/css/properties/borderTopWidth.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/borderWidth.js"><code>lib/jsdom/living/css/properties/borderWidth.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/flex.js"><code>lib/jsdom/living/css/properties/flex.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/flexBasis.js"><code>lib/jsdom/living/css/properties/flexBasis.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/properties/fontWeight.js"><code>lib/jsdom/living/css/properties/fontWeight.js</code></a></li>
+            </ul>
+          </details>
+          <h4 class="core-edit">A cache hit copies declarations instead of reparsing them</h4>
           <p>
-            <code>insertBefore</code> truncates the cached prefix at the
-            mutation point instead of discarding it, in one line at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L323"><code>dom-tree.js:323</code></a>.
-            <code>_invalidateCaches</code> at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L453"><code>Node-impl.js:453</code></a> replaced a recursive climb up the
-            ancestors with an iterative loop that bumps the version.
+            <code>getComputedStyle()</code> keeps one computed declaration per element
+            in the document's <code>_styleCache</code>, a <code>WeakMap</code> that
+            <code>_clearStyleCache()</code> replaces after any mutation of a connected
+            node. Each call still returns a fresh object, so a cache hit has to copy. In
+            30.0.1 the copy went through the public setter, one property at a time:
           </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/living/css/helpers/computed-style.js</code></p>
+<pre>
+<span class="del">    for (let i = 0; i &lt; cachedDeclaration.length; i++) {</span>
+<span class="del">      const property = cachedDeclaration.item(i);</span>
+<span class="del">      const value = cachedDeclaration.getPropertyValue(property);</span>
+<span class="del">      const priority = cachedDeclaration.getPropertyPriority(property);</span>
+<span class="del">      clonedDeclaration.setProperty(property, value, priority);</span>
+<span class="del">    }</span>
+    clonedDeclaration._readonly = true;</pre>
           <p>
-            Live collections now work the other way round. They used to rebuild
-            on every mutation; now they mark themselves stale and refresh on the
-            next read, which they detect with a counter. Each element carries a
-            <code>_version</code> that only ever increases, and a collection
-            refreshes when its own copy has fallen behind. The commit states the
-            problem directly: "Live childNodes and children collections were
-            rebuilding after each mutation even when nothing read them."
+            Each <code>setProperty()</code> parsed the value again. The message of
+            commit <a href="https://github.com/jsdom/jsdom/commit/12d72c1fe58f4ad3c7124e0d3aa721df74f97bbb">12d72c1f</a> says that pass also changed values, such as
+            lowercasing a case-sensitive background URL. A cache hit now copies the
+            stored values and priorities directly:
           </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/computed-style.js#L23-L36">lib/jsdom/living/css/helpers/computed-style.js:23-36</a></p>
+<pre>function getComputedStyleDeclaration(elementImpl) {
+  const styleCache = elementImpl._ownerDocument._styleCache;
+  const cachedDeclaration = styleCache.get(elementImpl);
+  if (cachedDeclaration) {
+    const clonedDeclaration = CSSStyleProperties.createImpl(elementImpl._globalObject, [], {
+      computed: true,
+      ownerNode: elementImpl
+    });
 
-          <h3>5. Ancestors, walked once</h3>
-          <p>
-            <code>commonAncestorInfo</code> at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dom-tree.js#L209"><code>dom-tree.js:209</code></a> returns the shared ancestor together
-            with the two children that lead to each side, and
-            <code>compareTreePosition</code>, a range's common ancestor,
-            boundary comparison, clone, extract, and
-            <code>range.surroundContents()</code> all read that one result.
-            <code>getRootNode</code> at <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L356"><code>Node-impl.js:356</code></a> caches the
-            root with path compression, which the commit ties to a specific
-            symptom: "building an event path would previously repeatedly walk
-            the Document for each connected parent."
-          </p>
+<span class="add">    clonedDeclaration._copyDeclarationsFrom(cachedDeclaration);</span>
+    clonedDeclaration._readonly = true;
 
-          <h3>6. Paying for an index only when something wants one</h3>
-          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Node-impl.js#L1019">lib/jsdom/living/nodes/Node-impl.js:1019</a></p>
-          <pre>        childIndex ??= childImpl._treeIndex();</pre>
+    return clonedDeclaration;
+  }</pre>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js#L49-L56">lib/jsdom/living/css/CSSStyleDeclaration-impl.js:49-56</a></p>
+<pre><span class="add">  _copyDeclarationsFrom(source) {</span>
+<span class="add">    for (const [property, value] of source.#values) {</span>
+<span class="add">      this.#values.set(property, value);</span>
+<span class="add">    }</span>
+<span class="add">    for (const [property, priority] of source._priorities) {</span>
+<span class="add">      this._priorities.set(property, priority);</span>
+<span class="add">    }</span>
+<span class="add">  }</span></pre>
           <p>
-            That sits inside the loop over the ranges whose boundaries point
-            into this node. A <code>Range</code> holds positions in the tree, so
-            it has to be adjusted whenever the tree beneath it changes, which is
-            why insertion consults them at all. A document that never created
-            one skips the index entirely.
+            The copy keeps lazy resolution: a property is resolved the first time a
+            script reads it, not during the copy.
           </p>
+          <p>
+            The cascade itself gets faster and more correct:
+          </p>
+          <ul>
+            <li>A matched rule computes its selector specificity once instead of once per declaration; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/computed-style.js#L102"><code>lib/jsdom/living/css/helpers/computed-style.js:102</code></a>.</li>
+            <li>An <code>@import</code> is handled as a whole sheet, so its nested <code>@import</code> and <code>@media</code> rules apply; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/computed-style.js#L82"><code>lib/jsdom/living/css/helpers/computed-style.js:82</code></a>.</li>
+            <li>An import that finishes loading clears the style cache, so a result cached while it was pending does not stay stale; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/helpers/stylesheets.js#L34-L36"><code>lib/jsdom/living/css/helpers/stylesheets.js:34-36</code></a>.</li>
+            <li>Sheets enter <code>document.styleSheets</code> in tree order by owner node, where 30.0.1 appended them in the order they were added; see <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/StyleSheetList-impl.js#L24-L33"><code>lib/jsdom/living/css/StyleSheetList-impl.js:24-33</code></a>.</li>
+            <li><code>CSSStyleDeclaration</code> caches its serialized <code>cssText</code>, and a shorthand assignment no longer writes intermediate values that fired extra mutation records.</li>
+          </ul>
+          <p>The value fixes, per the release notes:</p>
+          <ul>
+            <li>Computed border widths resolve through the new <code>line-widths.js</code>, so an element with no border no longer reports <code>16px</code>.</li>
+            <li><code>font-weight</code> keywords resolve to numbers.</li>
+            <li>Lengths inside math functions that contain percentages become pixels.</li>
+            <li>Adjacent shorthand parts, such as <code>url(a.png)no-repeat</code>, parse.</li>
+            <li>A unitless zero in a <code>flex</code> shorthand, as in <code>35 1 0</code>, is read as the basis.</li>
+          </ul>
 
-          <h3>7. Styles: separating what a value <em>is</em> from how it reads</h3>
+          <h3 class="core-step">A destroyed document starts no new work</h3>
+          <details class="skippable">
+            <summary>The 23 paths this theme covers</summary>
+            <ul>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/Window.js"><code>lib/jsdom/browser/Window.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/api.js"><code>lib/api.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/resources/per-document-resource-loader.js"><code>lib/jsdom/browser/resources/per-document-resource-loader.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/documents.js"><code>lib/jsdom/living/documents.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/domparsing/DOMParser-impl.js"><code>lib/jsdom/living/domparsing/DOMParser-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/file-api/FileReader-impl.js"><code>lib/jsdom/living/file-api/FileReader-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/create-event-accessor.js"><code>lib/jsdom/living/helpers/create-event-accessor.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/GlobalEventHandlers-impl.js"><code>lib/jsdom/living/nodes/GlobalEventHandlers-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/html-constructor.js"><code>lib/jsdom/living/helpers/html-constructor.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/is-window.js"><code>lib/jsdom/living/helpers/is-window.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Comment-impl.js"><code>lib/jsdom/living/nodes/Comment-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/DocumentFragment-impl.js"><code>lib/jsdom/living/nodes/DocumentFragment-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLHyperlinkElementUtils-impl.js"><code>lib/jsdom/living/nodes/HTMLHyperlinkElementUtils-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLMediaElement-impl.js"><code>lib/jsdom/living/nodes/HTMLMediaElement-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/websockets/WebSocket-impl.js"><code>lib/jsdom/living/websockets/WebSocket-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/webstorage/Storage-impl.js"><code>lib/jsdom/living/webstorage/Storage-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/window/SessionHistory.js"><code>lib/jsdom/living/window/SessionHistory.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/window/navigation.js"><code>lib/jsdom/living/window/navigation.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/xhr/XMLHttpRequestEventTarget-impl.js"><code>lib/jsdom/living/xhr/XMLHttpRequestEventTarget-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/iterable-weak-list.js"><code>lib/jsdom/living/helpers/iterable-weak-list.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/mutation-observer/MutationObserver-impl.js"><code>lib/jsdom/living/mutation-observer/MutationObserver-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/mutation-observers.js"><code>lib/jsdom/living/helpers/mutation-observers.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/events/EventTarget-impl.js"><code>lib/jsdom/living/events/EventTarget-impl.js</code></a></li>
+            </ul>
+          </details>
+          <h4 class="core-edit"><code>_queueATask()</code> checks the document when the task runs</h4>
           <p>
-            <code>getComputedStyle()</code> had a cache that did the work twice.
-            A hit cloned the stored declaration by resolving and re-parsing
-            every property, which also lowercased case-sensitive
-            <code>background</code> URLs on the way through.
-            <code>_copyDeclarationsFrom</code> at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js#L49"><code>CSSStyleDeclaration-impl.js:49</code></a> copies the raw maps
-            instead and leaves resolution lazy.
+            In commit <a href="https://github.com/jsdom/jsdom/commit/9547fbf5b60af45d54c9e34d0891c7808f6ee2ce">9547fbf5</a>, <code>window.close()</code> marks the
+            document instead of taking it apart:
           </p>
-          <p>
-            The larger move separates two things CSS itself keeps apart. A
-            property's <em>computed</em> value is what the cascade and
-            inheritance produce. Its <em>resolved</em> value is what a caller
-            reading the property back should see, which is not always the same.
-            <code>_getComputedPropertyValue</code> at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js#L231"><code>CSSStyleDeclaration-impl.js:231</code></a> memoizes the first,
-            while the second became a display-only layer applied in
-            <code>someStyle.getPropertyValue()</code>. That
-            split is what fixed <code>'border-width'</code>: the keywords are
-            <code>thin</code> 1px, <code>medium</code> 3px and
-            <code>thick</code> 5px, and a border styled
-            <code>none</code> or <code>hidden</code> now resolves to
-            <code>0px</code>. Previously <code>medium</code> went through the
-            font-size path and borderless elements reported <code>16px</code>.
-          </p>
-          <p>
-            Two more in the same area. Setting a shorthand used to write the
-            <code>style=""</code> attribute once per longhand it touched;
-            <code>_updateStyle</code> at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSSStyleDeclaration-impl.js#L347"><code>CSSStyleDeclaration-impl.js:347</code></a> defers and writes once,
-            which the commit calls "both a performance and correctness
-            improvement" because the intermediate writes were producing spurious
-            mutation records and custom-element reactions.
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/StyleSheetList-impl.js#L28"><code>StyleSheetList-impl.js:28</code></a> now inserts sheets in tree
-            order rather than insertion order, so adding a
-            <code>&lt;style&gt;</code> before an existing one no longer puts it
-            last in <code>document.styleSheets</code> and in the cascade.
-          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/Window.js#L829-L844">lib/jsdom/browser/Window.js:829-844</a></p>
+<pre>  window.close = function () {
+<span class="add">    const doc = window._document;</span>
+<span class="add">    if (doc._isDestroyed) {</span>
+<span class="add">      return;</span>
+    }
+<span class="add">    // Mark destruction before aborting descendants: interceptor abort listeners can reenter `window.close()`.</span>
+<span class="add">    doc._isDestroyed = true;</span>
 
-          <h3>8. Documents that are closed but still readable</h3>
-          <p>
-            <code>window.close()</code> used to delete the document and strip
-            its DOM, so retained references went dead while queued work kept
-            running against something unreachable. Destruction is now a flag,
-            and the DOM is left intact. <code>_queueATask</code> at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L643"><code>Document-impl.js:643</code></a> is the new document-scoped queue
-            that discards work after destruction while still settling its
-            promise, so <code>finally</code> cleanup still runs. Timers, frame
-            callbacks, script execution, subresource loads, navigation and
-            <code>someRequest.send()</code> each consult the flag.
-          </p>
-          <p>
-            <code>complete()</code> at <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L614"><code>Document-impl.js:614</code></a> fixes a
-            separate hang by splitting internal load completion from the public
-            <code>load</code> event, so an
-            <code>&lt;iframe&gt;</code> that removes itself mid-load no longer
-            leaves its parent waiting forever.
-          </p>
+<span class="add">    // Include child navigables in shadow trees, which are absent from our indexed Window properties.</span>
+<span class="add">    for (const child of doc._childDocuments) {</span>
+<span class="add">      child._defaultView.close();</span>
+<span class="add">    }</span>
+<span class="add">    if (doc._parentDocument !== null) {</span>
+<span class="add">      doc._parentDocument._childDocuments.delete(doc);</span>
+<span class="add">      doc._parentDocument = null;</span>
+<span class="add">    }</span></pre>
+          <p>The 30.0.1 version emptied and detached the document:</p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/browser/Window.js</code></p>
+<pre><span class="del">    if (window._document) {</span>
+<span class="del">      if (window._document.body) {</span>
+<span class="del">        window._document.body.innerHTML = "";</span>
+<span class="del">      }</span>
 
-          <h3>9. The three additions</h3>
+<span class="del">      if (window._document.close) {</span>
+<span class="del">        // It's especially important to clear out the listeners here because document.close() causes a "load" event to</span>
+<span class="del">        // fire.</span>
+<span class="del">        idlUtils.implForWrapper(window._document)._eventListeners = Object.create(null);</span>
+<span class="del">        window._document.close();</span>
+<span class="del">      }</span>
+<span class="del">      const doc = idlUtils.implForWrapper(window._document);</span>
+<span class="del">      if (doc._requestManager) {</span>
+<span class="del">        doc._requestManager.close();</span>
+<span class="del">      }</span>
+<span class="del">      delete window._document;</span>
+    }</pre>
           <p>
-            Named access on <code>document</code> went live by uncommenting the
-            IDL getter; the qualifying local names are at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L86"><code>Document-impl.js:86</code></a> and the lookup at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L717"><code>Document-impl.js:717</code></a>, where a single matching
-            <code>&lt;iframe&gt;</code> returns its
-            <code>someFrame.contentWindow</code> rather than the element.
-            <code>QuotaExceededError</code> is a new exception carrying optional
-            <code>quota</code> and <code>requested</code> values, thrown by web
-            storage and by
-            <code>someCrypto.getRandomValues()</code> past
-            <code>65536</code> bytes at <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/crypto/Crypto-impl.js#L31"><code>Crypto-impl.js:31</code></a>; the
-            storage limit is <code>5000000</code> code units, defaulted at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/api.js#L263"><code>lib/api.js:263</code></a>. Relaxed name validation at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/validate-names.js#L7"><code>validate-names.js:7</code></a> replaces blanket XML productions
-            with the DOM Standard's per-context rules, so
-            <code>document.createElement("a!b")</code> is now accepted where it
-            previously threw.
+            A script that kept a reference to the document can still read its DOM. New
+            work is skipped instead. Internal event and navigation tasks now go through
+            one helper on the document, <code>_queueATask()</code>:
           </p>
-
-          <h3>What this page sets aside</h3>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L643-L656">lib/jsdom/living/nodes/Document-impl.js:643-656</a></p>
+<pre><span class="add">  _queueATask(steps, { signal } = {}) {</span>
+<span class="add">    return new Promise((resolve, reject) =&gt; {</span>
+<span class="add">      setImmediate(() =&gt; {</span>
+<span class="add">        if (this._isDestroyed || signal?.aborted) {</span>
+<span class="add">          resolve();</span>
+<span class="add">          return;</span>
+<span class="add">        }</span>
+<span class="add">        try {</span>
+<span class="add">          resolve(steps());</span>
+<span class="add">        } catch (error) {</span>
+<span class="add">          reject(error);</span>
+<span class="add">        }</span>
+<span class="add">      });</span>
+<span class="add">    });</span></pre>
           <p>
-            This release changed 417 files. 127 are under
-            <code>lib/</code>, and those are the ones this page is about, though
-            it names only nine of them and treats the rest as instances of the
-            same few changes. The biggest such group is the per-property
-            files under <code>lib/jsdom/living/css/properties/</code>: the
-            border, flex and font-weight resolvers are one idea applied once per
-            property, so reading a second of them teaches nothing the first did
-            not.
-          </p>
-          <p>
-            Of the remaining 290 files, 240 are under
-            <code>test/web-platform-tests/</code>. One of those,
-            <code>wpt-manifest.json</code>, is generated and accounts for
-            1,491,149 of the 1,504,358 added lines by itself, which is why a
-            release of this size reports a diff in the millions. Another 25 are
-            benchmarks, which <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/Contributing.md?plain=1#L125"><code>Contributing.md:125</code></a> asks contributors
-            to run before and after a change. The last 25 are workflow files,
-            lint configuration, and documentation, including a policy on
-            AI-assisted contribution added in this same range. None of those are
-            explained here.
+            The helper checks <code>_isDestroyed</code> when the task runs, not when it
+            is queued, so a task queued just before <code>close()</code> is dropped too.
+            The optional <code>signal</code> lets navigation tasks be canceled without
+            touching unrelated tasks. The promise settles either way, which lets a caller
+            clean up in <code>finally</code>.
           </p>
           <p>
-            One set-aside is worth more than a passing mention. Four
-            release-note bullets describe selector fixes, including the
-            <code>someElement.querySelectorAll()</code> regression introduced in
-            v30.0.0. No jsdom selector code changed. jsdom delegates matching to
-            <code>@asamuzakjp/dom-selector</code> through one method at
-            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Document-impl.js#L274"><code>Document-impl.js:274</code></a>, and the fixes arrived as a
-            version bump from <code>^8.3.0</code> at v30.0.1 to
-            <code>^9.1.2</code> at v30.1.0. The commit body for the first bump
-            reads, in full, "Fixes #4227." The mechanism lives in the
-            dependency, and this page cannot show it to you.
+            Callers that made their own timer calls now use the helper: message
+            posting, hyperlink navigation, navigation, WebSocket events,
+            <code>FileReader</code> events, <code>select</code> events, selection
+            changes, session history, and the details element's toggle event. The media
+            element fired <code>volumechange</code> and <code>ratechange</code>
+            synchronously, and now queues them; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/HTMLMediaElement-impl.js#L115-L126"><code>lib/jsdom/living/nodes/HTMLMediaElement-impl.js:115-126</code></a>.
+            <code>storage</code> events pick their recipient windows when the storage
+            changes and queue one task per recipient, so a window created later gets no
+            event and a closed one is skipped; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/webstorage/Storage-impl.js#L28"><code>lib/jsdom/living/webstorage/Storage-impl.js:28</code></a>.
+          </p>
+          <p>
+            Other entry points check <code>_isDestroyed</code> directly. New timers
+            return 0, as at <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/Window.js#L538-L540"><code>lib/jsdom/browser/Window.js:538-540</code></a>, and the
+            resource loader stops starting subresource loads. Per the commit message, a
+            child iframe that removes itself while loading no longer leaves its parent
+            waiting, because internal load completion is now separate from the public
+            <code>load</code> event. Separately, a window now stores the
+            <code>DocumentImpl</code> on <code>window._document</code> instead of the
+            wrapper, so <code>lib/api.js</code>, <code>Comment-impl.js</code>, and others
+            drop their <code>implForWrapper()</code> calls.
           </p>
 
           <div class="callout edge">
             <span class="label">Edge case</span>
-            The v30.0.0 regression looks like it came from the same place it was
-            fixed. That release took the same dependency from
-            <code>^7.1.1</code> to <code>^8.2.5</code>, a major jump with no
-            per-fix notes. That is my inference from the version history, not
-            something the repository states: no commit, issue or comment in this
-            range names what in 8.x broke context-element matching.
+            A destroyed document is not the same as a closed window or an inactive
+            document. <code>window.closed</code> is a separate flag, and an inactive
+            document is one HTML keeps but does not show, such as one left behind in
+            session history. The commit message says jsdom still does not suspend and
+            resume inactive documents, and does not model task sources, the standard's
+            grouping of tasks by kind.
           </div>
+
+          <h4 class="core-edit">Weak references and paired cleanup release memory</h4>
+          <p>
+            A <code>MutationObserver</code> keeps a list of the nodes it observes so
+            <code>disconnect()</code> can unregister it from each one. A plain array
+            kept those nodes alive for as long as the observer lived. Commit
+            <a href="https://github.com/jsdom/jsdom/commit/8ae47bda96a744923c0f09d5305508c3a2065ec0">8ae47bda</a> makes the list an <code>IterableWeakList</code>, new
+            in this release, which holds each node through a <code>WeakRef</code> and
+            drops dead entries as it iterates:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/iterable-weak-list.js#L14-L26">lib/jsdom/living/helpers/iterable-weak-list.js:14-26</a></p>
+<pre><span class="add">  * [Symbol.iterator]() {</span>
+<span class="add">    const liveRefs = [];</span>
+<span class="add"></span>
+<span class="add">    for (const ref of this.#refs) {</span>
+<span class="add">      const value = ref.deref();</span>
+<span class="add">      if (value !== undefined) {</span>
+<span class="add">        liveRefs.push(ref);</span>
+<span class="add">        yield value;</span>
+<span class="add">      }</span>
+<span class="add">    }</span>
+<span class="add"></span>
+<span class="add">    this.#refs = liveRefs;</span>
+<span class="add">  }</span></pre>
+          <p>
+            Listeners added with <code>{ signal }</code> leaked through the signal. In
+            30.0.1 the abort algorithm registered on the signal was a fresh closure over
+            the target and callback, and nothing ever removed it:
+          </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/living/events/EventTarget-impl.js</code></p>
+<pre>    if (signal !== null) {
+<span class="del">      signal._addAlgorithm(() =&gt; {</span>
+<span class="del">        this.removeEventListener(type, callback, options);</span>
+<span class="del">      });</span>
+    }</pre>
+          <p>
+            A long-lived <code>AbortController</code> therefore kept every target and
+            callback it had ever been given. Commit <a href="https://github.com/jsdom/jsdom/commit/dcb9dfc1fc8aa09c35c9626d6b3e347c16146064">dcb9dfc1</a> keeps the
+            closure on the listener object, so whatever removes the listener can remove
+            the closure too:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/events/EventTarget-impl.js#L70-L77">lib/jsdom/living/events/EventTarget-impl.js:70-77</a></p>
+<pre>    if (signal !== null) {
+<span class="add">      // The signal stores abort algorithms by identity. Keep the exact function on the listener record so removing the</span>
+<span class="add">      // listener can also discard its now-redundant abort algorithm instead of retaining the record and its callback.</span>
+<span class="add">      listener.abortAlgorithm = () =&gt; {</span>
+<span class="add">        removeEventListenerFromList(listeners, listener);</span>
+<span class="add">      };</span>
+<span class="add">      signal._addAlgorithm(listener.abortAlgorithm);</span>
+    }</pre>
+          <p>
+            <code>removeEventListenerFromList()</code> calls
+            <code>removeAbortAlgorithm()</code> for <code>removeEventListener()</code>,
+            for a <code>once</code> listener that fires, and for the abort itself; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/events/EventTarget-impl.js#L400-L410"><code>lib/jsdom/living/events/EventTarget-impl.js:400-410</code></a>. Observer
+            registrations, event handler storage, and live range sets are now allocated
+            only when first used, so nodes nobody observes or listens to carry none of
+            that storage.
+          </p>
+
+          <h3 class="core-step">A canceled request stays canceled across hops</h3>
+          <details class="skippable">
+            <summary>The 4 paths this theme covers</summary>
+            <ul>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/resources/jsdom-dispatcher.js"><code>lib/jsdom/browser/resources/jsdom-dispatcher.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/resources/request-interceptor.js"><code>lib/jsdom/browser/resources/request-interceptor.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/resources/stream-handler.js"><code>lib/jsdom/browser/resources/stream-handler.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/xhr/XMLHttpRequest-impl.js"><code>lib/jsdom/living/xhr/XMLHttpRequest-impl.js</code></a></li>
+            </ul>
+          </details>
+          <h4 class="core-edit">One cancellation state for the whole request</h4>
+          <p>
+            <code>JSDOMDispatcher</code> hands each request's handler one controller
+            that lasts across redirect hops. In 30.0.1 that controller forwarded every
+            call, including <code>abort()</code> and the <code>aborted</code> getter, to
+            the current hop:
+          </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/browser/resources/jsdom-dispatcher.js</code></p>
+<pre><span class="del">    // Create a proxy controller that forwards to the current underlying controller.</span>
+<span class="del">    // This provides a stable reference across redirect hops.</span>
+<span class="del">    let currentController;</span>
+    let onRequestStartCalled = false;
+<span class="del">    const proxyController = {</span>
+      abort(reason) {
+<span class="del">        currentController.abort(reason);</span>
+      },
+      pause() {
+<span class="del">        currentController.pause();</span>
+      },
+      resume() {
+<span class="del">        currentController.resume();</span>
+      },
+      get paused() {
+<span class="del">        return currentController.paused;</span>
+      },
+      get aborted() {
+<span class="del">        return currentController.aborted;</span>
+      },</pre>
+          <p>
+            A hop that has finished can ignore <code>abort()</code>, so a
+            <code>window.stop()</code> between two hops reached nothing. The message of
+            commit <a href="https://github.com/jsdom/jsdom/commit/2e43743f096c49fb1831ad556e04f7e76343634c">2e43743f</a> says the redirected script then loaded and ran.
+            The new <code>requestController</code> records <code>aborted</code> and the
+            first reason itself, and applies them to the next hop as soon as its
+            controller arrives; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/resources/jsdom-dispatcher.js#L172-L202"><code>lib/jsdom/browser/resources/jsdom-dispatcher.js:172-202</code></a>:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/resources/jsdom-dispatcher.js#L205-L214">lib/jsdom/browser/resources/jsdom-dispatcher.js:205-214</a></p>
+<pre>    function onControllerReady(controller) {
+<span class="add">      transportController = controller;</span>
+      if (!onRequestStartCalled) {
+        onRequestStartCalled = true;
+<span class="add">        handler.onRequestStart?.(requestController, ctx);</span>
+<span class="add">      } else if (aborted) {</span>
+<span class="add">        // Cancellation can occur after one hop finishes but before the next hop supplies its controller.</span>
+<span class="add">        controller.abort(abortReason);</span>
+      }
+    }</pre>
+          <pre class="mermaid">
+---
+config:
+  sequence:
+    useMaxWidth: false
+    actorMargin: 20
+    width: 90
+    diagramMarginX: 8
+---
+sequenceDiagram
+    participant S as Page
+    participant D as Dispatcher
+    participant H1 as Hop 1
+    participant H2 as Hop 2
+    S-&gt;&gt;D: load /old.js
+    D-&gt;&gt;H1: GET /old.js
+    H1--&gt;&gt;D: 302 to /new.js
+    Note over H1: hop 1 done
+    S-&gt;&gt;D: window.stop()
+    Note over D: aborted = true
+    D-&gt;&gt;H2: GET /new.js
+    H2--&gt;&gt;D: controller ready
+    D-&gt;&gt;H2: abort(abortReason)
+    Note over S,H2: /new.js never runs
+</pre>
+          <p>
+            The same state fixes a second bug. Per that commit message, undici's cache
+            controller reports <code>aborted</code> after a stream completes normally, so
+            a successful cached load read as canceled. jsdom's response processing now
+            reads the request's own flag.
+          </p>
+          <p>
+            <code>requestInterceptor()</code> also records cancellation, per commit
+            <a href="https://github.com/jsdom/jsdom/commit/fb2e64254c19e4535268708bd00fb42a43b6df33">fb2e6425</a>. When a request is canceled while the test's callback
+            is still pending, the response the callback returns is canceled without
+            reading its body; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/browser/resources/request-interceptor.js#L73-L79"><code>lib/jsdom/browser/resources/request-interceptor.js:73-79</code></a>. When
+            jsdom's response processing throws, it cancels the stream and reports the
+            error without waiting for the stream's cleanup, so
+            <code>JSDOM.fromURL()</code> cannot hang on a cleanup that never finishes.
+            When an <code>XMLHttpRequest</code> is reused after <code>abort()</code>,
+            the old request's late cleanup no longer clears the new request's
+            controller, so a later <code>abort()</code> still cancels the new request.
+          </p>
+
+          <h3 class="core-step">New interfaces and smaller spec fixes</h3>
+          <details class="skippable">
+            <summary>The 14 paths this theme covers</summary>
+            <ul>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/validate-names.js"><code>lib/jsdom/living/helpers/validate-names.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/create-element.js"><code>lib/jsdom/living/helpers/create-element.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/DOMImplementation-impl.js"><code>lib/jsdom/living/nodes/DOMImplementation-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/DOMImplementation.webidl"><code>lib/jsdom/living/nodes/DOMImplementation.webidl</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/DOMStringMap-impl.js"><code>lib/jsdom/living/nodes/DOMStringMap-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/webidl/QuotaExceededError-impl.js"><code>lib/jsdom/living/webidl/QuotaExceededError-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/webidl/QuotaExceededError.webidl"><code>lib/jsdom/living/webidl/QuotaExceededError.webidl</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/interfaces.js"><code>lib/jsdom/living/interfaces.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/crypto/Crypto-impl.js"><code>lib/jsdom/living/crypto/Crypto-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSS-impl.js"><code>lib/jsdom/living/css/CSS-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/css/CSS.webidl"><code>lib/jsdom/living/css/CSS.webidl</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/events/BlobEvent-impl.js"><code>lib/jsdom/living/events/BlobEvent-impl.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/dates-and-times.js"><code>lib/jsdom/living/helpers/dates-and-times.js</code></a></li>
+              <li><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/number-and-date-inputs.js"><code>lib/jsdom/living/helpers/number-and-date-inputs.js</code></a></li>
+            </ul>
+          </details>
+          <h4 class="core-edit">Relaxed name validation</h4>
+          <p>
+            Element, attribute, and doctype names used to be checked against XML's
+            <code>Name</code> and <code>QName</code> grammars, through the
+            <code>xml-name-validator</code> package:
+          </p>
+          <p class="filename">In 30.0.1, from the v30.0.1..v30.1.0 diff: <code>lib/jsdom/living/helpers/validate-names.js</code></p>
+<pre><span class="del">// https://dom.spec.whatwg.org/#validate</span>
+
+<span class="del">exports.name = (globalObject, name) =&gt; {</span>
+<span class="del">  if (!xnv.name(name)) {</span>
+<span class="del">    throw DOMException.create(globalObject, [`"${name}" did not match the Name production`, "InvalidCharacterError"]);</span>
+  }
+};</pre>
+          <p>
+            Commit <a href="https://github.com/jsdom/jsdom/commit/3a351c6e4634c1c981f8497a2119a828939b843c">3a351c6e</a> implements the DOM Standard's relaxed rules
+            instead. The element rule is the standard's regular expression, per the
+            comment above it, and the other rules reject a short list of characters:
+          </p>
+          <p class="filename"><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/helpers/validate-names.js#L6-L11">lib/jsdom/living/helpers/validate-names.js:6-11</a></p>
+<pre><span class="add">// This is the exact regular expression provided by the standard.</span>
+<span class="add">const validElementLocalNameRegex =</span>
+<span class="add">  /^(?:[A-Za-z][^\0\t\n\f\r /&gt;]*|[:_\u0080-\u{10FFFF}][A-Za-z0-9-.:_\u0080-\u{10FFFF}]*)$/u;</span>
+<span class="add">const invalidNamespacePrefix = /[\0\t\n\f\r /&gt;]/u;</span>
+<span class="add">const invalidAttributeLocalName = /[\0\t\n\f\r /=&gt;]/u;</span>
+<span class="add">const invalidDoctypeName = /[\0\t\n\f\r &gt;]/u;</span></pre>
+          <p>
+            <code>setAttribute()</code> calls <code>attributeLocalName()</code>; see
+            <a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/lib/jsdom/living/nodes/Element-impl.js#L194"><code>lib/jsdom/living/nodes/Element-impl.js:194</code></a>. So
+            <code>el.setAttribute("@click", "go()")</code>, which threw
+            <code>InvalidCharacterError</code> in 30.0.1 because <code>@</code> is not an
+            XML name character, now succeeds. <code>validateAndExtract()</code>, which
+            <code>createElementNS()</code> and <code>setAttributeNS()</code> use to split
+            a qualified name into prefix and local name, takes a new context argument,
+            <code>"element"</code> or <code>"attribute"</code>, and applies the matching
+            rule to the local name. <code>createProcessingInstruction()</code> keeps the
+            XML rule, through <code>xmlName()</code>.
+          </p>
+          <p>The rest of this theme, per the release notes and commit messages:</p>
+          <ul>
+            <li><code>QuotaExceededError</code> is a new interface. Storage quota errors throw it, and so does a <code>crypto.getRandomValues()</code> call for more than 65536 bytes.</li>
+            <li><code>CSS</code> is a Web IDL namespace, which corrects its object shape and property descriptors.</li>
+            <li><code>blobEvent.timecode</code> defaults to <code>NaN</code>.</li>
+            <li>Time strings parse and serialize fractional seconds.</li>
+            <li>Large <code>valueAsNumber</code> values work for time and local date-time inputs.</li>
+            <li>A <code>&lt;base&gt;</code> element ignores <code>data:</code> and <code>javascript:</code> URLs.</li>
+            <li>XML parsing replaces lone surrogates with the replacement character.</li>
+            <li>Documents made by <code>document.implementation</code> report <code>readyState</code> as <code>"complete"</code>.</li>
+            <li><code>readAsText()</code> honors the blob's charset when no supported encoding is given.</li>
+            <li>Textarea hard wrapping uses the numeric <code>cols</code> value.</li>
+            <li><code>svgElement.viewportElement</code> works inside <code>&lt;symbol&gt;</code>.</li>
+          </ul>
+
+          <table class="vals also-changed">
+            <caption>
+              Every other changed file (289 of 417)
+            </caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>test/web-platform-tests/to-upstream/</code></td>
+                <td>230 web platform tests written in this repository for later submission upstream, added, renamed, edited, or deleted to cover the fixes above.</td>
+              </tr>
+              <tr>
+                <td><code>test/api/</code></td>
+                <td>11 jsdom API test files, including request-interception and cancellation cases and fixtures that force garbage collection to show that removed iframes, live collections, observers, ranges, and signal-bound listeners are released.</td>
+              </tr>
+              <tr>
+                <td><code>test/to-port-to-wpts/</code></td>
+                <td>4 files, where the legacy DOM Level 1 and Level 2 tests drop cases that enforced the XML name rules the relaxed validation replaces and the porting guide documents browser verification options.</td>
+              </tr>
+              <tr>
+                <td><code>benchmark/</code></td>
+                <td>25 benchmark files, mostly new, that time the tree, collection, form, event, observer, range, and style paths the release speeds up.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/wpt-manifest.json"><code>test/web-platform-tests/wpt-manifest.json</code></a></td>
+                <td>The generated index of upstream web platform tests, regenerated for the new test checkout.</td>
+              </tr>
+              <tr>
+                <td><code>test/web-platform-tests/tests</code></td>
+                <td>The pinned upstream web-platform-tests checkout moves to a newer commit.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/to-run.yaml"><code>test/web-platform-tests/to-run.yaml</code></a></td>
+                <td>Expectations for the upstream tests, updated as the fixes above make tests pass and the rolled checkout adds new ones.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/to-upstream-expectations.yaml"><code>test/web-platform-tests/to-upstream-expectations.yaml</code></a></td>
+                <td>Expectations for the repository-local tests, updated to match the fixes above.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/expectations-utils.js"><code>test/web-platform-tests/expectations-utils.js</code></a></td>
+                <td>Applies per-subtest expectations only when a test file has subtests expected to fail.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/run-single-wpt.js"><code>test/web-platform-tests/run-single-wpt.js</code></a></td>
+                <td>Skips tentative tests, picks a server URL per test path, and turns off the test harness HTML report.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/run-wpts.js"><code>test/web-platform-tests/run-wpts.js</code></a></td>
+                <td>Passes each test path to the helper that picks an HTTP or HTTPS server URL.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/run-tuwpts.js"><code>test/web-platform-tests/run-tuwpts.js</code></a></td>
+                <td>Passes each test path to the helper that picks an HTTP or HTTPS server URL.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/utils.js"><code>test/web-platform-tests/utils.js</code></a></td>
+                <td>Adds the helper that picks the HTTPS server for tests whose filename carries the https flag.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/test/web-platform-tests/tuwpt-config.json"><code>test/web-platform-tests/tuwpt-config.json</code></a></td>
+                <td>Points the local test server at upstream WebSocket handlers and resource folders the moved tests need.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/scripts/verify-tuwpts-in-browser.js"><code>scripts/verify-tuwpts-in-browser.js</code></a></td>
+                <td>Automates running the repository-local tests in real browsers and forwards browser cancellation through its proxy.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/scripts/generate-css-style-properties.js"><code>scripts/generate-css-style-properties.js</code></a></td>
+                <td>Collects each property file's computed-value and resolved-value resolvers into the generated property definitions.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/package-lock.json"><code>package-lock.json</code></a></td>
+                <td>The lockfile follows the dependency bumps and the removed symbol-tree entry in package.json.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/eslint.config.mjs"><code>eslint.config.mjs</code></a></td>
+                <td>Drops lint exemptions for test files that were replaced and lints a few focused local test companions.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/.github/workflows/jsdom-ci.yml"><code>.github/workflows/jsdom-ci.yml</code></a></td>
+                <td>Moves the checkout and setup-node actions to version 7.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/.github/workflows/publish.yml"><code>.github/workflows/publish.yml</code></a></td>
+                <td>Moves the checkout and setup-node actions to version 7.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/Contributing.md"><code>Contributing.md</code></a></td>
+                <td>Adds the project's policy for AI-assisted contributions and fixes the expectations-utils.js filename.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/AGENTS.md"><code>AGENTS.md</code></a></td>
+                <td>Adds instructions for coding agents that point to the contribution policy.</td>
+              </tr>
+              <tr>
+                <td><a class="srcref" href="https://github.com/jsdom/jsdom/blob/556b11fc3cc4676a22e34fa45dfa09cbd95adfb1/README.md"><code>README.md</code></a></td>
+                <td>Updates the Node.js debugging documentation link.</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
           <div class="quiz-question">
             <p class="q">
-              jsdom replaced a general-purpose tree library with one written for
-              the DOM. In which situation would the general-purpose library have
-              stayed the better choice?
+              A script appends a through f to an <code>&lt;ol&gt;</code>, removes f,
+              and then a live range needs d's index. What does
+              <code>treeIndex()</code> do?
             </p>
-            <button class="quiz-option">
-              When the tree grows large enough that index lookups dominate.
-            </button>
             <button class="quiz-option" data-correct>
-              When the code cannot predict which mutations callers will make.
+              It returns d's stored index, 3, without walking any siblings.
             </button>
             <button class="quiz-option">
-              When most nodes never join a tree and allocation dominates.
+              It walks from a to d, records 3, and caches that prefix.
+            </button>
+            <button class="quiz-option">
+              It rebuilds the full child array, a through e, and reads 3.
+            </button>
+            <button class="quiz-option">
+              It walks backward from d to a and counts three siblings.
             </button>
             <div class="quiz-feedback" role="status">
-              The caching is licensed by knowing what a DOM guarantees, above
-              all that appending leaves earlier positions untouched. Strip that
-              knowledge away and recomputing is the correct conservative
-              choice, which is what the general-purpose library was doing. The
-              other two describe conditions that argue <em>for</em> the
-              DOM-specific tree, not against it: heavy index lookups are what
-              the cache exists to serve, and unused nodes are what the lazy
-              <code>Links</code> record exists to make free.
+              Removing the last child moves no other child, so <code>remove()</code>
+              marks the cache stale only when the removed node had a next sibling. f
+              had none, so <code>cachedChildren</code> stays <code>null</code> and
+              <code>treeIndex()</code> returns the <code>cachedIndex</code> d got at
+              append time. A walk from a, partial or full, happens only after a middle
+              insertion or removal. A backward count is what a tree without stored
+              indexes has to do.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              Before trusting <code>cachedIndex</code>, the code checks that the
-              child sitting at that position really is this node. What goes
-              wrong if that check is removed?
+              A script holds <code>ul.children</code> for a list in the body, and an
+              ordered XPath iterator result over the document. It then appends a text
+              node to a <code>&lt;footer&gt;</code> elsewhere in the body. What
+              happens to each on its next use?
             </p>
             <button class="quiz-option">
-              Appending a child would give the new node a duplicate index.
+              Both stay valid, since a text node is something neither one returns.
             </button>
             <button class="quiz-option">
-              A detached node would report 0 from <code>treeIndex</code>
-              instead of -1.
+              Both are rebuilt, since each mutation bumps the _version of every node.
             </button>
             <button class="quiz-option" data-correct>
-              A moved node could report the position it used to hold.
+              The XPath iterator turns invalid, while ul.children keeps its current list.
+            </button>
+            <button class="quiz-option">
+              ul.children rebuilds, while the XPath iterator stays valid until a removal.
             </button>
             <div class="quiz-feedback" role="status">
-              The cached value travels with the node, so a node shifted within
-              its parent still carries the old number. The identity check is
-              what catches that. Appending is safe without the check because it
-              assigns from <code>childCount</code>, and the detached case is
-              handled earlier by the null-parent test that returns -1.
+              <code>_invalidateCaches()</code> runs on the footer and bumps
+              <code>_version</code> on the footer and each of its ancestors, up to the
+              document. The XPath result compares the document's version, so it turns
+              invalid whatever kind of node was added. The list is not an ancestor of
+              the footer, so its version and its <code>children</code> collection stay
+              as they were, and the next read rebuilds nothing. No node outside that
+              ancestor chain is touched.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              A document has no live ranges attached to it. Because of that,
-              what does <code>_insert</code> avoid doing?
+              <code>document</code> named properties come from a map built on the
+              first lookup and discarded by any insertion or removal in the document
+              tree. For which page would building the answer fresh on every lookup do
+              better?
             </p>
+            <button class="quiz-option">
+              One that reads document.myForm in a loop with no mutations between reads.
+            </button>
+            <button class="quiz-option">
+              One whose named elements all share a single name attribute value.
+            </button>
+            <button class="quiz-option">
+              One with thousands of forms that it reads only once, at load.
+            </button>
             <button class="quiz-option" data-correct>
-              Computing the tree index of each child it inserts.
-            </button>
-            <button class="quiz-option">
-              Running the insertion steps on each shadow-including descendant.
-            </button>
-            <button class="quiz-option">
-              Marking live child collections stale for a later refresh.
+              One that inserts a node between nearly every named lookup it makes.
             </button>
             <div class="quiz-feedback" role="status">
-              The index is computed with <code>??=</code> inside the loop over
-              live ranges, so with no ranges the loop never runs and the index
-              is never needed. The other two happen on every insertion
-              regardless: insertion steps are how elements learn they are
-              connected, and collection invalidation is what keeps a live
-              collection live.
+              Building the map scans the whole document, while a fresh answer could stop
+              at the elements for one name. When almost every lookup follows a
+              mutation, each map is built for one read and then thrown away, so the
+              cache adds work. A loop with no mutations is the case the cache is for. A
+              single read at load costs one scan either way, and a shared name changes
+              what the answer is, not how often the map is rebuilt.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              Batching the <code>style=""</code> attribute write is described as
-              a correctness improvement, not only a faster one. Which observable
-              behavior was wrong before?
+              A script sets <code>audio.volume = 0.5</code> and, in the same turn,
+              calls <code>window.stop()</code> instead of <code>window.close()</code>.
+              Does <code>volumechange</code> fire?
             </p>
             <button class="quiz-option">
-              Computed values resolved before redundant longhands were removed.
-            </button>
-            <button class="quiz-option">
-              Border widths resolved through the font-size path, reporting 16px.
+              No, because window.stop() discards every task queued for the document.
             </button>
             <button class="quiz-option" data-correct>
-              Every longhand touched produced its own mutation record.
+              Yes: stop leaves the document undestroyed, so the queued task runs.
+            </button>
+            <button class="quiz-option">
+              No, because volumechange already fired synchronously, before window.stop() could run.
+            </button>
+            <button class="quiz-option">
+              Only if the audio element has a src that has finished loading.
             </button>
             <div class="quiz-feedback" role="status">
-              Setting one shorthand wrote the attribute once per longhand it
-              expanded to, and anything watching the element saw each
-              intermediate write as a real change, including custom-element
-              reactions. Batching makes one write. The other two are genuine
-              defects fixed in this release, but they belong to serialization
-              order and to the computed-versus-resolved split rather than to
-              attribute writes.
+              The setter queues the event through <code>_queueATask()</code> with no
+              signal, so the task is dropped only if <code>_isDestroyed</code> is set
+              when it runs. Only <code>window.close()</code> sets that flag;
+              <code>window.stop()</code> closes the request manager and leaves queued
+              tasks alone. The event fired synchronously in 30.0.1, but now it is
+              queued, and the setter does not look at the element's source at all.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              The cached prefix is truncated at the point of a mutation rather
-              than thrown away. Which principle does that illustrate?
+              The observer's node list, the map of named-property collections, and the
+              abort algorithm kept on each listener record all fix memory leaks. What
+              principle do the three share?
             </p>
             <button class="quiz-option">
-              Prefer lazy evaluation, so that no work happens before a reader
-              asks.
-            </button>
-            <button class="quiz-option" data-correct>
-              Keep the part of a cache that a mutation cannot have invalidated.
+              A cache should be discarded by the same operation that makes it stale.
             </button>
             <button class="quiz-option">
-              Store derived data beside its source so the two change together.
+              Storage should be allocated only on first use, never at construction.
+            </button>
+            <button class="quiz-option">
+              Cleanup must run in the order the specification lists its steps.
+            </button>
+            <button class="quiz-option" data-correct>
+              A lookup entry must never outlive or keep alive what it points to.
             </button>
             <div class="quiz-feedback" role="status">
-              An insertion at position 2 cannot affect positions 0 and 1, so
-              discarding them throws away work that is still correct. Laziness
-              is also present here, in how the prefix is filled on demand, but
-              it does not explain why the surviving entries are kept. Locality
-              of storage describes where the record lives, not what survives a
-              write.
+              Each structure exists so jsdom can find an object later: the nodes to
+              unregister from, the collection to hand back, the listener to remove on
+              abort. Each one kept that object, or its callback, alive longer than the
+              page did. Weak references fix the observer list and the collection map,
+              and removing the abort algorithm with its listener fixes the signal.
+              Discarding stale caches and allocating on
+              first use are real ideas in this release, but neither one releases memory
+              a page has stopped using.
             </div>
           </div>
         </section>

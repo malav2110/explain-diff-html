@@ -57,11 +57,13 @@ Please:
    explain-diff-html checkout:
 
    ```sh
-   node skills/explain-diff-html/scripts/validate-output.js <page> <short commit>
+   node skills/explain-diff-html/scripts/validate-output.js <page> <short commit> [<work directory>]
    ```
 
-   The short commit is the one named at the top of the page. Fix what the script
-   reports before you open your pull request.
+   The short commit is the one named at the top of the page. The work directory
+   is the one the run printed, which holds `diff.txt`. Without it, the coverage
+   check prints `skip:` and checks nothing. Fix what the script reports before
+   you open your pull request.
 
 ## Changing the validator
 
@@ -86,9 +88,12 @@ npm test
 
 To add a regression case, add a page to `tests/validate-output/pass/` if every
 check should pass, or to `tests/validate-output/fail/<check id>/` if that one
-check should fail. Every link on a case page names the commit
-`0123456789abcdef0123456789abcdef01234567`, except in `fail/full-sha/`, where a
-link names it short or wrong on purpose.
+check should fail. Start from `pass/baseline.html`, which carries the one-sentence
+lead and the three quiz questions every case page needs. Every link on a case
+page names the commit `0123456789abcdef0123456789abcdef01234567`, except in
+`fail/full-sha/`, where a link names it short or wrong on purpose. A case that
+needs a diff, such as a coverage case, adds `<page name>.work/diff.txt` beside
+its page.
 
 AI-assisted pull requests are welcome. Check the code, the generated page, and
 every claim in the PR body yourself before you open it.

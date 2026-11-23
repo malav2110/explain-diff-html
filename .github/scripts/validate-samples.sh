@@ -15,8 +15,11 @@ while IFS= read -r page; do
   [ -n "$page" ] || continue
   count=$((count + 1))
   name=${page#"$root"/}
-  # Both provenance forms end the commit with ", explained <date>".
-  commit=$(tr '\n' ' ' < "$page" | grep -oE 'class="provenance"[^<]*' \
+  # Both provenance forms end the commit with ", explained <date>". The source
+  # name may be a link and the line may wrap, so the paragraph's whitespace is
+  # collapsed and its tags stripped first.
+  commit=$(tr -s '[:space:]' ' ' < "$page" | grep -oE 'class="provenance".*' \
+    | sed 's/<\/p>.*//; s/<[^>]*>//g' \
     | grep -oE '\b[0-9a-f]{7,40}, explained' | head -n 1 | sed 's/, explained$//')
   if [ -z "$commit" ]; then
     echo "::error file=$name::no short commit in the provenance line"

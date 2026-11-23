@@ -115,9 +115,11 @@ the code around it, and writes a single page with four sections:
 - Intuition, on the core idea, with toy data and diagrams rather than full
   detail.
 - Code walkthrough, ordered by the path a request or an action takes through the
-  system, not by filename.
-- Quiz, five interactive multiple-choice questions that test whether the reader
-  understood why the change is shaped the way it is.
+  system, not by filename. The edits that carry the change get a step each.
+  Every other changed file gets one line in an "Also changed" table at the end.
+- Quiz, three or five interactive multiple-choice questions that test whether
+  the reader understood why the change is shaped the way it is. A small change
+  gets three, or fewer when it carries fewer testable decisions.
 
 The output is one HTML file with the CSS and JavaScript inline. It opens with a
 double click, reads on a phone, and follows the reader's light or dark system
@@ -167,7 +169,7 @@ instead, because GitHub serves `.html` as code rather than rendering it.
 
 | Page                                                                                                                  | Repository                 | Source                                                       | What it teaches                                                                                                          |
 | --------------------------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| [v30.1.0](https://malav2110.github.io/explain-diff-html/samples/jsdom/2026-09-17-v30-1-0-explanation.html)            | jsdom/jsdom, JavaScript    | [v30.1.0](https://github.com/jsdom/jsdom/releases/tag/v30.1.0) | Why a release of small fixes moved 127 files, and the style guide that keeps the cause out of the release notes         |
+| [v30.1.0](https://malav2110.github.io/explain-diff-html/samples/jsdom/2026-09-17-v30-1-0-explanation.html)            | jsdom/jsdom, JavaScript    | [v30.1.0](https://github.com/jsdom/jsdom/releases/tag/v30.1.0) | A release walked by theme: tree links moved onto each node, and caches cleared by the mutation that stales them         |
 | [PR 11305](https://malav2110.github.io/explain-diff-html/samples/tanstack-query/2026-09-01-pr-11305-explanation.html) | TanStack/query, TypeScript | [11305](https://github.com/TanStack/query/pull/11305)        | A `?.field` guard answering two questions at once, so falsy errors never reached the error boundary                      |
 | [PR 11242](https://malav2110.github.io/explain-diff-html/samples/tanstack-query/2026-09-01-pr-11242-explanation.html) | TanStack/query, TypeScript | [11242](https://github.com/TanStack/query/pull/11242)        | A guard that reset only on the happy path, and why the fix uses `finally` with no `catch`                                |
 | [PR 16102](https://malav2110.github.io/explain-diff-html/samples/fastapi/2026-09-01-pr-16102-explanation.html)        | fastapi/fastapi, Python    | [16102](https://github.com/fastapi/fastapi/pull/16102)       | A three-valued option collapsed at the public boundary, and the stack depth a warning depends on                         |
@@ -175,7 +177,7 @@ instead, because GitHub serves `.html` as code rather than rendering it.
 | [PR 15800](https://malav2110.github.io/explain-diff-html/samples/fastapi/2026-09-13-pr-15800-explanation.html)        | fastapi/fastapi, Python    | [15800](https://github.com/fastapi/fastapi/pull/15800)       | A second route list consulted only after every path operation missed, and how a miss tells a browser from an asset fetch |
 | [PR 2924](https://malav2110.github.io/explain-diff-html/samples/uportal/2026-09-01-pr-2924-explanation.html)          | uPortal, Java              | [2924](https://github.com/uPortal-Project/uPortal/pull/2924) | A catch that logs and falls through, and an `@Ignore` that had been skipping 30 tests                                    |
 | [PR 2945](https://malav2110.github.io/explain-diff-html/samples/uportal/2026-09-01-pr-2945-explanation.html)          | uPortal, Java              | [2945](https://github.com/uPortal-Project/uPortal/pull/2945) | Picking the type that matches the intent, so a static-analysis suppression stops being needed                            |
-| [PR 2983](https://malav2110.github.io/explain-diff-html/samples/uportal/2026-09-01-pr-2983-explanation.html)          | uPortal, Java              | [2983](https://github.com/uPortal-Project/uPortal/pull/2983) | An implicit path attribute made explicit, moving resolution from the server to the browser                               |
+| [PR 2983](https://malav2110.github.io/explain-diff-html/samples/uportal/2026-09-01-pr-2983-explanation.html)          | uPortal, Java              | [2983](https://github.com/uPortal-Project/uPortal/pull/2983) | Asset paths a resolver prefixed at render time, now written out in full, and the libraries the skin stops loading        |
 
 Every page went through two checks. A read-only pass re-opens each cited
 `file:line` at the target ref and tries to falsify the claim. A cold read then

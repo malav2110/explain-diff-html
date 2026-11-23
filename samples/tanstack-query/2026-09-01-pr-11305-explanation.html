@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TanStack Query PR 11305 explanation</title>
+    <title>PR 11305 explanation</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -159,6 +159,7 @@
       li {
         margin: 0.3rem 0;
       }
+      /* Code blocks: white-space set here so a filled-in block cannot collapse. */
       pre,
       .code-block {
         white-space: pre-wrap;
@@ -191,6 +192,7 @@
         background: var(--surface);
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
+        overflow-wrap: anywhere;
       }
       /* A file:line reference linked to the code it names. Wraps a <code> span
          in prose, or the bare text of a .filename label. */
@@ -205,12 +207,64 @@
       a.srcref:hover code {
         background: var(--accent-soft);
       }
+      /* Path label for the code block below it. */
       .filename {
         font-size: 0.78rem;
         color: var(--muted);
         font-family: ui-monospace, monospace;
         margin: 1.5rem 0 0.3rem;
+        overflow-wrap: anywhere;
       }
+      /* Comparison table: one row per case, .yes / .no / .warn on outcome cells. */
+      table.vals {
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        font-size: 0.86rem;
+        width: 100%;
+        max-width: 620px;
+      }
+      table.vals th,
+      table.vals td {
+        border: 1px solid var(--border-strong);
+        padding: 0.4rem 0.65rem;
+        text-align: left;
+      }
+      table.vals th {
+        background: var(--surface);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+      }
+      table.vals td.yes {
+        background: var(--ok-soft);
+      }
+      table.vals td.no {
+        background: var(--bad-soft);
+      }
+      table.vals td.warn {
+        background: var(--edge-soft);
+      }
+      table.vals caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      /* A deleted file or a directory row has no <code> span to wrap it. */
+      table.also-changed td:first-child {
+        overflow-wrap: anywhere;
+      }
+      /* Names each pass/fail check still failing when the page was saved. */
+      .check-banner {
+        background: var(--bad-soft);
+        border: 1px solid var(--bad);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.5rem;
+      }
+      /* Callouts: .callout for a concept, .callout.edge for a caveat. */
       .callout {
         background: var(--accent-soft);
         border-left: 3px solid var(--accent);
@@ -235,6 +289,7 @@
       .callout.edge .label {
         color: var(--edge);
       }
+      /* Skippable deep-background block. */
       details.skippable {
         border: 1px solid var(--border-strong);
         border-radius: 8px;
@@ -250,12 +305,13 @@
       details.skippable[open] > summary {
         margin-bottom: 0.75rem;
       }
+      /* Diagram family 1: simplified app UI mockup. */
       .ui-mockup {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
         overflow: hidden;
         margin: 1.5rem 0;
-        max-width: 460px;
+        max-width: 560px;
         font-size: 0.85rem;
       }
       .ui-mockup .bar {
@@ -268,12 +324,17 @@
       }
       .ui-mockup .body {
         padding: 1.1rem 0.85rem;
+        font-family: ui-monospace, monospace;
+        font-size: 0.78rem;
+        white-space: pre-wrap;
       }
       .mock-caption {
         font-size: 0.78rem;
         color: var(--muted);
         margin: 0.3rem 0 0;
+        max-width: var(--measure);
       }
+      /* Diagram family 2: data flow between components, example data on the arrows. */
       .dataflow {
         display: flex;
         flex-wrap: wrap;
@@ -346,32 +407,93 @@
         font-weight: 600;
         margin: 1.25rem 0 0.25rem;
       }
-      table.vals {
-        border-collapse: collapse;
-        margin: 1.5rem 0;
-        font-size: 0.86rem;
-        width: 100%;
-        max-width: 560px;
+      /* A numbered sequence with one marked position: call stacks, retry
+         counts, any ranked list. Not one of the numbered families; reach for
+         it when a step in an ordered list is the point. */
+      .frames {
+        list-style: none;
+        padding: 0;
+        margin: 1.25rem 0;
+        max-width: 620px;
+        font-family: ui-monospace, monospace;
+        font-size: 0.82rem;
       }
-      table.vals th,
-      table.vals td {
-        border: 1px solid var(--border-strong);
-        padding: 0.4rem 0.65rem;
-        text-align: left;
-      }
-      table.vals th {
+      .frames li {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.45rem 0.7rem;
+        margin: 0.3rem 0;
         background: var(--surface);
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+      }
+      .frames li.target {
+        background: var(--ok-soft);
+        border-color: var(--ok);
+      }
+      .frames .n {
+        display: inline-block;
+        min-width: 2.2em;
         color: var(--muted);
       }
-      table.vals td.no {
-        background: var(--bad-soft);
+      /* Diagram family 3: node/recursion tree (ASTs, nesting, recursion) */
+      .tree {
+        margin: 1.5rem 0;
+        font:
+          0.82rem/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
       }
-      table.vals td.yes {
+      .tnode {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0.55rem;
+        margin: 0.3rem 0;
+        background: var(--surface);
+        display: inline-block;
+      }
+      .tnode.leaf {
+        background: var(--bg);
+      }
+      .tnode.kept {
+        border-color: var(--ok);
         background: var(--ok-soft);
       }
+      .tnode.skipped {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      .tchildren {
+        margin-left: 1.4rem;
+        border-left: 2px dotted var(--border);
+        padding-left: 0.9rem;
+      }
+      .tnote {
+        color: var(--muted);
+        font-size: 0.75rem;
+        margin-left: 0.4rem;
+      }
+
+      /* Optional tabular body for .ui-mockup, when the mocked UI is a table. */
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .mock-table th,
+      .mock-table td {
+        border: 1px solid var(--border);
+        padding: 0.35rem 0.5rem;
+        text-align: left;
+      }
+      .mock-table th {
+        background: var(--surface);
+        font-weight: 600;
+      }
+      .mock-table .col-highlight {
+        background: var(--accent-soft);
+      }
+
       .mermaid {
         margin: 1.75rem 0;
         background: var(--surface);
@@ -391,6 +513,7 @@
         background: var(--surface) !important;
         color: var(--text) !important;
       }
+      /* Quiz */
       .quiz-question {
         border: 1px solid var(--border-strong);
         border-radius: 10px;
@@ -491,6 +614,11 @@
         main > header h1 {
           font-size: 1.6rem;
         }
+        table.vals {
+          display: block;
+          overflow-x: auto;
+          max-width: 100%;
+        }
       }
     </style>
   </head>
@@ -508,721 +636,584 @@
 
       <main>
         <header>
-          <h1>The error that was too falsy to throw</h1>
+          <h1>Falsy query errors now reach the error boundary from <code>useQueries</code></h1>
           <p class="lead">
-            TanStack Query
-            <a
-              href="https://github.com/TanStack/query/pull/11305"
-              >pull request 11305</a
-            >
-            deletes seven characters from one line. Those seven characters were
-            deciding that some errors did not count.
+            This pull request makes <code>useQueries</code> and
+            <code>useSuspenseQueries</code> throw a query's error to the nearest
+            error boundary even when the <code>queryFn</code> rejected with a falsy
+            value such as <code>undefined</code>, as <code>useQuery</code> already
+            did.
           </p>
           <p class="provenance">
-            TanStack/query PR 11305 at fc00bf4, explained 2026-09-01. References link to this commit.
+            <a href="https://github.com/TanStack/query/pull/11305">TanStack/query PR 11305</a>
+            at fc00bf4, explained 2026-11-15. References link to this commit.
           </p>
         </header>
 
         <section id="background">
           <h2>Background</h2>
-
           <details class="skippable">
             <summary>
-              New to React Query or to error boundaries? Expand for the deeper
-              background.
+              New to this area? Expand for the deeper background.
             </summary>
             <p>
-              React Query fetches data for you. You give it a key and a function
-              that returns a promise, and it gives you back an object describing
-              the state of that fetch:
-              <code>isPending</code>, <code>isError</code>,
-              <code>data</code>, <code>error</code>.
-            </p>
-            <pre>const { data, isError, error } = useQuery({
-  queryKey: ['user', 7],
-  queryFn: () =&gt; fetch('/api/user/7').then((r) =&gt; r.json()),
-})</pre>
-            <p>
-              By default a failure is just state. Your component checks
-              <code>isError</code> and renders whatever it likes. That is fine
-              for one widget. Across forty it is tiresome, because every
-              component grows the same error branch.
+              An error boundary is a React component that catches anything thrown
+              while its children render, and shows a fallback in their place.
+              JavaScript lets code throw any value, not only an <code>Error</code>,
+              so <code>throw undefined</code> is legal. The tests in this pull
+              request wrap each component in the <code>ErrorBoundary</code>
+              component from the <code>react-error-boundary</code> package, with a
+              fallback that renders the text "error boundary".
             </p>
             <p>
-              React offers another way. An
-              <em>error boundary</em> is a component that catches an exception
-              thrown by anything below it during render, and shows a fallback
-              instead of a blank screen. One boundary can cover a whole page.
+              Suspense uses the same throw, with a promise as the value. A component
+              that is not ready throws a promise while it renders. React shows the fallback of
+              the nearest <code>&lt;Suspense&gt;</code> element, then renders the
+              component again once that promise settles.
             </p>
             <p>
-              To connect the two, React Query takes an option called
-              <code>throwOnError</code>. Set it, and a failed query stops being
-              quiet state and instead throws during render, where the nearest
-              boundary catches it. The component no longer needs an error
-              branch. That is the feature this change is about.
+              A falsy value is one that an <code>if</code> treats as false:
+              <code>undefined</code>, <code>null</code>, <code>''</code>,
+              <code>0</code>, <code>NaN</code>, and <code>false</code>.
+              <code>Promise.reject()</code> called with no argument rejects with
+              <code>undefined</code>, so a query function written that way fails
+              with no error value at all.
             </p>
             <p>
-              One last piece of vocabulary. JavaScript calls a value
-              <em>falsy</em> when it converts to <code>false</code> in a
-              boolean test. There are seven:
-              <code>false</code>, <code>0</code>, <code>-0</code>,
-              <code>0n</code>, <code>''</code>, <code>null</code>, and
-              <code>undefined</code>. Everything else is truthy. This
-              distinction drives everything below.
+              In TanStack Query, a query is a cached fetch named by its
+              <code>queryKey</code> and run by its <code>queryFn</code>. The cache
+              keeps one <code>Query</code> per key. Its <code>state</code> holds a
+              <code>status</code> of <code>'pending'</code>, <code>'success'</code>,
+              or <code>'error'</code>, along with <code>data</code> and
+              <code>error</code>. A hook reads that state through an observer. The
+              observer hands it a result object, typed
+              <code>QueryObserverResult</code>, with fields such as
+              <code>isError</code>, <code>error</code>, <code>data</code>, and
+              <code>isFetching</code>.
             </p>
           </details>
 
           <p>
-            The library exposes several hooks that share one observer.
-            <code>useQuery</code> runs a single query through a wrapper called
-            <code>useBaseQuery</code>.
-            <code>useQueries</code> runs a list of them and returns an array of
-            results. <code>useSuspenseQueries</code> is
-            <code>useQueries</code> with suspense turned on and
-            <code>throwOnError</code> fixed to a default. All three read from
-            the same observer in <code>query-core</code>, and all three decide
-            whether to throw using the same helper.
+            <a href="https://github.com/TanStack/query/issues/11304">Issue 11304</a>
+            reports the bug: a query function that rejects with a falsy value
+            reaches the error boundary from <code>useQuery</code>, but not from
+            <code>useQueries</code> or <code>useSuspenseQueries</code>. Three hooks
+            are involved:
           </p>
-
+          <ul>
+            <li>
+              <code>useQuery</code> watches one query by calling
+              <code>useBaseQuery</code>, a shared implementation in
+              <code>packages/react-query/src/useBaseQuery.ts</code>.
+            </li>
+            <li>
+              <code>useQueries</code> watches a list of queries through one
+              <code>QueriesObserver</code>. Each render it gets back
+              <code>optimisticResult</code>, an array with one result per query, in
+              the order the queries were passed.
+            </li>
+            <li>
+              <code>useSuspenseQueries</code> calls <code>useQueries</code> with
+              every query set to <code>suspense: true</code> and
+              <code>throwOnError: defaultThrowOnError</code>.
+            </li>
+          </ul>
           <p>
-            That helper is <code>getHasError</code>. It is the single place that
-            answers one question: should this result be thrown to the error
-            boundary rather than returned as state?
+            <code>throwOnError</code> asks a hook to throw a failed query's error
+            while it renders, instead of returning it. It takes <code>true</code> or
+            a function <code>(error, query) =&gt; boolean</code>.
+            <code>shouldThrowError</code>, at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/query-core/src/utils.ts#L470-L480"><code>packages/query-core/src/utils.ts:470-480</code></a>,
+            calls the function or coerces the flag to a boolean.
+            <code>defaultThrowOnError</code>, at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/suspense.ts#L11-L19"><code>packages/react-query/src/suspense.ts:11-19</code></a>,
+            returns <code>query.state.data === undefined</code>. So a suspense query
+            throws only when it has no data to show.
           </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L70-L77">packages/react-query/src/errorBoundaryUtils.ts:70-77</a></p>
-          <pre>return (
-  result.isError &amp;&amp;
-  !errorResetBoundary.isReset() &amp;&amp;
-  !result.isFetching &amp;&amp;
-  query &amp;&amp;
-  ((suspense &amp;&amp; result.data === undefined) ||
-    shouldThrowError(throwOnError, [result.error, query]))
-)</pre>
-
           <p>
-            Read what it looks at. The status flag <code>result.isError</code>.
-            Whether the boundary has been reset. Whether a fetch is in flight.
-            Whether the query exists in the cache. Then either the suspense
-            condition or the user's <code>throwOnError</code> setting, resolved
-            by <code>shouldThrowError</code>.
+            All three hooks ask one function whether to throw: <code>getHasError</code>,
+            at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L51-L78"><code>packages/react-query/src/errorBoundaryUtils.ts:51-78</code></a>.
+            Its body is one expression:
           </p>
-
+          <p class="filename">
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L70-L77">packages/react-query/src/errorBoundaryUtils.ts:70-77</a>
+          </p>
+          <pre>  return (
+    result.isError &amp;&amp;
+    !errorResetBoundary.isReset() &amp;&amp;
+    !result.isFetching &amp;&amp;
+    query &amp;&amp;
+    ((suspense &amp;&amp; result.data === undefined) ||
+      shouldThrowError(throwOnError, [result.error, query]))
+  )</pre>
           <p>
-            Note what it does not look at: the error <em>value</em>. The value
-            is passed onward, at line 76, so that a user-supplied
-            <code>throwOnError</code> function can inspect it and decide. But
-            <code>getHasError</code> itself never checks whether the error is
-            truthy. It gates on <code>isError</code>, a boolean the query state
-            already owns.
+            <code>errorResetBoundary.isReset()</code> is true just after a
+            <code>QueryErrorResetBoundary</code> has been reset so its queries can
+            run again. None of these conditions asks whether
+            <code>result.error</code> is truthy. The error value only reaches a
+            <code>throwOnError</code> function, as an argument.
+          </p>
+          <p>
+            Inside <code>useQueries</code>, a render first calls
+            <code>shouldSuspend</code>, which asks whether a query is in suspense
+            mode and still pending. If one is, the hook throws a promise built from
+            <code>fetchOptimistic</code>, which starts the fetch. Otherwise the hook
+            looks for an error to throw. It runs <code>getHasError</code> over
+            <code>optimisticResult</code> with <code>Array.prototype.find</code> and
+            keeps the first result it approves as
+            <code>firstSingleResultWhichShouldThrow</code>. Then comes the guard, an
+            <code>if</code> that decides whether to throw that result's error. The
+            guard is the line this pull request changes.
+          </p>
+          <p>
+            When a query function rejects,
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/query-core/src/query.ts#L601-L604"><code>packages/query-core/src/query.ts:601-604</code></a>
+            dispatches an <code>'error'</code> action carrying the rejected value.
+            The reducer at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/query-core/src/query.ts#L672-L686"><code>packages/query-core/src/query.ts:672-686</code></a>
+            stores that value as <code>state.error</code> and sets
+            <code>status</code> to <code>'error'</code>.
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/query-core/src/queryObserver.ts#L583"><code>packages/query-core/src/queryObserver.ts:583</code></a>
+            derives <code>isError</code> from that status. So
+            <code>Promise.reject()</code> produces a result with
+            <code>isError: true</code> and <code>error: undefined</code>.
           </p>
 
-          <div class="callout">
-            <span class="label">Key concept</span>
-            <code>getHasError</code> is the decision. Everything downstream of
-            it is supposed to be execution. When a second check re-derives that
-            answer, you have two answers, and eventually they disagree.
+          <div class="callout edge">
+            <span class="label">Edge case</span>
+            The cache treats <code>undefined</code> differently on success and on
+            failure. A <code>queryFn</code> that resolves with <code>undefined</code> is turned
+            into a thrown <code>Error</code> at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/query-core/src/query.ts#L566-L573"><code>packages/query-core/src/query.ts:566-573</code></a>.
+            A <code>queryFn</code> that rejects with <code>undefined</code> keeps
+            <code>undefined</code> as its error. A result can therefore carry
+            <code>isError: true</code> and a falsy <code>error</code> at once.
           </div>
         </section>
 
         <section id="intuition">
           <h2>Intuition</h2>
-
           <p>
-            Here is the shape of the bug in one sentence. A query that fails
-            with a falsy error reached the boundary from
-            <code>useQuery</code> and did not reach it from
-            <code>useQueries</code>.
+            Picture the result <code>useQueries</code> holds for one query after
+            <code>Promise.reject()</code>. The query sets <code>retry: false</code>,
+            so the first rejection is final:
+          </p>
+          <pre>{ status: 'error', isError: true, error: undefined, data: undefined, isFetching: false }</pre>
+          <p>
+            <code>getHasError</code> sees <code>isError: true</code>,
+            <code>isFetching: false</code>, and <code>throwOnError: true</code>,
+            and answers yes. Before this change, the guard in
+            <code>useQueries</code> read
+            <code>if (firstSingleResultWhichShouldThrow?.error)</code>, which put a
+            second question to the same result: is <code>error</code> truthy? For
+            <code>undefined</code> the answer is no. The hook skipped the throw and
+            returned the result, so the component rendered normally and the
+            boundary's fallback never appeared. After the change the second
+            question is gone. A result that <code>getHasError</code> approved is
+            thrown, whatever its <code>error</code> holds.
+          </p>
+          <p>
+            <code>useSuspenseQueries</code> hits the same guard, because it is
+            <code>useQueries</code> with <code>suspense: true</code>. There the
+            skipped throw left the component rendering with no data at all.
           </p>
 
-          <p>
-            Both hooks throw during render. <code>useQuery</code> throws on
-            <code>getHasError</code> and nothing else: its throw site at
-            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useBaseQuery.ts#L127-L137"><code>useBaseQuery.ts:127-137</code></a> has exactly one condition, and
-            that condition is the helper. <code>useQueries</code> throws on
-            <code>getHasError</code> <em>and</em> a truthiness check on the
-            error value the helper just ruled on. Most of the time those two
-            conditions agree, because most errors are <code>Error</code> objects
-            and every object is truthy. So the second check does no visible harm.
-          </p>
+          <div class="callout">
+            <span class="label">Key concept</span>
+            <code>getHasError</code> decides whether a result should throw. The
+            error value is only what gets thrown. The old guard checked that value
+            afterward, so an <code>undefined</code> error could skip a throw that
+            <code>getHasError</code> had already approved.
+          </div>
+
+          <p class="flow-label">Before: the falsy error stops at the guard</p>
+          <div class="dataflow">
+            <div class="node terminal"><code>queryFn</code></div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">Promise.reject()</span><span class="line"></span>
+              </div>
+              <div class="node"><code>Query</code> state</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">error: undefined</span><span class="line"></span>
+              </div>
+              <div class="node"><code>getHasError</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">true</span><span class="line"></span>
+              </div>
+              <div class="node">guard reads <code>?.error</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">undefined</span><span class="line"></span>
+              </div>
+              <div class="node fail">renders, no boundary</div>
+            </div>
+          </div>
+
+          <p class="flow-label">After: the falsy error reaches the boundary</p>
+          <div class="dataflow">
+            <div class="node terminal"><code>queryFn</code></div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">Promise.reject()</span><span class="line"></span>
+              </div>
+              <div class="node"><code>Query</code> state</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">error: undefined</span><span class="line"></span>
+              </div>
+              <div class="node"><code>getHasError</code></div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">true</span><span class="line"></span>
+              </div>
+              <div class="node">guard checks a result exists</div>
+            </div>
+            <div class="step">
+              <div class="arrow">
+                <span class="data">throw undefined</span><span class="line"></span>
+              </div>
+              <div class="node pass">error boundary</div>
+            </div>
+          </div>
 
           <p>
-            It stops being harmless the moment something rejects with a falsy
-            value. That is not exotic. <code>Promise.reject()</code> with no
-            argument rejects with <code>undefined</code>, and a bare
-            <code>reject()</code> in a hand-rolled promise does the same.
+            The same rejection, run through each hook inside an
+            <code>ErrorBoundary</code>, as the issue and the new tests set it up:
           </p>
-
           <table class="vals">
-            <tr>
-              <th>What the queryFn rejects with</th>
-              <th>getHasError</th>
-              <th>Old guard passed</th>
-              <th>Boundary shown</th>
-            </tr>
-            <tr>
-              <td><code>new Error('nope')</code></td>
-              <td class="yes">true</td>
-              <td class="yes">yes</td>
-              <td class="yes">yes</td>
-            </tr>
-            <tr>
-              <td><code>'nope'</code></td>
-              <td class="yes">true</td>
-              <td class="yes">yes</td>
-              <td class="yes">yes</td>
-            </tr>
-            <tr>
-              <td><code>Promise.reject()</code></td>
-              <td class="yes">true</td>
-              <td class="no">no</td>
-              <td class="no">no</td>
-            </tr>
-            <tr>
-              <td><code>null</code></td>
-              <td class="yes">true</td>
-              <td class="no">no</td>
-              <td class="no">no</td>
-            </tr>
-            <tr>
-              <td><code>0</code></td>
-              <td class="yes">true</td>
-              <td class="no">no</td>
-              <td class="no">no</td>
-            </tr>
-            <tr>
-              <td><code>''</code></td>
-              <td class="yes">true</td>
-              <td class="no">no</td>
-              <td class="no">no</td>
-            </tr>
+            <caption>
+              A <code>queryFn</code> that rejects with <code>undefined</code>
+            </caption>
+            <thead>
+              <tr>
+                <th>Hook</th>
+                <th>Before</th>
+                <th>After</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>useQuery</code>, <code>throwOnError: true</code></td>
+                <td class="yes">boundary shows</td>
+                <td class="yes">boundary shows</td>
+              </tr>
+              <tr>
+                <td><code>useQueries</code>, <code>throwOnError: true</code></td>
+                <td class="no">renders, never throws</td>
+                <td class="yes">boundary shows</td>
+              </tr>
+              <tr>
+                <td><code>useSuspenseQueries</code></td>
+                <td class="no">renders <code>data: undefined</code></td>
+                <td class="yes">boundary shows</td>
+              </tr>
+            </tbody>
           </table>
-
-          <p>
-            Every row has <code>getHasError</code> returning true. The library
-            agreed, six times out of six, that the result should be thrown. In
-            four of them it was not. The only thing separating the two groups is
-            whether the rejected value happens to be truthy.
-          </p>
-
-          <h3>What the developer saw</h3>
-
-          <p>
-            Not a crash. Something worse than a crash, because a crash tells you
-            where to look. The component rendered as though nothing had
-            happened.
-          </p>
-
-          <div class="ui-mockup">
-            <div class="bar">Expected, and what useQuery does</div>
-            <div class="body">Something went wrong. Try again.</div>
-          </div>
-          <p class="mock-caption">
-            The boundary catches the throw and renders its fallback.
-          </p>
-
-          <div class="ui-mockup">
-            <div class="bar">Actual, from useQueries</div>
-            <div class="body"><span style="color: var(--muted)">No results found.</span></div>
-          </div>
-          <p class="mock-caption">
-            No throw, so no fallback. The component runs its normal path with
-            <code>data</code> undefined, and renders its empty state. The
-            failure is now indistinguishable from success with nothing in it.
-          </p>
-
-          <h3>Following one value through</h3>
-
-          <p>
-            Take <code>queryFn: () =&gt; Promise.reject()</code> with
-            <code>throwOnError: true</code> and <code>retry: false</code>. The
-            rejection value is <code>undefined</code>. Watch it move.
-          </p>
-
-          <p class="flow-label">Before the fix</p>
-          <div class="dataflow">
-            <div class="node terminal">queryFn rejects</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">undefined</span><span class="line"></span>
-              </div>
-              <div class="node">
-                query state<br /><code>isError: true</code>
-              </div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">result</span><span class="line"></span>
-              </div>
-              <div class="node pass">getHasError<br />true</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">?.error</span><span class="line"></span>
-              </div>
-              <div class="node fail">undefined<br />falsy, no throw</div>
-            </div>
-          </div>
-
-          <p class="flow-label">After the fix</p>
-          <div class="dataflow">
-            <div class="node terminal">queryFn rejects</div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">undefined</span><span class="line"></span>
-              </div>
-              <div class="node">
-                query state<br /><code>isError: true</code>
-              </div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">result</span><span class="line"></span>
-              </div>
-              <div class="node pass">getHasError<br />true</div>
-            </div>
-            <div class="step">
-              <div class="arrow">
-                <span class="data">found a result</span
-                ><span class="line"></span>
-              </div>
-              <div class="node pass">throw undefined<br />boundary catches</div>
-            </div>
-          </div>
-
-          <p>
-            The last step looks wrong at first.
-            <code>throw undefined</code> is legal.
-            <code>throw</code> in JavaScript accepts any value, not only an
-            <code>Error</code>, and React hands whatever was thrown to the
-            nearest boundary. Throwing <code>undefined</code> is exactly as
-            valid as throwing an <code>Error</code>, and the fallback renders
-            either way. The test added in this pull request proves it.
-          </p>
-
-          <p>
-            The same story, with the timing made explicit. Note where the guard
-            sits: after the decision, not before it.
-          </p>
-
-          <pre class="mermaid">sequenceDiagram
-    autonumber
-    participant F as queryFn
-    participant O as QueryObserver
-    participant U as useQueries
-    participant G as getHasError
-    participant B as ErrorBoundary
-
-    F--&gt;&gt;O: reject(undefined)
-    O-&gt;&gt;O: set isError true and error undefined
-    U-&gt;&gt;O: getOptimisticResult()
-    O--&gt;&gt;U: array of results
-    U-&gt;&gt;G: getHasError(result 0)
-    G--&gt;&gt;U: true. this one should throw
-    Note over U: the guard sits here.&lt;br/&gt;asking result.error again&lt;br/&gt;overrules getHasError
-    U-&gt;&gt;B: throw result.error
-    B-&gt;&gt;B: render the fallback</pre>
-
-          <div class="callout edge">
-            <span class="label">Edge case</span>
-            The guard was not pointless. Something has to stand there.
-            <code>Array.prototype.find</code> returns
-            <code>QueryObserverResult | undefined</code>, so you cannot reach
-            <code>.error</code> without first establishing that you found
-            anything. The fix keeps that null check and drops only the second
-            job the old expression had taken on. One check, one question.
-          </div>
         </section>
 
         <section id="code">
           <h2>Code walkthrough</h2>
-
           <p>
-            The flow, end to end: a queryFn rejects, the observer records the
-            failure, <code>getHasError</code> decides it should be thrown,
-            <code>useQueries</code> throws it, the boundary renders a fallback.
-            Five files changed; one of them is the fix and three are tests.
+            Flow: the <code>queryFn</code> rejects with <code>undefined</code>, the
+            <code>Query</code> stores <code>error: undefined</code>,
+            <code>getHasError</code> returns true, the guard in
+            <code>useQueries</code> throws, and the nearest error boundary renders;
+            <code>useSuspenseQueries</code> joins this path through its call to
+            <code>useQueries</code>.
           </p>
 
-          <h3>1. The decision, unchanged</h3>
-
+          <h3 class="core-step">
+            <code>useQueries</code> throws for the first result <code>getHasError</code> approves
+          </h3>
           <p>
-            Nothing in this pull request touches
-            <code>getHasError</code> or <code>shouldThrowError</code>. They are
-            here because you cannot see what the fix does without them.
-            <code>shouldThrowError</code> is how a boolean or a function
-            <code>throwOnError</code> collapses into one answer.
+            The <code>find</code> at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useQueries.ts#L310-L324"><code>packages/react-query/src/useQueries.ts:310-324</code></a>
+            returns the matching result object, or <code>undefined</code> when no
+            result qualifies. The pull request changes the guard after it:
+          </p>
+          <p class="filename">
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useQueries.ts#L326-L328">packages/react-query/src/useQueries.ts:326-328</a>
+          </p>
+          <pre><span class="del">-  if (firstSingleResultWhichShouldThrow?.error) {</span>
+<span class="add">+  if (firstSingleResultWhichShouldThrow) {</span>
+     throw firstSingleResultWhichShouldThrow.error
+   }</pre>
+          <p>
+            The removed line did two jobs. <code>find</code>'s return type is
+            <code>QueryObserverResult | undefined</code>, so TypeScript rejects a
+            plain <code>.error</code> read on it. The optional chain,
+            <code>?.</code>, makes that read safe by yielding
+            <code>undefined</code> when there is no result. The pull request body
+            gives this as the reason the optional chain was needed. The
+            <code>.error</code> read then added a condition of its own: throw only
+            when the error value is truthy. For an <code>error</code> of
+            <code>undefined</code>, <code>null</code>, <code>''</code>, or
+            <code>0</code> that condition was false. The hook fell through to its
+            normal return at the end of the function and handed the errored result
+            to the component instead of throwing it.
+          </p>
+          <p>
+            The new line asks only whether <code>find</code> found anything. A
+            result is an object, and an object is always truthy, so the result
+            <code>find</code> returned now always reaches the <code>throw</code>.
+            Inside the <code>if</code>, TypeScript knows the result is defined, so
+            the plain <code>.error</code> read compiles. A truthy error behaves as
+            before: it was thrown then and is thrown now.
+          </p>
+          <p>
+            This is the shape <code>useQuery</code> already had. Once
+            <code>getHasError</code> says yes, <code>useBaseQuery</code> throws
+            <code>result.error</code> with no check on the value:
+          </p>
+          <p class="filename">
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useBaseQuery.ts#L127-L137">packages/react-query/src/useBaseQuery.ts:127-137</a>
+          </p>
+          <pre>  if (
+    getHasError({
+      result,
+      errorResetBoundary,
+      throwOnError: defaultedOptions.throwOnError,
+      query,
+      suspense: defaultedOptions.suspense,
+    })
+  ) {
+    throw result.error
+  }</pre>
+          <p>
+            The new test at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useQueries.test.tsx#L276-L307"><code>packages/react-query/src/__tests__/useQueries.test.tsx:276-307</code></a>
+            pins this step. It renders one query with
+            <code>queryFn: () =&gt; Promise.reject()</code>, <code>retry: false</code>,
+            and <code>throwOnError: true</code> inside an <code>ErrorBoundary</code>,
+            and expects the boundary's fallback text, "error boundary". The new test
+            at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useQuery.test.tsx#L2776-L2803"><code>packages/react-query/src/__tests__/useQuery.test.tsx:2776-2803</code></a>
+            runs the same setup through <code>useQuery</code>, which never reaches
+            this guard. The pull request body calls it the reference behavior,
+            passing before and after the fix.
           </p>
 
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/query-core/src/utils.ts#L470-L480">packages/query-core/src/utils.ts:470-480</a></p>
-          <pre>export function shouldThrowError&lt;T extends (...args: Array&lt;any&gt;) =&gt; boolean&gt;(
-  throwOnError: boolean | T | undefined,
-  params: Parameters&lt;T&gt;,
-): boolean {
-  // Allow throwOnError function to override throwing behavior on a per-error basis
-  if (typeof throwOnError === 'function') {
-    return throwOnError(...params)
-  }
-
-  return !!throwOnError
-}</pre>
-
+          <h3 class="core-step">
+            <code>useSuspenseQueries</code> reaches the same line on its second render
+          </h3>
           <p>
-            A user-supplied function does get the error value, at
-            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L76"><code>errorBoundaryUtils.ts:76</code></a>, and may refuse the throw on
-            that basis. Note where that happens: inside
-            <code>getHasError</code>, folded into the one decision, rather than
-            as a second gate after it.
+            <code>useSuspenseQueries</code> has no throw of its own. Its body, at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useSuspenseQueries.ts#L189-L211"><code>packages/react-query/src/useSuspenseQueries.ts:189-211</code></a>,
+            rewrites each query's options and calls <code>useQueries</code>:
           </p>
-
-          <h3>2. The throw site, and the change</h3>
-
-          <p>
-            <code>useQueries</code> asks the observer for every result, then
-            looks for the first one that should throw. The results arrive as
-            <code>optimisticResult</code>, the observer's best current answer
-            for each query, computed synchronously during render so the hook has
-            something to return before any fetch settles.
+          <p class="filename">
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useSuspenseQueries.ts#L200-L206">packages/react-query/src/useSuspenseQueries.ts:200-206</a>
           </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useQueries.ts#L310-L328">packages/react-query/src/useQueries.ts:310-328</a></p>
-          <pre>const firstSingleResultWhichShouldThrow = optimisticResult.find(
-  (result, index) =&gt; {
-    const query = defaultedQueries[index]
-    return (
-      query &amp;&amp;
-      getHasError({
-        result,
-        errorResetBoundary,
-        throwOnError: query.throwOnError,
-        query: client.getQueryCache().get(query.queryHash),
-        suspense: query.suspense,
-      })
-    )
-  },
-)
-
-<span class="del">-if (firstSingleResultWhichShouldThrow?.error) {</span>
-<span class="add">+if (firstSingleResultWhichShouldThrow) {</span>
-   throw firstSingleResultWhichShouldThrow.error
- }</pre>
-
-          <p>
-            The variable name states the intent plainly. It holds the first
-            result which should throw. By the time the <code>if</code> runs,
-            <code>getHasError</code> has already settled the question. Asking
-            <code>?.error</code> re-opens it, and answers it with a weaker check
-            than the one <code>getHasError</code> just applied.
-          </p>
-
-          <p>
-            The predicate explains why <code>find</code> forces a check at all.
-            The monorepo's root <code>tsconfig.json</code> sets
-            <code>noUncheckedIndexedAccess</code>, so
-            <code>defaultedQueries[index]</code> is possibly
-            <code>undefined</code>. The <code>query &amp;&amp;</code> guard on
-            the third line covers that. Then <code>find</code> hands back either
-            a result or <code>undefined</code>, and that is the null check the
-            surviving condition performs.
-          </p>
-
-          <h3>3. The reference implementation</h3>
-
-          <p>
-            <code>useQuery</code> routes through
-            <code>useBaseQuery</code>. This is the comparison that shows the bug
-            is asymmetric: <code>useQuery</code> never had it.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useBaseQuery.ts#L126-L137">packages/react-query/src/useBaseQuery.ts:126-137</a></p>
-          <pre>// Handle error boundary
-if (
-  getHasError({
-    result,
-    errorResetBoundary,
-    throwOnError: defaultedOptions.throwOnError,
-    query,
-    suspense: defaultedOptions.suspense,
-  })
-) {
-  throw result.error
-}</pre>
-
-          <p>
-            One condition, and it is the helper. No truthiness check on the
-            value. No null check either: <code>result</code> is a single object
-            from the observer, not the outcome of a search, so nothing here can
-            be <code>undefined</code>.
-          </p>
-
-          <p>
-            This is what grounds the fix. The change brings
-            <code>useQueries</code> into line with the behavior
-            <code>useQuery</code> has always had, so nobody had to decide afresh
-            how falsy errors ought to work. The pull request author says as much:
-            the new <code>useQuery</code> test is labeled "reference behaviour,
-            passes before and after".
-          </p>
-
-          <h3>4. Where the fix travels for free</h3>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useSuspenseQueries.ts#L189-L211">packages/react-query/src/useSuspenseQueries.ts:189-211</a></p>
-          <pre>export function useSuspenseQueries(options: any, queryClient?: QueryClient) {
-  return useQueries(
-    {
-      ...options,
-      queries: options.queries.map((query: any) =&gt; {
-        // elided: a development-mode console.error for skipToken misuse
-        return {
+          <pre>        return {
           ...query,
           suspense: true,
           throwOnError: defaultThrowOnError,
           enabled: true,
           placeholderData: undefined,
-        }
-      }),
-    },
-    queryClient,
-  )
-}</pre>
-
+        }</pre>
           <p>
-            <code>useSuspenseQueries</code> is a thin wrapper. It rewrites each
-            query's options and delegates. It has no throw site of its own, so
-            it inherited the bug and inherits the fix, with no edit to this
-            file. That is why the changeset names two hooks while the diff
-            touches one.
+            Only <code>suspense</code> and <code>throwOnError</code> matter here.
+            So the one-line edit above is the whole fix for this hook too. What
+            differs is the route to the guard, which takes two renders:
+          </p>
+          <pre class="mermaid">sequenceDiagram
+  participant R as React
+  participant H as useSuspenseQueries
+  participant Q as Query cache
+  R-&gt;&gt;H: first render
+  H-&gt;&gt;Q: fetchOptimistic
+  H--&gt;&gt;R: throw Promise.all(...)
+  Note over R: Suspense fallback
+  Q--&gt;&gt;H: rejects with undefined
+  Note over Q: error, no data
+  H--&gt;&gt;R: promise settles
+  R-&gt;&gt;H: second render
+  Note over H: getHasError true
+  alt before this pull request
+    H--&gt;&gt;R: returns data undefined
+  else after this pull request
+    H--&gt;&gt;R: throw undefined
+    Note over R: boundary fallback
+  end</pre>
+          <p>
+            On the first render the query is still pending, so
+            <code>shouldSuspend</code> is true. <code>useQueries</code> throws
+            <code>Promise.all</code> over the <code>fetchOptimistic</code> promises
+            at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/useQueries.ts#L307-L309"><code>packages/react-query/src/useQueries.ts:307-309</code></a>.
+            <code>fetchOptimistic</code> attaches a <code>.catch</code> at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/suspense.ts#L73-L75"><code>packages/react-query/src/suspense.ts:73-75</code></a>,
+            so the thrown promise resolves even though the fetch failed. React sees
+            it settle and renders again.
+          </p>
+          <p>
+            On the second render the query sits in <code>'error'</code> with no
+            data. <code>getHasError</code> returns true through its suspense branch,
+            <code>suspense &amp;&amp; result.data === undefined</code>, without
+            calling <code>throwOnError</code> at all. Before the fix the guard then
+            read <code>error: undefined</code>, skipped the throw, and returned the
+            result. The component rendered with <code>data</code> set to
+            <code>undefined</code>, although <code>useSuspenseQueries</code> types
+            <code>data</code> as always defined. The project's suspense guide gives
+            that guarantee as the reason these hooks do not let a caller change
+            <code>throwOnError</code>, at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/docs/framework/react/guides/suspense.md?plain=1#L38"><code>docs/framework/react/guides/suspense.md:38</code></a>.
+            The issue names what follows in user code: a later read of
+            <code>data</code> fails with an unrelated <code>TypeError</code>. After
+            the fix the second render throws <code>undefined</code>, and the
+            <code>ErrorBoundary</code> around the <code>&lt;Suspense&gt;</code>
+            element shows its fallback.
+          </p>
+          <p>
+            The test at
+            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useSuspenseQueries.test.tsx#L580-L614"><code>packages/react-query/src/__tests__/useSuspenseQueries.test.tsx:580-614</code></a>
+            follows this timeline. Its <code>queryFn</code> waits 10 ms with
+            <code>sleep(10)</code>, then rejects with <code>undefined</code>. The
+            test first expects the Suspense fallback, <code>loading</code>. It then
+            lets 10 ms pass so the <code>queryFn</code> rejects, and expects the
+            error boundary's fallback. The pull request body reports that before
+            the fix this component rendered <code>data: undefined</code> instead.
           </p>
 
-          <h3>5. The tests</h3>
-
-          <p>
-            Three test files, one each for
-            <code>useQuery</code>, <code>useQueries</code>, and
-            <code>useSuspenseQueries</code>. The order matters more than the
-            count.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useQuery.test.tsx#L2776">packages/react-query/src/__tests__/useQuery.test.tsx:2776</a></p>
-          <pre>it('should throw error if queryFn rejects with a falsy error and throwOnError is in use', ...</pre>
-
-          <p>
-            That one passes before the fix. It catches no regression in
-            <code>useQuery</code>. It records the behavior the other two tests
-            must match, so a reader six months from now can check the reference
-            instead of assuming it.
-          </p>
-
-          <p class="filename"><a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useQueries.test.tsx#L287-L289">packages/react-query/src/__tests__/useQueries.test.tsx:287-289</a></p>
-          <pre>queryFn: () =&gt; Promise.reject(),
-retry: false,
-throwOnError: true,</pre>
-
-          <p>
-            Each of the three options does real work.
-            <code>Promise.reject()</code> supplies the falsy value.
-            <code>throwOnError: true</code> asks for the boundary at all.
-            <code>retry: false</code> stops the query retrying, which matters
-            twice over: <code>getHasError</code> refuses to throw while a fetch
-            is in flight, at <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/errorBoundaryUtils.ts#L73"><code>errorBoundaryUtils.ts:73</code></a>, and a
-            retrying query still reports <code>pending</code> status, so
-            <code>result.isError</code> would be false too. The test advances
-            fake timers by zero, which would never clear a retry backoff. Remove
-            any one option and the test passes for the wrong reason.
-          </p>
-
-          <p>
-            The <code>useSuspenseQueries</code> test at
-            <a class="srcref" href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/packages/react-query/src/__tests__/useSuspenseQueries.test.tsx#L580"><code>useSuspenseQueries.test.tsx:580</code></a> sets no
-            <code>throwOnError</code>, because suspense supplies its own
-            default, and rejects after a delay so the assertion can watch the
-            fallback replace the loading state.
-          </p>
-
-          <p class="filename">.changeset/olive-donuts-shave.md</p>
-          <pre>---
-'@tanstack/react-query': patch
----
-
-fix(react-query): throw falsy errors from `useQueries` and `useSuspenseQueries` to the error boundary</pre>
-
-          <p>
-            Marked <code>patch</code>, and that is not obvious. Code that
-            silently swallowed a falsy error will now see it thrown, so someone
-            somewhere gets a fallback where they used to get an empty state.
-            The changeset gives no rationale for the label, so this next part is
-            my reading rather than the maintainers': a patch looks right here,
-            because the documented option never promised to swallow falsy errors
-            and <code>useQuery</code> already threw them.
-          </p>
-
-          <div class="callout">
-            <span class="label">The transferable part</span>
-            A guard that re-derives a decision already made upstream is a
-            latent bug. It stays latent as long as the two conditions agree.
-            When you find yourself writing <code>if (x?.someField)</code>, ask
-            which thing you need: <code>x</code> to exist, or
-            <code>someField</code> to be truthy. If it is the first, write that
-            instead. One day a legitimate value will be falsy, and the
-            difference will surface as a bug nobody can see.
-          </div>
+          <table class="vals also-changed">
+            <caption>
+              Every other changed file (1 of 5)
+            </caption>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Why it changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <a
+                    class="srcref"
+                    href="https://github.com/TanStack/query/blob/fc00bf49b2618f0b818a02c0233df7f0dacf8eb3/.changeset/olive-donuts-shave.md"
+                    ><code>.changeset/olive-donuts-shave.md</code></a
+                  >
+                </td>
+                <td>
+                  A changeset, the file the release tooling reads to bump package
+                  versions, which marks <code>@tanstack/react-query</code> for a
+                  patch release and supplies the changelog line for this fix.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="quiz">
           <h2>Quiz</h2>
-
-          <p>
-            Five questions about why the change is shaped the way it is. Click
-            an option to see the answer.
-          </p>
-
           <div class="quiz-question">
             <p class="q">
-              1. The fix leaves <code>if (firstSingleResultWhichShouldThrow)</code>.
-              A reviewer proposes
-              <code>if (firstSingleResultWhichShouldThrow !== undefined)</code>
-              as clearer about its intent. Does that change what the code does?
+              A component calls <code>useQueries</code> with two queries, both
+              <code>retry: false</code> and <code>throwOnError: true</code>. The
+              <code>queryFn</code> of the query listed first rejects with
+              <code>null</code>. A moment later, the other rejects with
+              <code>new Error('boom')</code>. What did the component do before this
+              pull request, and what does it do now?
             </p>
             <button class="quiz-option">
-              Yes. The truthy form skips a result object that is itself falsy,
-              which the explicit comparison would correctly admit.
+              Before: it threw <code>Error('boom')</code>. Now: it throws
+              <code>null</code>.
             </button>
             <button class="quiz-option" data-correct>
-              No. <code>find</code> returns a result object or
-              <code>undefined</code>, and every object is truthy, so both accept
-              the same values.
+              Before: no throw; it rendered. Now: it throws <code>null</code>.
             </button>
             <button class="quiz-option">
-              Yes. <code>find</code> returns <code>null</code> for a hole in a
-              sparse array, and <code>!== undefined</code> would let that
-              through to the <code>throw</code>.
+              Before: it threw <code>Error('boom')</code>. Now: it still throws
+              <code>Error('boom')</code>.
+            </button>
+            <button class="quiz-option">
+              Before: no throw; it rendered. Now: it throws
+              <code>Error('boom')</code>.
             </button>
             <div class="quiz-feedback" role="status">
-              This is the distinction the original bug turned on, now harmless.
-              Once the condition checks the result object instead of a field on
-              it, truthiness and an explicit <code>undefined</code> comparison
-              cannot diverge, because no object is falsy. That was not true of
-              <code>?.error</code>, where the field could be falsy while the
-              object itself was fine. And <code>find</code> returns
-              <code>undefined</code> for no match, never <code>null</code>.
+              Results keep the order the queries were passed, and
+              <code>find</code> stops at the first one <code>getHasError</code>
+              approves, which is the <code>null</code> query. The old guard read
+              <code>null</code> and skipped the throw. It never looked at the other
+              result, so <code>Error('boom')</code> was not thrown either. The new
+              guard throws for the result <code>find</code> returned, so the
+              boundary receives <code>null</code>. <code>Error('boom')</code> stays
+              on the other query's result.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              2. Before the fix, a component calls
-              <code>useQueries</code> with one query:
-              <code>queryFn: () =&gt; Promise.reject(0)</code>,
-              <code>retry: false</code>, <code>throwOnError: true</code>, inside
-              an error boundary. What does the user see?
+              A <code>useSuspenseQueries</code> query has cached data from an
+              earlier success. A background refetch then rejects with
+              <code>undefined</code>, and that fetch has finished. With this pull
+              request applied, what does the component render?
             </p>
             <button class="quiz-option">
-              The boundary's fallback, because <code>throwOnError: true</code>
-              is explicit and takes precedence.
+              The error boundary's fallback, because <code>undefined</code> is
+              thrown.
             </button>
             <button class="quiz-option">
-              A <code>TypeError</code> from reading <code>.error</code> on an
-              <code>undefined</code> result.
+              The Suspense fallback, until a later refetch succeeds.
+            </button>
+            <button class="quiz-option">
+              The component itself, with <code>data</code> set to
+              <code>undefined</code>.
             </button>
             <button class="quiz-option" data-correct>
-              The component's own render output, with no data and no fallback.
-            </button>
-            <button class="quiz-option">
-              A permanent loading state, because the query never settles.
+              The cached data, with no throw or fallback.
             </button>
             <div class="quiz-feedback" role="status">
-              <code>0</code> is falsy, so the old guard skipped the throw. The
-              query did settle and did record the error; the component simply
-              never heard about it and rendered its normal path. That silence is
-              what made this hard to notice.
+              <code>getHasError</code> returns false here, so <code>find</code>
+              returns <code>undefined</code> and the edited guard has nothing to
+              throw. Its suspense branch needs <code>result.data === undefined</code>,
+              and the cached data fails that. <code>defaultThrowOnError</code>
+              returns <code>query.state.data === undefined</code>, which is false for
+              the same reason. The pull request changed what happens after
+              <code>getHasError</code> says yes, not when it says yes. The component
+              keeps the cached data, and the result's <code>error</code> is
+              <code>undefined</code>.
             </div>
           </div>
 
           <div class="quiz-question">
             <p class="q">
-              3. <code>useQuery</code> never had this bug. Why not?
-            </p>
-            <button class="quiz-option" data-correct>
-              <code>useBaseQuery</code> throws on the
-              <code>getHasError</code> call alone. It adds no second condition
-              on the error value.
-            </button>
-            <button class="quiz-option">
-              <code>useQuery</code> wraps a falsy rejection in an
-              <code>Error</code> before storing it, so the value is always
-              truthy.
-            </button>
-            <button class="quiz-option">
-              <code>useQuery</code> uses a different code path that checks
-              <code>result.isError</code> instead of calling
-              <code>getHasError</code>.
-            </button>
-            <div class="quiz-feedback" role="status">
-              Both hooks call the same helper. They differ only in what each
-              does with the answer. <code>useQuery</code> acts on it;
-              <code>useQueries</code> added a second condition on top of it.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              4. Suppose someone reads the fixed line, decides the check is now
-              redundant since the variable is named "should throw", and
-              simplifies to
-              <code>throw firstSingleResultWhichShouldThrow.error</code> with no
-              <code>if</code>. What happens?
+              Someone edits the guard to
+              <code>if (firstSingleResultWhichShouldThrow?.error != null)</code>,
+              meaning to throw only real errors. Which of the three new tests in this
+              pull request fail?
             </p>
             <button class="quiz-option">
-              Nothing observable. When <code>find</code> returns
-              <code>undefined</code> the property access short-circuits and the
-              throw is skipped.
+              Only the <code>useSuspenseQueries</code> test fails; the other two
+              still pass.
             </button>
             <button class="quiz-option">
-              It throws <code>undefined</code> on every render, which the
-              boundary silently ignores since there is no error to display.
+              None fail, since <code>!= null</code> still lets
+              <code>undefined</code> through.
             </button>
             <button class="quiz-option" data-correct>
-              TypeScript rejects it, and if forced past the compiler it would
-              crash whenever no query failed.
-            </button>
-            <div class="quiz-feedback" role="status">
-              The check is doing real work: it distinguishes "found one" from
-              "found none", and the common case is none. Property access on
-              <code>undefined</code> does not short-circuit; only optional
-              chaining does, which is precisely the conflation the fix
-              untangled.
-            </div>
-          </div>
-
-          <div class="quiz-question">
-            <p class="q">
-              5. An alternative fix: leave <code>useQueries</code> alone and
-              change <code>getHasError</code> to require
-              <code>result.error != null</code> alongside
-              <code>result.isError</code>. Does that solve the reported problem?
-            </p>
-            <button class="quiz-option">
-              Yes, and it is the better fix, because it puts the rule in one
-              shared place.
-            </button>
-            <button class="quiz-option" data-correct>
-              No. It moves the same check one layer earlier, still drops
-              <code>null</code>, and now breaks <code>useQuery</code> too.
+              The <code>useQueries</code> and <code>useSuspenseQueries</code> tests
+              fail; the <code>useQuery</code> test passes.
             </button>
             <button class="quiz-option">
-              Yes. <code>!= null</code> admits <code>0</code> and
-              <code>''</code>, so every value in the reported bug now reaches the
-              boundary.
+              All three tests fail, since each hook reaches this guard.
             </button>
             <div class="quiz-feedback" role="status">
-              The <code>!= null</code> answer is half right, and that is what
-              makes it tempting: <code>!= null</code> does admit <code>0</code> and
-              <code>''</code>. It still rejects the
-              <code>Promise.reject()</code> case, which is the case the bug
-              report was about. The deeper problem is direction. Putting the
-              value check in the shared helper spreads the defect to the hook
-              that was working, instead of removing it from the hook that was
-              not.
+              The query function in all three tests rejects through
+              <code>Promise.reject()</code>, so the error is <code>undefined</code>,
+              and <code>undefined != null</code> is false. The guard would skip the throw in the <code>useQueries</code>
+              test, and <code>useSuspenseQueries</code> runs through the same guard.
+              The <code>useQuery</code> test never reaches this line, because
+              <code>useBaseQuery</code> has its own throw with no check on the value.
             </div>
           </div>
         </section>
