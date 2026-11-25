@@ -159,8 +159,6 @@ same rule.
 
 ### 1. Resolve the target and the filename key
 
-#### Local clone vs. no clone
-
 The skill has two paths: one for any target in a local clone, and one for a pull
 request only.
 
@@ -445,7 +443,7 @@ to run from a checkout of the repository.
    removes the file and prints `FAILED: <path>` rather than leaving that JSON
    stored as the file. A submodule bump always fails here: the files endpoint
    lists the submodule path with a commit sha, and the blob fetch for it returns
-   404. For a `FAILED` path, rely on the diff, which already shows the pointer
+   404. For a submodule path, rely on the diff, which already shows the pointer
    change. Report any other `FAILED` path rather than explaining it.
 
    The rest of the skill reads these files from `<work>/files/<path>`. Only the
@@ -510,6 +508,11 @@ rather than investigating or repeating it.
 Delegate broad reads to read-only sub-agents so the main context stays lean.
 A sub-agent returns only its summary, so ask for the conclusions and the
 `file:line` anchors you will need later, not for pasted file contents.
+
+A sub-agent works from its own prompt, so tell it how to read a file. With a
+local clone, it reads with `git show <ref>:<path>`, never from the working tree.
+With no clone, it reads a changed file from `<work>/files/<path>` and fetches
+any other file as step 1's no-clone path describes.
 
 Wait for each sub-agent to return before you use what you sent it to find.
 The rule holds here and in steps 6 and 7. Claude Code starts a sub-agent in the
@@ -747,9 +750,8 @@ report, as step 2 says. A script runs the checks that are commands. You run the
 checks that need judgment. Read `references/validation.md`, in this skill's
 folder, before you start: it says what each check is and why it exists.
 
-With no clone there is no local ref to re-read. The sub-agent works from its own
-prompt, so put this in it: read a changed file from `<work>/files/<path>`, and
-fetch any other file as step 1's no-clone path describes.
+The sub-agent's prompt needs step 2's instructions for reading a file, with a
+clone or without one.
 
 Run the script on the drafted page, with the short commit that the provenance
 line names. `<this skill's folder>` is the folder that holds this `SKILL.md`.
